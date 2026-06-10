@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { BorrowersModule } from './borrowers/borrowers.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { LoansModule } from './loans/loans.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     LoansModule,
     BorrowersModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

@@ -16,6 +16,8 @@ const envSchema = z.object({
   SKIP_EMAIL_VERIFICATION: z.coerce.boolean().default(true),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  CRON_OVERDUE_ENABLED: z.coerce.boolean().default(true),
+  CRON_OVERDUE_SCHEDULE: z.string().default('0 6 * * *'),
 });
 
 export type Env = z.infer<typeof envSchema>;
