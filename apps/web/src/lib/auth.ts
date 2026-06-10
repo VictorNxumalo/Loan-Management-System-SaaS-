@@ -53,25 +53,32 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const data = await apiFetch<TokenBundle>('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({
-            email: credentials.email,
-            password: credentials.password,
-          }),
-        });
+        try {
+          const data = await apiFetch<TokenBundle>('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password,
+            }),
+          });
 
-        const credUser: CredentialsUser = {
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.name,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-          expiresAt: Date.now() + data.expiresIn * 1000,
-          user: data.user,
-          organisation: data.organisation,
-        };
-        return credUser;
+          const credUser: CredentialsUser = {
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.name,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            expiresAt: Date.now() + data.expiresIn * 1000,
+            user: data.user,
+            organisation: data.organisation,
+          };
+          return credUser;
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : 'Invalid email or password';
+          console.error('[NextAuth] Credentials login failed:', message);
+          throw new Error(message);
+        }
       },
     }),
     ...(isGoogleOAuthEnabled()

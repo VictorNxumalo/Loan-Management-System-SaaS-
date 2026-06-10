@@ -18,7 +18,11 @@ import { UserRole } from '@lms/types';
 import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import { EmailService } from '../email/email.service';
-import { getEnv, isGoogleOAuthConfigured } from '../config/env';
+import {
+  getEnv,
+  isEmailVerificationSkipped,
+  isGoogleOAuthConfigured,
+} from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from './token.service';
 
@@ -73,25 +77,32 @@ export class AuthService {
           name: input.name,
           role: UserRole.ADMIN,
           passwordHash,
+          ...(isEmailVerificationSkipped()
+            ? { emailVerifiedAt: new Date() }
+            : {}),
         },
         include: { organisation: true },
       });
 
-      const { token, hash } = this.tokenService.generateOpaqueToken();
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + VERIFICATION_EXPIRY_HOURS);
+      if (!isEmailVerificationSkipped()) {
+        const { token, hash } = this.tokenService.generateOpaqueToken();
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + VERIFICATION_EXPIRY_HOURS);
 
-      await tx.emailVerificationToken.create({
-        data: { userId: created.id, tokenHash: hash, expiresAt },
-      });
+        await tx.emailVerificationToken.create({
+          data: { userId: created.id, tokenHash: hash, expiresAt },
+        });
 
-      await this.emailService.sendVerificationEmail(email, token);
+        await this.emailService.sendVerificationEmail(email, token);
+      }
 
       return created;
     });
 
     return {
-      message: `Registration successful. Please verify your email (${user.email}).`,
+      message: isEmailVerificationSkipped()
+        ? `Registration successful. You can sign in now (${user.email}).`
+        : `Registration successful. Please verify your email (${user.email}).`,
     };
   }
 
@@ -118,6 +129,17 @@ export class AuthService {
     }
 
     if (!user.emailVerifiedAt) {
+      if (isEmailVerificationSkipped()) {
+        const verified = await this.prisma.withAuthLookup(async (tx) =>
+          tx.user.update({
+            where: { id: user.id },
+            data: { emailVerifiedAt: new Date() },
+            include: { organisation: true },
+          }),
+        );
+        return this.issueTokens(verified);
+      }
+
       throw new UnauthorizedException(
         'Please verify your email before logging in. Check your inbox or the API console in development.',
       );
@@ -403,7 +425,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        emailVerified: Boolean(user.emailVerifiedAt),
+        emailVerified: this.isEmailVerified(user),
         onboardingCompleted: Boolean(user.onboardingCompletedAt),
       },
       organisation: {
@@ -437,7 +459,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        emailVerified: Boolean(user.emailVerifiedAt),
+        emailVerified: this.isEmailVerified(user),
         onboardingCompleted: Boolean(user.onboardingCompletedAt),
       },
       organisation: {
@@ -448,5 +470,9 @@ export class AuthService {
         settings: (user.organisation.settings as Record<string, unknown>) ?? {},
       },
     };
+  }
+
+  private isEmailVerified(user: { emailVerifiedAt: Date | null }): boolean {
+    return Boolean(user.emailVerifiedAt) || isEmailVerificationSkipped();
   }
 }

@@ -20,6 +20,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/dashboard" className="hover:text-foreground">
                 Dashboard
               </Link>
+              <Link href="/dashboard/borrowers" className="hover:text-foreground">
+                Borrowers
+              </Link>
+              <Link href="/dashboard/loans" className="hover:text-foreground">
+                Loans
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">

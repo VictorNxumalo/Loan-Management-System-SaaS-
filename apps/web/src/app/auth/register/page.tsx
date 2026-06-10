@@ -43,7 +43,7 @@ export default function RegisterPage() {
         body: JSON.stringify(data),
       });
       setMessage(result.message);
-      setTimeout(() => router.push('/auth/login'), 3000);
+      setTimeout(() => router.push('/auth/login'), 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     }
@@ -65,7 +65,12 @@ export default function RegisterPage() {
               {error}
             </p>
           )}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+            method="post"
+            action="#"
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="name">Full name</Label>
               <Input id="name" {...register('name')} />

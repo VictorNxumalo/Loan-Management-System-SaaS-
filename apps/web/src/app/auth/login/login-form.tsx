@@ -43,7 +43,11 @@ export function LoginForm({ verified }: { verified: boolean }) {
     });
 
     if (result?.error) {
-      setError('Invalid email or password, or email not verified yet.');
+      setError(
+        result.error === 'CredentialsSignin'
+          ? 'Invalid email or password.'
+          : result.error,
+      );
       return;
     }
 
@@ -71,7 +75,12 @@ export function LoginForm({ verified }: { verified: boolean }) {
               {error}
             </p>
           )}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+            method="post"
+            action="#"
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" {...register('email')} />

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "dev": "nest build && nest start --watch",
+    "dev": "nest build && nest start --watch --preserveWatchOutput",
     "start": "nest start",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "type-check": "tsc --noEmit",
@@ -23,6 +23,7 @@
     "@prisma/client": "^6.8.2",
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
     "google-auth-library": "^9.15.1",
     "helmet": "^8.1.0",
     "passport": "^0.7.0",

@@ -18,6 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@lms/types": "workspace:*",
     "decimal.js": "^10.5.0"
   },
   "devDependencies": {

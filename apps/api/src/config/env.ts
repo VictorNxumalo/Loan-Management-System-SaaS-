@@ -12,6 +12,8 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().url().default('http://localhost:3000'),
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().email().optional(),
+  /** When true, new accounts are auto-verified and can sign in immediately (no SendGrid). */
+  SKIP_EMAIL_VERIFICATION: z.coerce.boolean().default(true),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
@@ -42,4 +44,8 @@ export function isSendGridConfigured(): boolean {
 export function isGoogleOAuthConfigured(): boolean {
   const env = getEnv();
   return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+}
+
+export function isEmailVerificationSkipped(): boolean {
+  return getEnv().SKIP_EMAIL_VERIFICATION;
 }

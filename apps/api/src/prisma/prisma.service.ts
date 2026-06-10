@@ -54,10 +54,13 @@ export class PrismaService
     userId: string,
     fn: (tx: PrismaTx) => Promise<T>,
   ): Promise<T> {
-    return this.$transaction(async (tx) => {
-      await this.setSessionContext(tx, { orgId, userId });
-      return fn(tx);
-    });
+    return this.$transaction(
+      async (tx) => {
+        await this.setSessionContext(tx, { orgId, userId });
+        return fn(tx);
+      },
+      { timeout: 15_000 },
+    );
   }
 
   async withAuthLookup<T>(fn: (tx: PrismaTx) => Promise<T>): Promise<T> {

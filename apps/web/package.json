@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
+    "dev": "next dev --port 3000 --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -11,6 +11,7 @@
     "test": "echo \"No tests yet\""
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.0.1",
     "@lms/types": "workspace:*",
     "@lms/utils": "workspace:*",
     "@radix-ui/react-slot": "^1.2.3",
@@ -19,13 +20,12 @@
     "lucide-react": "^0.511.0",
     "next": "^14.2.29",
     "next-auth": "^4.24.11",
-    "@hookform/resolvers": "^5.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.56.4",
-    "zod": "^3.25.28",
     "tailwind-merge": "^3.3.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.25.28"
   },
   "devDependencies": {
     "@lms/config": "workspace:*",
@@ -33,6 +33,7 @@
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.21",
+    "dotenv": "^17.4.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.29",
     "postcss": "^8.5.4",
