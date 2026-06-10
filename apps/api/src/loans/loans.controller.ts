@@ -19,13 +19,14 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AccessTokenPayload } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { LenderGuard } from '../common/guards/account-type.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { LoansService } from './loans.service';
 
 @Controller('loans')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, LenderGuard, RolesGuard)
 export class LoansController {
   constructor(private readonly loansService: LoansService) {}
 
@@ -46,7 +47,7 @@ export class LoansController {
       LoansService['list']
     >[2],
   ) {
-    return this.loansService.list(user.orgId, user.sub, query);
+    return this.loansService.list(user.orgId!, user.sub, query);
   }
 
   @Post()
@@ -57,12 +58,12 @@ export class LoansController {
       LoansService['create']
     >[2],
   ) {
-    return this.loansService.create(user.orgId, user.sub, body);
+    return this.loansService.create(user.orgId!, user.sub, body);
   }
 
   @Get(':id')
   getById(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
-    return this.loansService.getById(user.orgId, user.sub, id);
+    return this.loansService.getById(user.orgId!, user.sub, id);
   }
 
   @Patch(':id')
@@ -74,13 +75,13 @@ export class LoansController {
       LoansService['update']
     >[3],
   ) {
-    return this.loansService.update(user.orgId, user.sub, id, body);
+    return this.loansService.update(user.orgId!, user.sub, id, body);
   }
 
   @Post(':id/activate')
   @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
   activate(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
-    return this.loansService.activate(user.orgId, user.sub, id);
+    return this.loansService.activate(user.orgId!, user.sub, id);
   }
 
   @Get(':id/repayments')
@@ -88,7 +89,7 @@ export class LoansController {
     @CurrentUser() user: AccessTokenPayload,
     @Param('id') id: string,
   ) {
-    return this.loansService.listRepayments(user.orgId, user.sub, id);
+    return this.loansService.listRepayments(user.orgId!, user.sub, id);
   }
 
   @Post(':id/repayments')
@@ -100,6 +101,6 @@ export class LoansController {
       LoansService['recordRepayment']
     >[3],
   ) {
-    return this.loansService.recordRepayment(user.orgId, user.sub, id, body);
+    return this.loansService.recordRepayment(user.orgId!, user.sub, id, body);
   }
 }

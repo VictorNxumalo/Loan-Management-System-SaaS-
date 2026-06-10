@@ -50,6 +50,7 @@ export class LoansService {
 
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const where = {
+        orgId,
         deletedAt: null,
         ...(query.status ? { status: query.status } : {}),
         ...(query.borrowerId ? { borrowerId: query.borrowerId } : {}),
@@ -87,7 +88,7 @@ export class LoansService {
   ): Promise<LoanDetailDto> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const borrower = await tx.borrower.findFirst({
-        where: { id: input.borrowerId, deletedAt: null },
+        where: { id: input.borrowerId, orgId, deletedAt: null },
       });
 
       if (!borrower) {
@@ -118,7 +119,7 @@ export class LoansService {
       );
 
       const created = await tx.loan.findFirstOrThrow({
-        where: { id: loan.id },
+        where: { id: loan.id, orgId },
         include: {
           borrower: true,
           repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
@@ -133,7 +134,7 @@ export class LoansService {
   async getById(orgId: string, userId: string, id: string): Promise<LoanDetailDto> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loan = await tx.loan.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, orgId, deletedAt: null },
         include: {
           borrower: true,
           repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
@@ -146,9 +147,9 @@ export class LoansService {
       }
 
       if (loan.status !== LoanStatus.DRAFT && loan.status !== LoanStatus.WRITTEN_OFF) {
-        await this.loanBalanceService.syncLoanStatus(tx, loan.id, loan.status);
+        await this.loanBalanceService.syncLoanStatus(tx, orgId, loan.id, loan.status);
         const refreshed = await tx.loan.findFirstOrThrow({
-          where: { id },
+          where: { id, orgId },
           include: {
             borrower: true,
             repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
@@ -170,7 +171,7 @@ export class LoansService {
   ): Promise<LoanDetailDto> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loan = await tx.loan.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, orgId, deletedAt: null },
       });
 
       if (!loan) {
@@ -183,7 +184,7 @@ export class LoansService {
 
       if (input.borrowerId) {
         const borrower = await tx.borrower.findFirst({
-          where: { id: input.borrowerId, deletedAt: null },
+          where: { id: input.borrowerId, orgId, deletedAt: null },
         });
         if (!borrower) {
           throw new NotFoundException('Borrower not found');
@@ -215,7 +216,7 @@ export class LoansService {
       ];
 
       if (scheduleFields.some((field) => input[field] !== undefined)) {
-        const current = await tx.loan.findFirstOrThrow({ where: { id } });
+        const current = await tx.loan.findFirstOrThrow({ where: { id, orgId } });
         await this.scheduleService.persistScheduleForLoan(
           loan.id,
           orgId,
@@ -233,7 +234,7 @@ export class LoansService {
       }
 
       const updated = await tx.loan.findFirstOrThrow({
-        where: { id },
+        where: { id, orgId },
         include: {
           borrower: true,
           repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
@@ -248,7 +249,7 @@ export class LoansService {
   async activate(orgId: string, userId: string, id: string): Promise<LoanDetailDto> {
     await this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loan = await tx.loan.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, orgId, deletedAt: null },
       });
 
       if (!loan) {
@@ -275,7 +276,7 @@ export class LoansService {
   ): Promise<RepaymentDto[]> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loan = await tx.loan.findFirst({
-        where: { id: loanId, deletedAt: null },
+        where: { id: loanId, orgId, deletedAt: null },
       });
 
       if (!loan) {
@@ -283,7 +284,7 @@ export class LoansService {
       }
 
       const repayments = await tx.repayment.findMany({
-        where: { loanId },
+        where: { loanId, orgId },
         include: { recordedBy: true },
         orderBy: { paymentDate: 'desc' },
       });
@@ -300,7 +301,7 @@ export class LoansService {
   ): Promise<RecordRepaymentResultDto> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loan = await tx.loan.findFirst({
-        where: { id: loanId, deletedAt: null },
+        where: { id: loanId, orgId, deletedAt: null },
         include: {
           repaymentSchedules: true,
           repayments: true,

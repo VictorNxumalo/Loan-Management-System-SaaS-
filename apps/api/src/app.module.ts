@@ -6,7 +6,10 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { BorrowersModule } from './borrowers/borrowers.module';
+import { BorrowerPortalModule } from './borrower-portal/borrower-portal.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { MarketplaceModule } from './marketplace/marketplace.module';
+import { LoanApplicationsModule } from './loan-applications/loan-applications.module';
 import { LoansModule } from './loans/loans.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -24,6 +27,9 @@ import { PrismaModule } from './prisma/prisma.module';
     LoansModule,
     BorrowersModule,
     DashboardModule,
+    MarketplaceModule,
+    BorrowerPortalModule,
+    LoanApplicationsModule,
   ],
   controllers: [AppController],
   providers: [

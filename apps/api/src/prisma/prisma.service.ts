@@ -63,6 +63,20 @@ export class PrismaService
     );
   }
 
+  async withUserContext<T>(
+    userId: string,
+    orgId: string | null | undefined,
+    fn: (tx: PrismaTx) => Promise<T>,
+  ): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await this.setSessionContext(tx, {
+        userId,
+        ...(orgId ? { orgId } : {}),
+      });
+      return fn(tx);
+    });
+  }
+
   async withAuthLookup<T>(fn: (tx: PrismaTx) => Promise<T>): Promise<T> {
     return this.$transaction(async (tx) => {
       await this.setSessionContext(tx, { authLookup: true, tokenLookup: true });

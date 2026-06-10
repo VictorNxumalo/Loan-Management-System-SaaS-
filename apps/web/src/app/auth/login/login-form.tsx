@@ -2,9 +2,9 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema } from '@lms/types';
-import { signIn } from 'next-auth/react';
+import { getSession, signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -24,6 +24,8 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export function LoginForm({ verified }: { verified: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get('inviteToken');
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -46,12 +48,20 @@ export function LoginForm({ verified }: { verified: boolean }) {
       setError(
         result.error === 'CredentialsSignin'
           ? 'Invalid email or password.'
-          : result.error,
+          : result.error === 'Failed to fetch'
+            ? 'Could not reach the API. Make sure the dev server is running (port 3001).'
+            : result.error,
       );
       return;
     }
 
-    router.push('/dashboard');
+    await getSession();
+
+    router.push(
+      inviteToken
+        ? `/borrower/invites/accept?token=${encodeURIComponent(inviteToken)}`
+        : '/auth/post-login',
+    );
     router.refresh();
   };
 
@@ -62,7 +72,9 @@ export function LoginForm({ verified }: { verified: boolean }) {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Sign in to LMS</CardTitle>
-          <CardDescription>Loan Management System</CardDescription>
+          <CardDescription>
+            Lenders manage loans here. Borrowers sign in to browse and connect with lenders.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {verified && (

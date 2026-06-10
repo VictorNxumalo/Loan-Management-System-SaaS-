@@ -37,6 +37,7 @@ export class BorrowersService {
 
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const where = {
+        orgId,
         deletedAt: null,
         ...(q
           ? {
@@ -78,6 +79,7 @@ export class BorrowersService {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const rows = await tx.borrower.findMany({
         where: {
+          orgId,
           deletedAt: null,
           OR: [
             { fullName: { contains: q, mode: 'insensitive' } },
@@ -137,14 +139,14 @@ export class BorrowersService {
   ): Promise<BorrowerDetailDto> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const borrower = await tx.borrower.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, orgId, deletedAt: null },
       });
 
       if (!borrower) {
         throw new NotFoundException('Borrower not found');
       }
 
-      const summary = await this.buildSummary(tx, borrower.id);
+      const summary = await this.buildSummary(tx, orgId, borrower.id);
       return this.mapDetail(borrower, summary);
     });
   }
@@ -157,7 +159,7 @@ export class BorrowersService {
   ): Promise<BorrowerDetailDto> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const existing = await tx.borrower.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, orgId, deletedAt: null },
       });
 
       if (!existing) {
@@ -190,7 +192,7 @@ export class BorrowersService {
           },
         });
 
-        const summary = await this.buildSummary(tx, id);
+        const summary = await this.buildSummary(tx, orgId, id);
         return this.mapDetail(updated, summary);
       } catch {
         throw new ConflictException('A borrower with this ID number already exists');
@@ -201,7 +203,7 @@ export class BorrowersService {
   async softDelete(orgId: string, userId: string, id: string): Promise<{ message: string }> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const borrower = await tx.borrower.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, orgId, deletedAt: null },
       });
 
       if (!borrower) {
@@ -210,6 +212,7 @@ export class BorrowersService {
 
       const activeLoans = await tx.loan.count({
         where: {
+          orgId,
           borrowerId: id,
           deletedAt: null,
           status: { in: [LoanStatus.ACTIVE, LoanStatus.IN_ARREARS] },
@@ -233,10 +236,12 @@ export class BorrowersService {
 
   private async buildSummary(
     tx: Parameters<Parameters<PrismaService['withOrgContext']>[2]>[0],
+    orgId: string,
     borrowerId: string,
   ): Promise<BorrowerSummaryDto> {
     const loans = await tx.loan.findMany({
       where: {
+        orgId,
         borrowerId,
         deletedAt: null,
         status: { in: [LoanStatus.ACTIVE, LoanStatus.IN_ARREARS] },

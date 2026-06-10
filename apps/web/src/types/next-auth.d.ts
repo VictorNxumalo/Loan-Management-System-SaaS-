@@ -5,13 +5,15 @@ declare module 'next-auth' {
   interface Session {
     accessToken?: string;
     organisation?: AuthMeResponse['organisation'];
+    borrowerProfile?: AuthMeResponse['borrowerProfile'];
     error?: string;
     user: {
       id?: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;
-      role?: string;
+      accountType?: string;
+      role?: string | null;
       emailVerified?: boolean;
       onboardingCompleted?: boolean;
     };
@@ -25,6 +27,7 @@ declare module 'next-auth/jwt' {
     expiresAt?: number;
     user?: AuthMeResponse['user'];
     organisation?: AuthMeResponse['organisation'];
+    borrowerProfile?: AuthMeResponse['borrowerProfile'];
     error?: string;
   }
 }

@@ -1,0 +1,83 @@
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { organisationSettingsSchema } from '@lms/types';
+import { UserRole } from '@lms/types';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AccessTokenPayload } from '../auth/token.service';
+import { BorrowerGuard, LenderGuard } from '../common/guards/account-type.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { z } from 'zod';
+import {
+  BorrowerPortalService,
+  LenderSettingsService,
+} from './borrower-portal.service';
+
+const inviteSchema = z.object({
+  email: z.string().email(),
+});
+
+const acceptInviteSchema = z.object({
+  token: z.string().min(1),
+});
+
+@Controller('borrower')
+@UseGuards(JwtAuthGuard, BorrowerGuard)
+export class BorrowerPortalController {
+  constructor(private readonly borrowerPortalService: BorrowerPortalService) {}
+
+  @Get('lenders')
+  listMyLenders(@CurrentUser() user: AccessTokenPayload) {
+    return this.borrowerPortalService.listMyLenders(user.sub);
+  }
+
+  @Post('lenders/:orgId/connect')
+  connectPublic(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('orgId') orgId: string,
+  ) {
+    return this.borrowerPortalService.connectToPublicLender(user.sub, orgId);
+  }
+
+  @Post('invites/accept')
+  acceptInvite(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body(new ZodValidationPipe(acceptInviteSchema)) body: { token: string },
+  ) {
+    return this.borrowerPortalService.acceptInvite(user.sub, body.token);
+  }
+}
+
+@Controller('settings')
+@UseGuards(JwtAuthGuard, LenderGuard, RolesGuard)
+export class SettingsController {
+  constructor(private readonly lenderSettingsService: LenderSettingsService) {}
+
+  @Patch('organisation')
+  @Roles(UserRole.ADMIN)
+  updateOrganisation(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body(new ZodValidationPipe(organisationSettingsSchema))
+    body: { publicListing?: boolean },
+  ) {
+    return this.lenderSettingsService.updateOrganisationSettings(
+      user.orgId!,
+      user.sub,
+      body,
+    );
+  }
+
+  @Post('invites')
+  @Roles(UserRole.ADMIN)
+  sendInvite(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body(new ZodValidationPipe(inviteSchema)) body: { email: string },
+  ) {
+    return this.lenderSettingsService.sendBorrowerInvite(
+      user.orgId!,
+      user.sub,
+      body.email,
+    );
+  }
+}

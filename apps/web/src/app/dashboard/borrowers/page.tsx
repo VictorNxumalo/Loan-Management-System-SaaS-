@@ -2,13 +2,18 @@
 
 import type { PaginatedBorrowersDto } from '@lms/types';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { canManageRecords } from '@/lib/permissions';
 import { useApi } from '@/lib/use-api';
 
 export default function BorrowersPage() {
   const api = useApi();
+  const { data: session } = useSession();
+  const canManage = canManageRecords(session?.user?.role ?? undefined);
   const [q, setQ] = useState('');
   const [data, setData] = useState<PaginatedBorrowersDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,12 +32,16 @@ export default function BorrowersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Borrowers</h1>
-          <p className="text-muted-foreground">Manage borrower profiles</p>
+          <h1 className="text-2xl font-bold tracking-tight">People I lend to</h1>
+          <p className="text-muted-foreground">
+            Profiles for people who receive loans from your organisation
+          </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/borrowers/new">Add borrower</Link>
-        </Button>
+        {canManage && (
+          <Button asChild>
+            <Link href="/dashboard/borrowers/new">Add borrower</Link>
+          </Button>
+        )}
       </div>
 
       <Input
@@ -43,42 +52,53 @@ export default function BorrowersPage() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="bg-muted/50 text-left">
-            <tr>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">ID number</th>
-              <th className="px-3 py-2">Phone</th>
-              <th className="px-3 py-2">Email</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data?.items.map((borrower) => (
-              <tr key={borrower.id} className="border-t">
-                <td className="px-3 py-2">
-                  <Link
-                    href={`/dashboard/borrowers/${borrower.id}`}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {borrower.fullName}
-                  </Link>
-                </td>
-                <td className="px-3 py-2">{borrower.idNumber}</td>
-                <td className="px-3 py-2">{borrower.phone}</td>
-                <td className="px-3 py-2">{borrower.email ?? '—'}</td>
-              </tr>
-            ))}
-            {data?.items.length === 0 && (
+      {data?.items.length === 0 && !error && !q && (
+        <EmptyState
+          title="No borrowers yet"
+          description="Add someone you lend money to so you can create loans and track repayments."
+          actionLabel={canManage ? 'Add your first borrower' : undefined}
+          actionHref={canManage ? '/dashboard/borrowers/new' : undefined}
+        />
+      )}
+
+      {(!!data?.items.length || !!q) && (
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-muted/50 text-left">
               <tr>
-                <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                  No borrowers found
-                </td>
+                <th className="px-3 py-2">Name</th>
+                <th className="px-3 py-2">ID number</th>
+                <th className="px-3 py-2">Phone</th>
+                <th className="px-3 py-2">Email</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {data?.items.map((borrower) => (
+                <tr key={borrower.id} className="border-t">
+                  <td className="px-3 py-2">
+                    <Link
+                      href={`/dashboard/borrowers/${borrower.id}`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {borrower.fullName}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2">{borrower.idNumber}</td>
+                  <td className="px-3 py-2">{borrower.phone}</td>
+                  <td className="px-3 py-2">{borrower.email ?? '—'}</td>
+                </tr>
+              ))}
+              {data?.items.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
+                    No borrowers found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

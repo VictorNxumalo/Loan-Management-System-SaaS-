@@ -6,6 +6,31 @@ export const UserRole = {
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
+export const AccountType = {
+  LENDER: 'LENDER',
+  BORROWER: 'BORROWER',
+} as const;
+
+export type AccountType = (typeof AccountType)[keyof typeof AccountType];
+
+export const BorrowerLinkSource = {
+  INVITE: 'INVITE',
+  PUBLIC: 'PUBLIC',
+} as const;
+
+export type BorrowerLinkSource =
+  (typeof BorrowerLinkSource)[keyof typeof BorrowerLinkSource];
+
+export const LoanApplicationStatus = {
+  SUBMITTED: 'SUBMITTED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  WITHDRAWN: 'WITHDRAWN',
+} as const;
+
+export type LoanApplicationStatus =
+  (typeof LoanApplicationStatus)[keyof typeof LoanApplicationStatus];
+
 export const InterestType = {
   FLAT: 'FLAT',
   REDUCING: 'REDUCING',

@@ -20,7 +20,8 @@ interface CredentialsUser {
   refreshToken: string;
   expiresAt: number;
   user: AuthTokensResponse['user'];
-  organisation: AuthTokensResponse['organisation'];
+  organisation?: AuthTokensResponse['organisation'];
+  borrowerProfile?: AuthTokensResponse['borrowerProfile'];
 }
 
 async function refreshAccessToken(refreshToken: string): Promise<TokenBundle | null> {
@@ -71,6 +72,7 @@ export const authOptions: NextAuthOptions = {
             expiresAt: Date.now() + data.expiresIn * 1000,
             user: data.user,
             organisation: data.organisation,
+            borrowerProfile: data.borrowerProfile,
           };
           return credUser;
         } catch (err) {
@@ -111,6 +113,7 @@ export const authOptions: NextAuthOptions = {
           expiresAt: Date.now() + data.expiresIn * 1000,
           user: data.user,
           organisation: data.organisation,
+          borrowerProfile: data.borrowerProfile,
         };
       }
 
@@ -123,6 +126,7 @@ export const authOptions: NextAuthOptions = {
           expiresAt: credUser.expiresAt,
           user: credUser.user,
           organisation: credUser.organisation,
+          borrowerProfile: credUser.borrowerProfile,
         };
       }
 
@@ -136,26 +140,29 @@ export const authOptions: NextAuthOptions = {
         return { ...token, error: 'RefreshAccessTokenError' };
       }
 
-      return {
-        ...token,
-        accessToken: refreshed.accessToken,
-        refreshToken: refreshed.refreshToken,
-        expiresAt: Date.now() + refreshed.expiresIn * 1000,
-        user: refreshed.user,
-        organisation: refreshed.organisation,
-      };
+        return {
+          ...token,
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken,
+          expiresAt: Date.now() + refreshed.expiresIn * 1000,
+          user: refreshed.user,
+          organisation: refreshed.organisation,
+          borrowerProfile: refreshed.borrowerProfile,
+        };
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string;
       session.user = {
         ...session.user,
         id: (token.user as AuthTokensResponse['user'])?.id,
+        accountType: (token.user as AuthTokensResponse['user'])?.accountType,
         role: (token.user as AuthTokensResponse['user'])?.role,
         emailVerified: (token.user as AuthTokensResponse['user'])?.emailVerified,
         onboardingCompleted: (token.user as AuthTokensResponse['user'])
           ?.onboardingCompleted,
       };
       session.organisation = token.organisation as AuthTokensResponse['organisation'];
+      session.borrowerProfile = token.borrowerProfile as AuthTokensResponse['borrowerProfile'];
       session.error = token.error as string | undefined;
       return session;
     },

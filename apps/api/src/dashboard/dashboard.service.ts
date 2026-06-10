@@ -30,6 +30,7 @@ export class DashboardService {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loans = await tx.loan.findMany({
         where: {
+          orgId,
           deletedAt: null,
           status: { in: [LoanStatus.ACTIVE, LoanStatus.IN_ARREARS] },
         },

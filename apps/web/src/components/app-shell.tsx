@@ -3,10 +3,14 @@
 import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AccountTypeBadge, RoleBadge } from '@/components/role-badge';
 import { Button } from '@/components/ui/button';
+import { canManageSettings } from '@/lib/permissions';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
+  const role = session?.user?.role ?? undefined;
+  const showSettings = canManageSettings(role);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -21,17 +25,32 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Dashboard
               </Link>
               <Link href="/dashboard/borrowers" className="hover:text-foreground">
-                Borrowers
+                People I lend to
               </Link>
               <Link href="/dashboard/loans" className="hover:text-foreground">
                 Loans
               </Link>
+              <Link href="/dashboard/applications" className="hover:text-foreground">
+                Applications
+              </Link>
+              {showSettings && (
+                <Link href="/dashboard/settings" className="hover:text-foreground">
+                  Settings
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              {session?.organisation?.name} · {session?.user?.name}
-            </span>
+            <div className="hidden text-right sm:block">
+              <p className="text-sm font-medium">{session?.user?.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {session?.organisation?.name}
+              </p>
+              <div className="mt-1 flex justify-end gap-1">
+                <AccountTypeBadge accountType={session?.user?.accountType} />
+                <RoleBadge role={role} />
+              </div>
+            </div>
             <Button
               variant="outline"
               size="sm"

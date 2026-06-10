@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema } from '@lms/types';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -23,6 +23,10 @@ type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialType =
+    searchParams.get('type') === 'borrower' ? 'BORROWER' : 'LENDER';
+  const [accountType, setAccountType] = useState<'LENDER' | 'BORROWER'>(initialType);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +36,7 @@ export default function RegisterPage() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
+    defaultValues: { accountType: initialType },
   });
 
   const onSubmit = async (data: RegisterForm) => {
@@ -40,10 +45,18 @@ export default function RegisterPage() {
     try {
       const result = await apiFetch<{ message: string }>('/auth/register', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, accountType }),
       });
       setMessage(result.message);
-      setTimeout(() => router.push('/auth/login'), 2000);
+      setTimeout(
+        () =>
+          router.push(
+            accountType === 'BORROWER'
+              ? '/auth/login?type=borrower'
+              : '/auth/login?type=lender',
+          ),
+        2000,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     }
@@ -54,9 +67,28 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Create your account</CardTitle>
-          <CardDescription>Start managing loans with LMS</CardDescription>
+          <CardDescription>
+            Choose whether you are setting up a lending workspace or a borrower profile.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={accountType === 'LENDER' ? 'default' : 'outline'}
+              onClick={() => setAccountType('LENDER')}
+            >
+              I lend money
+            </Button>
+            <Button
+              type="button"
+              variant={accountType === 'BORROWER' ? 'default' : 'outline'}
+              onClick={() => setAccountType('BORROWER')}
+            >
+              I want to borrow
+            </Button>
+          </div>
+
           {message && (
             <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{message}</p>
           )}

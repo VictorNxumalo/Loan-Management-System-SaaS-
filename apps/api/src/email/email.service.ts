@@ -21,6 +21,17 @@ export class EmailService {
     await this.send(email, subject, body, 'password-reset');
   }
 
+  async sendBorrowerInviteEmail(
+    email: string,
+    lenderName: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `${lenderName} invited you to connect on LMS`;
+    const body = `${lenderName} would like to connect with you as a borrower on LMS.\n\nAccept the invite:\n${link}\n\nThis link expires in 14 days.`;
+
+    await this.send(email, subject, body, 'borrower-invite');
+  }
+
   private async send(
     to: string,
     subject: string,

@@ -1,9 +1,12 @@
 'use client';
 
+import type { AuthMeResponse } from '@lms/types';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import { AppShell } from '@/components/app-shell';
+import { apiFetch } from '@/lib/api';
+import { getPostAuthRouteFromMe } from '@/lib/routes';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
@@ -14,13 +17,37 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       router.replace('/auth/login');
       return;
     }
-    if (
-      status === 'authenticated' &&
-      session?.user &&
-      !session.user.onboardingCompleted
-    ) {
-      router.replace('/onboarding');
-    }
+
+    if (status !== 'authenticated' || !session?.accessToken) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const me = await apiFetch<AuthMeResponse>('/auth/me', {
+          accessToken: session.accessToken,
+        });
+
+        if (cancelled) return;
+
+        if (me.user.accountType === 'BORROWER') {
+          router.replace(getPostAuthRouteFromMe(me));
+          return;
+        }
+
+        if (!me.user.onboardingCompleted) {
+          router.replace('/onboarding');
+        }
+      } catch {
+        if (!cancelled) {
+          router.replace('/auth/login');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [status, session, router]);
 
   if (status === 'loading') {

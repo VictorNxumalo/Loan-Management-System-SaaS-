@@ -6,8 +6,9 @@ import { PrismaService, PrismaTx } from '../prisma/prisma.service';
 
 export interface AccessTokenPayload {
   sub: string;
-  orgId: string;
-  role: string;
+  accountType: string;
+  orgId?: string;
+  role?: string;
   email: string;
 }
 

@@ -16,11 +16,13 @@ import {
   googleAuthSchema,
   loginSchema,
   onboardingSchema,
+  borrowerOnboardingSchema,
   registerSchema,
   resetPasswordSchema,
 } from '@lms/types';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { BorrowerGuard, LenderGuard } from '../common/guards/account-type.guard';
 import { AuthService } from './auth.service';
 import { REFRESH_TOKEN_COOKIE } from './auth.constants';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -92,7 +94,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMe(@CurrentUser() user: AccessTokenPayload) {
-    return this.authService.getMe(user.sub, user.orgId);
+    return this.authService.getMe(user);
   }
 
   @Get('verify-email')
@@ -120,13 +122,23 @@ export class AuthController {
   }
 
   @Patch('onboarding')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, LenderGuard)
   completeOnboarding(
     @CurrentUser() user: AccessTokenPayload,
     @Body(new ZodValidationPipe(onboardingSchema))
     body: Parameters<AuthService['completeOnboarding']>[2],
   ) {
-    return this.authService.completeOnboarding(user.sub, user.orgId, body);
+    return this.authService.completeOnboarding(user.sub, user.orgId!, body);
+  }
+
+  @Patch('borrower-onboarding')
+  @UseGuards(JwtAuthGuard, BorrowerGuard)
+  completeBorrowerOnboarding(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body(new ZodValidationPipe(borrowerOnboardingSchema))
+    body: Parameters<AuthService['completeBorrowerOnboarding']>[1],
+  ) {
+    return this.authService.completeBorrowerOnboarding(user.sub, body);
   }
 
   private setRefreshCookie(res: Response, token: string) {

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { GenerateScheduleInputDto } from '@lms/types';
 import { InterestType, RepaymentFrequency } from '@lms/types';
 import {
@@ -42,6 +42,14 @@ export class LoansScheduleService {
     const rows = this.generateSchedule(dto);
 
     const persist = async (client: PrismaTx) => {
+      const loan = await client.loan.findFirst({
+        where: { id: loanId, orgId },
+      });
+
+      if (!loan) {
+        throw new NotFoundException('Loan not found');
+      }
+
       await client.repaymentSchedule.deleteMany({ where: { loanId } });
 
       await client.repaymentSchedule.createMany({

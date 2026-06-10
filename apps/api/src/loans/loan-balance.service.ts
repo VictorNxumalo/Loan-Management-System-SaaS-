@@ -54,6 +54,7 @@ export class LoanBalanceService {
 
   async syncLoanStatus(
     tx: PrismaTx,
+    orgId: string,
     loanId: string,
     currentStatus: LoanStatus,
   ): Promise<LoanStatus> {
@@ -61,13 +62,17 @@ export class LoanBalanceService {
       return currentStatus;
     }
 
-    const loan = await tx.loan.findUniqueOrThrow({
-      where: { id: loanId },
+    const loan = await tx.loan.findFirst({
+      where: { id: loanId, orgId },
       include: {
         repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
         repayments: true,
       },
     });
+
+    if (!loan) {
+      return currentStatus;
+    }
 
     const snapshot = this.computeFromData(
       loan.repaymentSchedules,

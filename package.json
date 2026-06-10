@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "dev": "pnpm --filter @lms/types build && pnpm --filter @lms/utils build && pnpm --parallel --filter @lms/api --filter @lms/web dev",
+    "dev": "node scripts/kill-dev-ports.mjs && pnpm --filter @lms/types build && pnpm --filter @lms/utils build && pnpm --parallel --filter @lms/api --filter @lms/web dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "type-check": "pnpm --filter @lms/types build && pnpm -r type-check",

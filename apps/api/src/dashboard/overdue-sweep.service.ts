@@ -59,6 +59,7 @@ export class OverdueSweepService {
     return this.prisma.withOrgContext(orgId, actor.id, async (tx) => {
       const loans = await tx.loan.findMany({
         where: {
+          orgId,
           deletedAt: null,
           status: { in: [LoanStatus.ACTIVE, LoanStatus.IN_ARREARS] },
         },
