@@ -1,0 +1,286 @@
+// LMS — Loan Management System
+// Multi-tenant schema with org_id on all tenant-scoped tables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  LOAN_OFFICER
+  VIEWER
+}
+
+enum OrganisationPlan {
+  STARTER
+  PRO
+  BUSINESS
+}
+
+enum PlanStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  READ_ONLY
+}
+
+enum InterestType {
+  FLAT
+  REDUCING
+}
+
+enum LoanStatus {
+  DRAFT
+  ACTIVE
+  IN_ARREARS
+  COMPLETED
+  WRITTEN_OFF
+}
+
+enum RepaymentFrequency {
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+}
+
+enum DocumentEntityType {
+  BORROWER
+  LOAN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model Organisation {
+  id                 String           @id @default(uuid()) @db.Uuid
+  name               String
+  plan               OrganisationPlan @default(STARTER)
+  planStatus         PlanStatus       @default(TRIAL) @map("plan_status")
+  settings           Json             @default("{}")
+  stripeCustomerId   String?          @unique @map("stripe_customer_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  deletedAt          DateTime?        @map("deleted_at")
+
+  users         User[]
+  borrowers     Borrower[]
+  loans         Loan[]
+  repayments    Repayment[]
+  documents     Document[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  subscriptions Subscription[]
+
+  @@map("organisations")
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  orgId        String    @map("org_id") @db.Uuid
+  email        String
+  name         String
+  role         UserRole  @default(LOAN_OFFICER)
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  organisation       Organisation @relation(fields: [orgId], references: [id])
+  loansCreated       Loan[]       @relation("LoanCreatedBy")
+  repaymentsRecorded Repayment[]  @relation("RepaymentRecordedBy")
+  documentsUploaded  Document[]   @relation("DocumentUploadedBy")
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+
+  @@unique([orgId, email])
+  @@index([orgId])
+  @@map("users")
+}
+
+model Borrower {
+  id                 String    @id @default(uuid()) @db.Uuid
+  orgId              String    @map("org_id") @db.Uuid
+  fullName           String    @map("full_name")
+  idNumber           String    @map("id_number")
+  phone              String
+  email              String?
+  address            String?
+  employer           String?
+  monthlyIncomeCents Int?      @map("monthly_income_cents")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  loans        Loan[]
+
+  @@unique([orgId, idNumber])
+  @@index([orgId])
+  @@index([orgId, fullName])
+  @@map("borrowers")
+}
+
+model Loan {
+  id              String             @id @default(uuid()) @db.Uuid
+  orgId           String             @map("org_id") @db.Uuid
+  borrowerId      String             @map("borrower_id") @db.Uuid
+  createdByUserId String             @map("created_by_user_id") @db.Uuid
+  principalCents  Int                @map("principal_cents")
+  interestRate    Decimal            @map("interest_rate") @db.Decimal(8, 4)
+  interestType    InterestType       @map("interest_type")
+  termPeriods     Int                @map("term_periods")
+  frequency       RepaymentFrequency
+  startDate       DateTime           @map("start_date") @db.Date
+  status          LoanStatus         @default(DRAFT)
+  writeOffReason  String?            @map("write_off_reason")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  deletedAt       DateTime?          @map("deleted_at")
+
+  organisation       Organisation        @relation(fields: [orgId], references: [id])
+  borrower           Borrower            @relation(fields: [borrowerId], references: [id])
+  createdBy          User                @relation("LoanCreatedBy", fields: [createdByUserId], references: [id])
+  repaymentSchedules RepaymentSchedule[]
+  repayments         Repayment[]
+
+  @@index([orgId])
+  @@index([orgId, status])
+  @@index([orgId, borrowerId])
+  @@map("loans")
+}
+
+model RepaymentSchedule {
+  id                 String   @id @default(uuid()) @db.Uuid
+  loanId             String   @map("loan_id") @db.Uuid
+  periodNumber       Int      @map("period_number")
+  dueDate            DateTime @map("due_date") @db.Date
+  principalDueCents  Int      @map("principal_due_cents")
+  interestDueCents   Int      @map("interest_due_cents")
+  totalDueCents      Int      @map("total_due_cents")
+  balanceAfterCents  Int      @map("balance_after_cents")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  loan Loan @relation(fields: [loanId], references: [id])
+
+  @@unique([loanId, periodNumber])
+  @@index([loanId])
+  @@index([dueDate])
+  @@map("repayment_schedules")
+}
+
+/// Immutable — insert only, never update or delete.
+model Repayment {
+  id               String   @id @default(uuid()) @db.Uuid
+  loanId           String   @map("loan_id") @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  amountCents      Int      @map("amount_cents")
+  paymentDate      DateTime @map("payment_date") @db.Date
+  recordedByUserId String   @map("recorded_by_user_id") @db.Uuid
+  note             String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  loan       Loan         @relation(fields: [loanId], references: [id])
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  recordedBy User         @relation("RepaymentRecordedBy", fields: [recordedByUserId], references: [id])
+
+  @@index([loanId])
+  @@index([orgId])
+  @@index([orgId, paymentDate])
+  @@map("repayments")
+}
+
+model Document {
+  id               String             @id @default(uuid()) @db.Uuid
+  orgId            String             @map("org_id") @db.Uuid
+  entityType       DocumentEntityType @map("entity_type")
+  entityId         String             @map("entity_id") @db.Uuid
+  documentType     String             @map("document_type")
+  s3Key            String             @map("s3_key")
+  originalFilename String             @map("original_filename")
+  uploadedByUserId String             @map("uploaded_by_user_id") @db.Uuid
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  deletedAt        DateTime?          @map("deleted_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  uploadedBy   User         @relation("DocumentUploadedBy", fields: [uploadedByUserId], references: [id])
+
+  @@index([orgId])
+  @@index([orgId, entityType, entityId])
+  @@map("documents")
+}
+
+/// Immutable — insert only, never update or delete.
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @map("org_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") @db.Uuid
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([orgId])
+  @@index([orgId, createdAt])
+  @@index([orgId, entityType, entityId])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id                String    @id @default(uuid()) @db.Uuid
+  orgId             String    @map("org_id") @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  type              String
+  title             String
+  body              String
+  readAt            DateTime? @map("read_at")
+  relatedEntityType String?   @map("related_entity_type")
+  relatedEntityId   String?   @map("related_entity_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([orgId, userId])
+  @@index([orgId, userId, readAt])
+  @@map("notifications")
+}
+
+model Subscription {
+  id                   String             @id @default(uuid()) @db.Uuid
+  orgId                String             @map("org_id") @db.Uuid
+  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
+  plan                 OrganisationPlan
+  status               SubscriptionStatus
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@map("subscriptions")
+}

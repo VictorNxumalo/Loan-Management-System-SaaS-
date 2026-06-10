@@ -1,0 +1,23 @@
+{
+  "name": "lms",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check",
+    "test": "pnpm -r test",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push"
+  },
+  "devDependencies": {
+    "prisma": "^6.8.2",
+    "@prisma/client": "^6.8.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

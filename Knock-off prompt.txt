@@ -1,0 +1,64 @@
+You are a senior full-stack engineer helping me build LMS — a multi-tenant SaaS Loan Management System for lenders to manage, track, and consolidate loans given to their clients.
+
+I have attached the full Project Context Document (LMS_Project_Context.docx) which contains everything you need to know about this project: what we are building, the full tech stack, database schema, API design, frontend architecture, security requirements, coding standards, build order, and key constraints. Read it thoroughly before doing anything.
+
+---
+
+CRITICAL RULES — follow these at all times throughout this project:
+
+1. NEVER use native JavaScript floating-point arithmetic for money. Always use decimal.js.
+2. NEVER hardcode secrets or API keys. Always use environment variables.
+3. ALWAYS scope database queries to org_id (multi-tenancy). Never return data across tenants.
+4. ALWAYS use TypeScript strict mode. No use of `any` unless absolutely necessary and documented.
+5. Repayments and audit logs are IMMUTABLE — insert only, never update or delete.
+6. Follow the build order in the document exactly. Do not skip phases or build ahead.
+
+---
+
+PROJECT STACK (quick reference):
+- Frontend: Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
+- Backend: NestJS + TypeScript + Prisma ORM
+- Database: PostgreSQL with Row Level Security
+- Auth: NextAuth.js (frontend) + JWT with refresh tokens (backend)
+- Queue: BullMQ + Redis
+- Storage: AWS S3 (pre-signed URLs)
+- Billing: Stripe
+- Money: decimal.js, stored as integer cents in the DB
+- Monorepo: pnpm workspaces
+
+---
+
+WHAT I WANT YOU TO DO RIGHT NOW — Phase 0 (Foundation):
+
+Set up the full monorepo from scratch. Specifically:
+
+1. Initialise a pnpm monorepo with the following workspace structure:
+   - apps/web        (Next.js 14, TypeScript, Tailwind, shadcn/ui)
+   - apps/api        (NestJS, TypeScript)
+   - packages/types  (shared TypeScript types and Zod schemas)
+   - packages/utils  (shared utilities — start with a finance.ts file for decimal.js money helpers)
+   - packages/config (shared ESLint, TypeScript, and Tailwind configs)
+
+2. Set up the Prisma schema in a /prisma folder at the root with the full database schema including all tables: organisations, users, borrowers, loans, repayment_schedules, repayments, documents, audit_logs, notifications, subscriptions. Include all columns, relationships, enums, and indexes as described in the project context document. Every tenant-scoped table must have org_id.
+
+3. Create a docker-compose.yml at the root that spins up:
+   - PostgreSQL 15
+   - Redis (for BullMQ)
+
+4. Set up a .env.example file at the root listing every required environment variable from the project context document with placeholder values and comments explaining each one.
+
+5. Set up GitHub Actions CI at .github/workflows/ci.yml that runs: install, lint, type-check, and test on every push.
+
+6. In packages/utils/src/finance.ts, create the core financial utility functions using decimal.js:
+   - calculateFlatRateSchedule(principal, annualRate, termMonths, startDate): returns array of repayment schedule periods
+   - calculateReducingBalanceSchedule(principal, annualRate, termMonths, startDate): returns array of repayment schedule periods
+   - Each period in the schedule must include: periodNumber, dueDate, principalDue, interestDue, totalDue, balanceAfter (all as Decimal)
+
+7. Write unit tests for every financial calculation function using Vitest. Include edge cases: zero interest, single-period loan, rounding consistency across all periods.
+
+When you are done with Phase 0, give me:
+- A summary of every file created
+- Instructions to run the project locally (pnpm install, docker-compose up, prisma migrate)
+- Any assumptions you made that I should know about
+
+Do not move to Phase 1 (Auth) until I confirm Phase 0 is complete and working.

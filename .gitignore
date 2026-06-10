@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnpm-store
+
+# Environment (keep .env.example — it has placeholders only)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+.next/
+build/
+out/
+*.tsbuildinfo
+
+# Prisma
+prisma/generated/
+prisma/*.db
+prisma/*.db-journal
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+pnpm-lock.yaml.debug*
+
+# Testing
+coverage/
+
+# Misc
+.turbo
+.vercel

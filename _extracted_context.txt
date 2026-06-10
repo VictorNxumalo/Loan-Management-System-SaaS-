@@ -1,0 +1,1219 @@
+LMS
+
+Loan Management System
+
+Project Context Document
+
+For use with AI coding assistants (Cursor, GitHub Copilot, Windsurf, etc.)
+
+Version 1.0  •  2025
+
+1. Project Overview
+
+1.1 What We Are Building
+
+We are building a multi-tenant, cloud-hosted Software-as-a-Service (SaaS) web application called LMS — Loan Management System. The platform is designed for lenders: individuals and organisations that loan money to other people (borrowers) and need a digital tool to manage, track, and consolidate all of their lending activity in one place.
+
+This is NOT a bank or a licensed financial institution. LMS is a management and record-keeping tool — a productivity platform for lenders, comparable to how a CRM is a tool for salespeople. The platform does not hold funds, process payments, or act as a financial intermediary.
+
+1.2 Target Users
+
+The platform serves two distinct user roles within each tenant organisation:
+
+Role
+
+Who They Are
+
+What They Do in LMS
+
+Admin / Owner
+
+The lender — the person or organisation that signs up and owns the account
+
+Full access: manage borrowers, create loans, configure settings, manage team members, view all reports, manage billing
+
+Loan Officer
+
+A staff member or agent added by the Admin
+
+Operational access: create borrowers, create and manage loans, record repayments, view assigned portfolios
+
+Read-Only Viewer
+
+Accountant, auditor, or silent partner added by Admin
+
+View-only access: read all data, export reports, no ability to create or modify records
+
+1.3 Core Problem Being Solved
+
+Informal and semi-formal lenders currently track loans using a combination of paper ledgers, WhatsApp messages, Excel spreadsheets, and memory. This creates the following problems:
+
+No centralised view of total outstanding portfolio or cash flow
+
+No automated tracking of who is overdue and by how much
+
+No audit trail — disputes arise when records are lost or altered
+
+No way to generate proper loan agreements or statements for borrowers
+
+Difficult to scale beyond a handful of active loans
+
+LMS solves all of these by providing a structured, audited, always-available digital platform.
+
+2. Product Requirements
+
+2.1 MVP Feature Set (Phase 1)
+
+The MVP must be fully functional before any Phase 2 features are considered. Every feature below is required for launch.
+
+2.1.1 Authentication & Onboarding
+
+Email + password registration with email verification
+
+OAuth sign-in via Google
+
+Tenant (organisation) created automatically on first sign-up
+
+Guided onboarding wizard: organisation name, logo upload, default currency, default interest calculation method
+
+Password reset via email
+
+Session management with refresh tokens and secure logout
+
+2.1.2 Borrower Management
+
+Create, read, update, soft-delete borrower profiles
+
+Required fields: full name, ID number (or passport), phone number, email (optional)
+
+Optional fields: physical address, employer name, monthly income
+
+Document uploads per borrower: ID copy, proof of income, proof of address (stored in S3/cloud)
+
+Borrower search and filter by name, ID number, status
+
+Borrower detail page showing full loan history, total borrowed, total repaid, outstanding balance
+
+2.1.3 Loan Management
+
+Create a loan linked to a borrower
+
+Required loan fields: principal amount, interest rate (%), interest type (flat rate or reducing balance), loan term (months or weeks), start date, repayment frequency (weekly / bi-weekly / monthly)
+
+System auto-generates repayment schedule (amortisation table) on creation
+
+Loan statuses: Draft, Active, In Arrears, Completed, Written Off
+
+Edit loan terms only while status is Draft
+
+View full amortisation schedule per loan
+
+Record manual repayments against a loan (amount, date, note)
+
+System auto-calculates remaining balance, interest paid, principal paid after each repayment
+
+Support for partial repayments and lump-sum early repayments
+
+Soft-delete / write-off with mandatory reason
+
+2.1.4 Financial Calculations
+
+All monetary calculations MUST use a decimal library (decimal.js or equivalent). Never use native JavaScript floating-point arithmetic for financial figures. Store all money values as integers in cents in the database.
+
+Flat rate interest: interest = principal × rate × term; repayment = (principal + total interest) / number of periods
+
+Reducing balance interest: standard amortisation formula recalculates interest on outstanding principal each period
+
+Late fee calculation: configurable per-loan or system-default (flat fee or % of overdue amount per day/week)
+
+All calculations must be unit-tested with known expected outputs before connecting to the UI
+
+2.1.5 Dashboard & Reporting
+
+Main dashboard KPIs: total active loans, total portfolio value (outstanding principal), total repayments collected this month, number of loans in arrears, arrears rate (%)
+
+Upcoming repayments widget: next 7 days and next 30 days
+
+Overdue loans list: sorted by days overdue descending
+
+Loan portfolio report: all active loans with balances (exportable to CSV / PDF)
+
+Repayment history report: all repayments in a date range (exportable)
+
+Borrower statement: per-borrower PDF showing all loans and repayments
+
+2.1.6 Notifications
+
+Email reminders to borrowers 3 days before repayment due date (configurable)
+
+Email alert to lender when a repayment becomes overdue (1 day after due date)
+
+In-app notification bell for: new overdue loans, system alerts
+
+SMS notifications via configurable provider (Twilio or Africa's Talking) — optional per tenant, on by default if SMS credentials are configured
+
+2.1.7 Team Management (Admin Only)
+
+Invite team members by email
+
+Assign roles: Loan Officer or Read-Only Viewer
+
+Revoke access / deactivate team member
+
+Audit log: every data change logged with user, timestamp, and before/after values — immutable
+
+2.1.8 Billing & Subscription
+
+Stripe-powered subscription management
+
+Starter plan: up to 50 active loans, 1 user
+
+Pro plan: up to 500 active loans, up to 5 users
+
+Business plan: unlimited loans, up to 20 users, custom branding
+
+14-day free trial, no credit card required on signup
+
+In-app billing portal (Stripe Customer Portal) for plan changes, invoice downloads
+
+Graceful degradation when trial expires: read-only mode until plan is activated
+
+3. Technical Architecture
+
+3.1 Architecture Pattern
+
+The application follows a standard three-tier web architecture: a React single-page application (SPA) frontend served via a CDN, a RESTful API backend running on Node.js, and a managed PostgreSQL database. The frontend and backend are deployed independently.
+
+Multi-tenancy model: Shared database, shared schema with Row Level Security (RLS) enforced at the PostgreSQL level. Every table that contains tenant data carries an org_id column. All queries are filtered by org_id at the application layer AND enforced by RLS policies at the database layer. This is a hard architectural constraint — it must never be bypassed.
+
+3.2 Tech Stack
+
+Layer
+
+Technology
+
+Rationale
+
+Frontend framework
+
+React 18 + Next.js 14 (App Router)
+
+SSR for marketing pages, CSR for dashboard. Strong ecosystem, excellent DX.
+
+Frontend language
+
+TypeScript (strict mode)
+
+Type safety is non-negotiable for financial data.
+
+UI component library
+
+shadcn/ui + Tailwind CSS
+
+Unstyled, accessible components with full design control via Tailwind.
+
+State management
+
+TanStack Query (React Query) + Zustand
+
+React Query for server state / data fetching; Zustand for lightweight UI state.
+
+Form handling
+
+React Hook Form + Zod
+
+Schema validation shared between frontend and backend.
+
+Backend framework
+
+Node.js + NestJS
+
+Modular architecture, DI, built-in guards for RBAC, strong TypeScript support.
+
+Backend language
+
+TypeScript (strict mode)
+
+Shared types with frontend via a shared types package.
+
+ORM
+
+Prisma
+
+Type-safe database client, excellent migration tooling, readable schema.
+
+Database
+
+PostgreSQL 15+
+
+ACID compliance, Row Level Security, strong relational integrity for financial data.
+
+Authentication
+
+NextAuth.js (frontend) + custom JWT (backend)
+
+Handles OAuth, session management. Backend validates JWTs on every request.
+
+File storage
+
+AWS S3 (or Cloudflare R2)
+
+Secure document uploads with pre-signed URLs. Files never served through the API.
+
+Background jobs
+
+BullMQ + Redis
+
+Scheduled notification jobs, report generation, overdue detection cron.
+
+Email
+
+SendGrid
+
+Transactional email with templates. Fallback to Resend if SendGrid is unavailable.
+
+SMS
+
+Twilio / Africa's Talking
+
+Configurable per tenant. Africa's Talking preferred for African markets.
+
+Payments / billing
+
+Stripe Billing
+
+Subscription management, webhook-driven plan enforcement.
+
+Decimal arithmetic
+
+decimal.js
+
+All financial calculations. Never use native JS floats for money.
+
+PDF generation
+
+Puppeteer (server-side)
+
+Generate loan agreements and borrower statements from HTML templates.
+
+Testing
+
+Vitest (unit) + Playwright (E2E)
+
+Vitest for fast unit tests including all financial calc tests. Playwright for critical user flows.
+
+Hosting — frontend
+
+Vercel
+
+Zero-config Next.js deployment, global CDN, automatic previews.
+
+Hosting — backend
+
+Railway or Render (MVP), AWS ECS (scale)
+
+Start simple, migrate to AWS when traffic demands it.
+
+Database hosting
+
+Supabase or Neon (managed Postgres)
+
+Managed Postgres with connection pooling (PgBouncer). Never self-host for a financial app.
+
+CI/CD
+
+GitHub Actions
+
+Lint, type-check, test, and deploy on every push to main.
+
+Monitoring
+
+Sentry (errors) + Better Uptime (availability)
+
+Error tracking and alerting from day one.
+
+3.3 Repository Structure
+
+The project uses a monorepo structure managed with pnpm workspaces:
+
+lms/
+  apps/
+    web/          ← Next.js frontend (React, shadcn/ui)
+    api/          ← NestJS backend (REST API)
+  packages/
+    types/        ← Shared TypeScript types and Zod schemas
+    utils/        ← Shared utilities (decimal math, date helpers)
+    config/       ← Shared ESLint, TypeScript, Tailwind configs
+  prisma/         ← Database schema, migrations, seed scripts
+  .github/        ← GitHub Actions CI/CD workflows
+  docker-compose.yml  ← Local dev: Postgres + Redis
+  pnpm-workspace.yaml
+
+3.4 Database Schema (Core Entities)
+
+All tables include created_at, updated_at (auto-managed by Prisma), and deleted_at (soft delete). All monetary values stored as integers in cents (e.g. R 1,500.00 stored as 150000). All tables with tenant data carry org_id with a foreign key to the organisations table and a RLS policy.
+
+Table
+
+Key Columns
+
+Notes
+
+organisations
+
+id, name, plan, plan_status, settings (JSONB), stripe_customer_id
+
+One row per tenant. All other tables reference this.
+
+users
+
+id, org_id, email, name, role (ENUM), password_hash, is_active
+
+role: ADMIN | LOAN_OFFICER | VIEWER
+
+borrowers
+
+id, org_id, full_name, id_number, phone, email, address, employer, monthly_income_cents
+
+Soft delete via deleted_at. Unique (org_id, id_number).
+
+loans
+
+id, org_id, borrower_id, created_by_user_id, principal_cents, interest_rate, interest_type (ENUM), term_periods, frequency (ENUM), start_date, status (ENUM)
+
+interest_type: FLAT | REDUCING. status: DRAFT | ACTIVE | IN_ARREARS | COMPLETED | WRITTEN_OFF
+
+repayment_schedules
+
+id, loan_id, period_number, due_date, principal_due_cents, interest_due_cents, total_due_cents, balance_after_cents
+
+Auto-generated on loan creation. One row per period.
+
+repayments
+
+id, loan_id, org_id, amount_cents, payment_date, recorded_by_user_id, note
+
+Immutable — never update, only insert. Audit trail.
+
+documents
+
+id, org_id, entity_type, entity_id, document_type, s3_key, original_filename, uploaded_by_user_id
+
+entity_type: BORROWER | LOAN. s3_key used to generate pre-signed URLs.
+
+audit_logs
+
+id, org_id, user_id, action, entity_type, entity_id, before_state (JSONB), after_state (JSONB), ip_address
+
+Immutable. Never allow UPDATE or DELETE on this table.
+
+notifications
+
+id, org_id, user_id, type, title, body, read_at, related_entity_type, related_entity_id
+
+In-app notifications. Cleared after 90 days.
+
+subscriptions
+
+id, org_id, stripe_subscription_id, plan, status, current_period_end
+
+Synced from Stripe webhooks.
+
+4. API Design
+
+4.1 API Conventions
+
+Base URL: https://api.yourdomain.com/v1
+
+Protocol: REST over HTTPS. JSON request/response bodies.
+
+Authentication: Bearer token (JWT) in the Authorization header on every request.
+
+Tenant resolution: JWT payload contains org_id. All queries scoped to this org_id.
+
+Pagination: Cursor-based for large lists. Query params: cursor, limit (default 20, max 100).
+
+Error format: { error: { code: string, message: string, details?: object } }
+
+Versioning: URL-based (/v1/). Increment for breaking changes.
+
+4.2 Core Endpoints
+
+Method
+
+Path
+
+Description
+
+Auth Required
+
+POST
+
+/v1/auth/register
+
+Create new tenant + admin user
+
+None
+
+POST
+
+/v1/auth/login
+
+Email/password login, returns JWT + refresh token
+
+None
+
+POST
+
+/v1/auth/refresh
+
+Exchange refresh token for new JWT
+
+None
+
+POST
+
+/v1/auth/logout
+
+Invalidate refresh token
+
+User
+
+GET
+
+/v1/auth/me
+
+Get current user and org details
+
+User
+
+GET
+
+/v1/borrowers
+
+List borrowers (paginated, filterable)
+
+User
+
+POST
+
+/v1/borrowers
+
+Create borrower
+
+Loan Officer+
+
+GET
+
+/v1/borrowers/:id
+
+Get borrower details + loan summary
+
+User
+
+PATCH
+
+/v1/borrowers/:id
+
+Update borrower fields
+
+Loan Officer+
+
+DELETE
+
+/v1/borrowers/:id
+
+Soft-delete borrower (only if no active loans)
+
+Admin
+
+GET
+
+/v1/loans
+
+List loans (paginated, filterable by status, borrower)
+
+User
+
+POST
+
+/v1/loans
+
+Create loan + generate repayment schedule
+
+Loan Officer+
+
+GET
+
+/v1/loans/:id
+
+Get loan + full amortisation schedule
+
+User
+
+PATCH
+
+/v1/loans/:id
+
+Update loan (Draft status only)
+
+Loan Officer+
+
+POST
+
+/v1/loans/:id/activate
+
+Transition loan from Draft to Active
+
+Loan Officer+
+
+POST
+
+/v1/loans/:id/repayments
+
+Record a repayment against a loan
+
+Loan Officer+
+
+GET
+
+/v1/loans/:id/repayments
+
+List all repayments for a loan
+
+User
+
+POST
+
+/v1/loans/:id/write-off
+
+Write off a loan with reason
+
+Admin
+
+GET
+
+/v1/dashboard
+
+Aggregate KPIs for the dashboard
+
+User
+
+GET
+
+/v1/reports/portfolio
+
+Full portfolio report (CSV or JSON)
+
+User
+
+GET
+
+/v1/reports/arrears
+
+Arrears report
+
+User
+
+GET
+
+/v1/reports/borrower-statement/:borrowerId
+
+Generate borrower statement PDF
+
+User
+
+GET
+
+/v1/documents/upload-url
+
+Get pre-signed S3 upload URL
+
+Loan Officer+
+
+GET
+
+/v1/team
+
+List team members
+
+Admin
+
+POST
+
+/v1/team/invite
+
+Invite team member by email
+
+Admin
+
+DELETE
+
+/v1/team/:userId
+
+Revoke team member access
+
+Admin
+
+GET
+
+/v1/audit-log
+
+View audit log (paginated)
+
+Admin
+
+GET
+
+/v1/billing/portal-url
+
+Get Stripe billing portal URL
+
+Admin
+
+POST
+
+/v1/webhooks/stripe
+
+Stripe webhook receiver
+
+Stripe signature
+
+5. Frontend Architecture
+
+5.1 Page Structure (Next.js App Router)
+
+Route
+
+Page / Component
+
+Access
+
+/(marketing)
+
+Landing page, pricing, about — public marketing site
+
+Public
+
+/auth/register
+
+Registration form + onboarding wizard
+
+Public
+
+/auth/login
+
+Login form
+
+Public
+
+/auth/reset-password
+
+Password reset flow
+
+Public
+
+/(app)/dashboard
+
+Main dashboard with KPIs and widgets
+
+Authenticated
+
+/(app)/borrowers
+
+Borrowers list with search and filters
+
+Authenticated
+
+/(app)/borrowers/new
+
+Create borrower form
+
+Loan Officer+
+
+/(app)/borrowers/[id]
+
+Borrower detail: profile, loans, documents
+
+Authenticated
+
+/(app)/loans
+
+Loans list with status filters
+
+Authenticated
+
+/(app)/loans/new
+
+Create loan form with schedule preview
+
+Loan Officer+
+
+/(app)/loans/[id]
+
+Loan detail: terms, amortisation table, repayments
+
+Authenticated
+
+/(app)/reports
+
+Report centre: portfolio, arrears, statements
+
+Authenticated
+
+/(app)/team
+
+Team member management
+
+Admin
+
+/(app)/audit-log
+
+Immutable audit log viewer
+
+Admin
+
+/(app)/settings
+
+Organisation settings, notification preferences
+
+Admin
+
+/(app)/billing
+
+Plan management via Stripe portal
+
+Admin
+
+5.2 Key UI Components
+
+LoanScheduleTable — renders amortisation schedule with period, due date, principal, interest, total, balance columns. Read-only.
+
+RepaymentForm — modal form for recording a repayment. Validates amount against outstanding balance, shows impact preview.
+
+BorrowerSearch — debounced search input with autocomplete dropdown. Used in loan creation form.
+
+KPICard — dashboard metric card with value, label, trend indicator, and link to detail view.
+
+OverdueAlert — prominent banner/list shown when loans are in arrears. Links to individual loan pages.
+
+DocumentUpload — drag-and-drop file upload component. Requests pre-signed URL from API, uploads directly to S3, stores reference via API.
+
+AuditLogViewer — paginated, read-only table of audit events with user, action, entity, and timestamp.
+
+6. Security Requirements
+
+Security is non-negotiable for a financial platform. Every item in this section is a hard requirement, not optional.
+
+6.1 Authentication & Authorisation
+
+JWT access tokens: 15-minute expiry. Refresh tokens: 30-day expiry, stored in HttpOnly cookies.
+
+Refresh tokens are rotated on every use (one-time use). Reuse of a consumed refresh token triggers a full session invalidation for that user.
+
+Role-based access control (RBAC) enforced at the API layer via NestJS Guards. Frontend hides UI elements based on role but backend is the authoritative enforcement point.
+
+Every API endpoint that accesses tenant data validates that the requested resource belongs to the authenticated user's org_id.
+
+PostgreSQL RLS policies provide a second layer of tenant isolation at the database level.
+
+6.2 Data Protection
+
+All data encrypted at rest (database encryption enabled at provider level).
+
+All data encrypted in transit — TLS 1.2 minimum, TLS 1.3 preferred. HTTP requests automatically redirected to HTTPS.
+
+Sensitive fields (ID numbers, phone numbers) should be treated as PII. Log masking must be applied — never log full ID numbers or phone numbers.
+
+S3 documents accessible only via pre-signed URLs with 15-minute expiry. Bucket is not publicly accessible.
+
+6.3 Application Security
+
+Input validation on all API endpoints using Zod schemas. Reject any request that fails validation with HTTP 400.
+
+SQL injection prevention: Prisma parameterised queries only. Never concatenate user input into raw SQL.
+
+XSS prevention: React's default JSX escaping + Content Security Policy headers.
+
+CSRF protection: SameSite=Strict on session cookies + CSRF token for any state-changing form.
+
+Rate limiting: 100 req/min per IP on auth endpoints, 1000 req/min per tenant on API endpoints (via Redis).
+
+Helmet.js middleware for security headers on the NestJS API.
+
+Stripe webhook signature verification on every incoming webhook.
+
+6.4 Audit & Compliance
+
+Immutable audit log: every CREATE, UPDATE, DELETE operation on loans, repayments, borrowers, and user accounts is logged.
+
+Audit log records: user ID, timestamp, action type, entity type, entity ID, before state (JSON), after state (JSON), IP address.
+
+The audit_logs table must have a database-level trigger or application-level constraint preventing UPDATE and DELETE operations.
+
+Retain audit logs for minimum 7 years (configurable per tenant for compliance requirements).
+
+7. Build Order & Development Milestones
+
+Always build in this order. Each phase must be complete and tested before starting the next. The financial calculation engine in Phase 2 is the most critical piece — it must be unit-tested exhaustively before the UI is connected to it.
+
+Phase
+
+What to Build
+
+Definition of Done
+
+Phase 0
+(Foundation)
+
+Monorepo setup, shared TypeScript config, Prisma schema + migrations, Docker Compose for local Postgres + Redis, environment variable structure, CI pipeline skeleton
+
+pnpm dev starts frontend and backend locally. Database connects. All linting and type-check passes in CI.
+
+Phase 1
+(Auth)
+
+Registration, login, JWT + refresh token flow, session management, onboarding wizard, org creation, RLS policies
+
+A user can register, verify email, log in, see a blank dashboard, and log out. JWT is validated on every API call.
+
+Phase 2
+(Loan Engine)
+
+Decimal.js integration, flat rate calculator, reducing balance amortisation, repayment schedule generator, all unit tests
+
+100% of calculation unit tests pass. Given principal + rate + term, the system generates a correct amortisation table verified against known outputs.
+
+Phase 3
+(Core CRUD)
+
+Borrower management (full CRUD), Loan creation + schedule view, repayment recording, loan status transitions
+
+Admin can create a borrower, create a loan, view the schedule, record a repayment, and see the updated balance.
+
+Phase 4
+(Dashboard)
+
+Dashboard KPIs, overdue detection cron job, upcoming repayments widget, overdue loans list
+
+Dashboard shows accurate real-time KPIs. A loan that passes its due date without payment automatically transitions to IN_ARREARS.
+
+Phase 5
+(Notifications)
+
+Email reminders (SendGrid), in-app notification bell, BullMQ job queue, optional SMS integration
+
+Borrower receives email 3 days before due date. Lender receives alert when loan goes overdue. Notifications appear in UI bell.
+
+Phase 6
+(Documents & Reports)
+
+S3 document upload, borrower statement PDF, portfolio report CSV export, arrears report
+
+Admin can upload an ID document for a borrower. Admin can generate and download a PDF statement for any borrower.
+
+Phase 7
+(Team & Audit)
+
+Team member invite flow, RBAC enforcement, audit log viewer
+
+Admin can invite a Loan Officer. Loan Officer cannot access billing or team settings. All actions appear in audit log.
+
+Phase 8
+(Billing)
+
+Stripe integration, subscription plans, trial enforcement, billing portal, Stripe webhooks
+
+User can subscribe to a plan, upgrade/downgrade via Stripe portal. Account goes read-only when trial expires.
+
+Phase 9
+(Polish & Launch)
+
+Error handling, empty states, loading skeletons, mobile responsiveness, Sentry integration, E2E tests for critical paths, performance audit
+
+Lighthouse score > 85. All Playwright E2E tests pass. Sentry captures errors in production.
+
+8. Coding Standards & Conventions
+
+8.1 General
+
+TypeScript strict mode enabled everywhere. No use of any unless absolutely unavoidable and documented.
+
+ESLint + Prettier enforced via pre-commit hooks (Husky + lint-staged).
+
+All environment variables validated at startup using Zod — the app must fail fast with a clear error if a required env var is missing.
+
+No secrets or API keys in source code or version control. Use .env files locally, environment variables in production.
+
+All TODO comments must include a GitHub issue number: // TODO(#123): description
+
+8.2 Backend Conventions
+
+NestJS modules: one module per domain (BorrowersModule, LoansModule, RepaymentsModule, AuthModule, BillingModule, NotificationsModule).
+
+DTOs for all request bodies and response shapes. Validated with class-validator + Zod.
+
+Services contain business logic. Controllers only handle HTTP concerns (parsing input, calling service, returning response).
+
+Database access only in service files via the Prisma service. Never write Prisma queries in controllers or resolvers.
+
+Financial calculation functions live in packages/utils/src/finance.ts. They are pure functions with no side effects and must have 100% unit test coverage.
+
+All monetary amounts in API responses must be in cents (integers) with a separate currencyCode field. Formatting happens on the frontend.
+
+8.3 Frontend Conventions
+
+Page components in app/ directory. Reusable components in components/. One component per file.
+
+All API calls via React Query hooks defined in hooks/ directory (e.g. useLoans, useBorrower, useRepayments).
+
+Never call fetch or axios directly in a component — always go through a hook.
+
+Format money on display using Intl.NumberFormat with the tenant's currency code. Never format money in API calls.
+
+All forms use React Hook Form with Zod resolver. Share Zod schemas from packages/types.
+
+Loading states: every data-fetching component must handle loading and error states explicitly. Use skeleton components for loading.
+
+9. Key Architectural Decisions & Hard Constraints
+
+Decision / Constraint
+
+Rule
+
+Reason
+
+Money arithmetic
+
+Always use decimal.js. Never native JS floats.
+
+0.1 + 0.2 = 0.30000000000000004 in JS. Financial errors are unacceptable.
+
+Money storage
+
+Store as integer cents in the DB (e.g. R1,500.00 = 150000).
+
+Avoids float rounding in the database layer entirely.
+
+Multi-tenancy
+
+Every tenant-scoped table has org_id. RLS enforced at DB level.
+
+Prevents cross-tenant data leaks even if app-layer bugs exist.
+
+Repayment records
+
+Repayments are immutable — insert only, never update or delete.
+
+Financial audit trail must be tamper-proof.
+
+Audit logs
+
+Audit logs are immutable — DB trigger prevents UPDATE/DELETE.
+
+Regulatory and dispute resolution requirement.
+
+Loan terms
+
+Loan terms can only be edited in DRAFT status.
+
+Prevents retroactive changes to active loan contracts.
+
+File serving
+
+Documents served via pre-signed S3 URLs only (15 min expiry).
+
+Files must never be publicly accessible or proxied through the API.
+
+Background jobs
+
+Overdue detection runs as a scheduled cron via BullMQ, not on request.
+
+Loan status must update even when no user is logged in.
+
+Soft deletes
+
+Borrowers and loans are soft-deleted (deleted_at). Hard deletes are never permitted.
+
+Data must be recoverable. Financial records must be retained.
+
+Shared types
+
+API response types and Zod schemas live in packages/types and are imported by both frontend and backend.
+
+Single source of truth. Type mismatch between client and server is a common source of bugs.
+
+10. Environment Variables Reference
+
+Variable
+
+Used By
+
+Description
+
+DATABASE_URL
+
+API
+
+PostgreSQL connection string (from Supabase/Neon/Railway)
+
+REDIS_URL
+
+API
+
+Redis connection string (for BullMQ job queue)
+
+JWT_SECRET
+
+API
+
+Secret for signing JWT access tokens (min 32 chars, random)
+
+JWT_REFRESH_SECRET
+
+API
+
+Separate secret for refresh tokens
+
+STRIPE_SECRET_KEY
+
+API
+
+Stripe secret key (sk_live_... or sk_test_...)
+
+STRIPE_WEBHOOK_SECRET
+
+API
+
+Stripe webhook signing secret (whsec_...)
+
+SENDGRID_API_KEY
+
+API
+
+SendGrid API key for transactional email
+
+AWS_ACCESS_KEY_ID
+
+API
+
+AWS credentials for S3 document storage
+
+AWS_SECRET_ACCESS_KEY
+
+API
+
+AWS credentials for S3 document storage
+
+AWS_S3_BUCKET
+
+API
+
+S3 bucket name for document uploads
+
+AWS_REGION
+
+API
+
+AWS region (e.g. af-south-1 for Africa)
+
+TWILIO_ACCOUNT_SID
+
+API
+
+Twilio account SID (optional, for SMS)
+
+TWILIO_AUTH_TOKEN
+
+API
+
+Twilio auth token (optional, for SMS)
+
+NEXT_PUBLIC_API_URL
+
+Web
+
+Base URL of the NestJS API (e.g. https://api.domain.com/v1)
+
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+
+Web
+
+Stripe publishable key for Stripe.js
+
+NEXTAUTH_SECRET
+
+Web
+
+Secret for NextAuth.js session encryption
+
+NEXTAUTH_URL
+
+Web
+
+Canonical URL of the Next.js app
+
+11. Glossary
+
+Term
+
+Definition
+
+Tenant / Organisation
+
+A single lender account on the platform. All data is scoped to a tenant. Equivalent to a 'workspace' or 'company' in SaaS terminology.
+
+Borrower
+
+An individual who has received or applied for a loan from a tenant lender. Not a user of the LMS platform.
+
+Loan
+
+A single lending arrangement between a lender (tenant) and a borrower, with defined principal, interest rate, term, and repayment schedule.
+
+Principal
+
+The original loan amount disbursed to the borrower, before interest.
+
+Amortisation schedule
+
+The full table of expected repayments for a loan, broken down by period, showing how much of each payment goes to principal vs interest.
+
+Flat rate interest
+
+Interest calculated as a fixed % of the original principal for every period, regardless of how much has been repaid.
+
+Reducing balance interest
+
+Interest calculated each period on the outstanding (remaining) principal balance. Results in decreasing interest charges over time.
+
+Arrears
+
+When a borrower has missed one or more scheduled repayments. A loan 'in arrears' has a past-due balance.
+
+Write-off
+
+An administrative action marking a loan as uncollectable. The loan is closed but all historical records are retained.
+
+org_id
+
+The database foreign key linking every tenant-scoped record to its owning organisation. Never expose this in public-facing URLs or API responses where avoidable.
+
+RLS
+
+Row Level Security — a PostgreSQL feature that enforces access policies at the database row level, independent of application code.
+
+RBAC
+
+Role-Based Access Control — the system that determines what actions a user can perform based on their assigned role (Admin, Loan Officer, Viewer).
+
+Pre-signed URL
+
+A time-limited URL generated by the API that grants temporary permission to upload to or download from S3 without exposing AWS credentials.
+
+Soft delete
+
+Marking a record as deleted (via a deleted_at timestamp) without physically removing it from the database. The record is hidden from normal queries but retained for audit purposes.
+
+End of Document — LMS Project Context v1.0
+
