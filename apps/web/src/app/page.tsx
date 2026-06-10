@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
@@ -6,12 +7,16 @@ export default function HomePage() {
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight">LMS</h1>
         <p className="mt-2 text-lg text-muted-foreground">
-          Loan Management System — Phase 0 Foundation
+          Loan Management System for lenders
         </p>
       </div>
       <div className="flex gap-4">
-        <Button>Get Started</Button>
-        <Button variant="outline">Learn More</Button>
+        <Button asChild>
+          <Link href="/auth/register">Get Started</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href="/auth/login">Sign in</Link>
+        </Button>
       </div>
     </main>
   );

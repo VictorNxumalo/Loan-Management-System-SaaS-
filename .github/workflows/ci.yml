@@ -54,6 +54,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
+      - name: Build shared types
+        run: pnpm --filter @lms/types build
+
       - name: Lint
         run: pnpm lint
 

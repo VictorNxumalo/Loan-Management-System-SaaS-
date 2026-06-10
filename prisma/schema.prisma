@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -90,27 +91,77 @@ model Organisation {
 }
 
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
-  orgId        String    @map("org_id") @db.Uuid
-  email        String
-  name         String
-  role         UserRole  @default(LOAN_OFFICER)
-  passwordHash String    @map("password_hash")
-  isActive     Boolean   @default(true) @map("is_active")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
+  id                    String    @id @default(uuid()) @db.Uuid
+  orgId                 String    @map("org_id") @db.Uuid
+  email                 String
+  name                  String
+  role                  UserRole  @default(LOAN_OFFICER)
+  passwordHash          String?   @map("password_hash")
+  googleId              String?   @unique @map("google_id")
+  emailVerifiedAt       DateTime? @map("email_verified_at")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
 
-  organisation       Organisation @relation(fields: [orgId], references: [id])
-  loansCreated       Loan[]       @relation("LoanCreatedBy")
-  repaymentsRecorded Repayment[]  @relation("RepaymentRecordedBy")
-  documentsUploaded  Document[]   @relation("DocumentUploadedBy")
-  auditLogs          AuditLog[]
-  notifications      Notification[]
+  organisation            Organisation             @relation(fields: [orgId], references: [id])
+  loansCreated            Loan[]                   @relation("LoanCreatedBy")
+  repaymentsRecorded      Repayment[]              @relation("RepaymentRecordedBy")
+  documentsUploaded       Document[]               @relation("DocumentUploadedBy")
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+  refreshTokens           RefreshToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
 
   @@unique([orgId, email])
   @@index([orgId])
+  @@index([email])
   @@map("users")
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  tokenHash         String    @unique @map("token_hash")
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  replacedByTokenId String?   @map("replaced_by_token_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 model Borrower {
