@@ -9,6 +9,8 @@ export const createBorrowerSchema = z.object({
   address: z.string().max(500).optional(),
   employer: z.string().max(200).optional(),
   monthlyIncomeCents: z.number().int().nonnegative().optional(),
+  /** Links the borrower record to a registered platform borrower account. */
+  platformUserId: z.string().uuid().optional(),
 });
 
 export const updateBorrowerSchema = createBorrowerSchema.partial();
@@ -65,4 +67,24 @@ export interface BorrowerSearchResultDto {
   fullName: string;
   idNumber: string;
   label: string;
+}
+
+export const searchPlatformBorrowersQuerySchema = z.object({
+  q: z.string().min(2).max(100),
+  limit: z.coerce.number().int().min(1).max(20).default(8),
+});
+
+export type SearchPlatformBorrowersQuery = z.infer<
+  typeof searchPlatformBorrowersQuerySchema
+>;
+
+/** A registered platform borrower connected to the lender's organisation. */
+export interface PlatformBorrowerSearchResultDto {
+  userId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  idNumber: string | null;
+  /** Set when this platform user already has a borrower record in the org. */
+  existingBorrowerId: string | null;
 }

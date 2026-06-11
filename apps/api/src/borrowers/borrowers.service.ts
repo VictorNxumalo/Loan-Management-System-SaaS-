@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -12,7 +13,9 @@ import type {
   CreateBorrowerInput,
   ListBorrowersQuery,
   PaginatedBorrowersDto,
+  PlatformBorrowerSearchResultDto,
   SearchBorrowersQuery,
+  SearchPlatformBorrowersQuery,
   UpdateBorrowerInput,
 } from '@lms/types';
 import { LoanStatus } from '@lms/types';
@@ -101,6 +104,68 @@ export class BorrowersService {
     });
   }
 
+  /**
+   * Search registered platform borrowers connected to this organisation
+   * (via invite or marketplace) by name, email, or ID number — used to
+   * auto-fill the new borrower form.
+   */
+  async searchPlatformBorrowers(
+    orgId: string,
+    userId: string,
+    query: SearchPlatformBorrowersQuery,
+  ): Promise<PlatformBorrowerSearchResultDto[]> {
+    const q = query.q.trim();
+
+    return this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const links = await tx.borrowerLenderLink.findMany({
+        where: { orgId },
+        select: { borrowerUserId: true },
+      });
+
+      const connectedIds = links.map((link) => link.borrowerUserId);
+      if (connectedIds.length === 0) {
+        return [];
+      }
+
+      const users = await tx.user.findMany({
+        where: {
+          id: { in: connectedIds },
+          deletedAt: null,
+          isActive: true,
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { email: { contains: q, mode: 'insensitive' } },
+            { borrowerAccount: { idNumber: { contains: q, mode: 'insensitive' } } },
+          ],
+        },
+        include: { borrowerAccount: true },
+        orderBy: { name: 'asc' },
+        take: query.limit,
+      });
+
+      const existing = await tx.borrower.findMany({
+        where: {
+          orgId,
+          platformUserId: { in: users.map((user) => user.id) },
+          deletedAt: null,
+        },
+        select: { id: true, platformUserId: true },
+      });
+      const existingByUserId = new Map(
+        existing.map((row) => [row.platformUserId, row.id]),
+      );
+
+      return users.map((user) => ({
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.borrowerAccount?.phone ?? null,
+        idNumber: user.borrowerAccount?.idNumber ?? null,
+        existingBorrowerId: existingByUserId.get(user.id) ?? null,
+      }));
+    });
+  }
+
   async create(
     orgId: string,
     userId: string,
@@ -110,9 +175,35 @@ export class BorrowersService {
 
     try {
       return await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+        if (input.platformUserId) {
+          const link = await tx.borrowerLenderLink.findUnique({
+            where: {
+              borrowerUserId_orgId: {
+                borrowerUserId: input.platformUserId,
+                orgId,
+              },
+            },
+          });
+          if (!link) {
+            throw new BadRequestException(
+              'This platform user is not connected to your organisation',
+            );
+          }
+
+          const alreadyLinked = await tx.borrower.findFirst({
+            where: { orgId, platformUserId: input.platformUserId, deletedAt: null },
+          });
+          if (alreadyLinked) {
+            throw new ConflictException(
+              'A borrower record already exists for this platform user',
+            );
+          }
+        }
+
         const created = await tx.borrower.create({
           data: {
             orgId,
+            platformUserId: input.platformUserId ?? null,
             fullName: input.fullName.trim(),
             idNumber: input.idNumber.trim(),
             phone: input.phone.trim(),
@@ -129,7 +220,14 @@ export class BorrowersService {
           action: 'borrower.created',
           entityType: 'BORROWER',
           entityId: created.id,
-          after: { fullName: created.fullName, idNumber: created.idNumber, phone: created.phone },
+          after: {
+            fullName: created.fullName,
+            idNumber: created.idNumber,
+            phone: created.phone,
+            ...(created.platformUserId
+              ? { platformUserId: created.platformUserId }
+              : {}),
+          },
         });
 
         return this.mapDetail(created, {
@@ -138,7 +236,13 @@ export class BorrowersService {
           loansInArrears: 0,
         });
       });
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
       throw new ConflictException('A borrower with this ID number already exists');
     }
   }

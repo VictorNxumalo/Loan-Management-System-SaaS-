@@ -13,6 +13,7 @@ import {
   createBorrowerSchema,
   listBorrowersQuerySchema,
   searchBorrowersQuerySchema,
+  searchPlatformBorrowersQuerySchema,
   updateBorrowerSchema,
   UserRole,
 } from '@lms/types';
@@ -48,6 +49,20 @@ export class BorrowersController {
     >[2],
   ) {
     return this.borrowersService.search(user.orgId!, user.sub, query);
+  }
+
+  @Get('platform-search')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
+  searchPlatformBorrowers(
+    @CurrentUser() user: AccessTokenPayload,
+    @Query(new ZodValidationPipe(searchPlatformBorrowersQuerySchema))
+    query: Parameters<BorrowersService['searchPlatformBorrowers']>[2],
+  ) {
+    return this.borrowersService.searchPlatformBorrowers(
+      user.orgId!,
+      user.sub,
+      query,
+    );
   }
 
   @Post()

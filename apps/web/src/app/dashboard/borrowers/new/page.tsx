@@ -1,14 +1,21 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { PlatformBorrowerSearchResultDto } from '@lms/types';
 import { createBorrowerSchema } from '@lms/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useApi } from '@/lib/use-api';
@@ -20,20 +27,72 @@ export default function NewBorrowerPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<PlatformBorrowerSearchResultDto[] | null>(
+    null,
+  );
+  const [linkedUser, setLinkedUser] =
+    useState<PlatformBorrowerSearchResultDto | null>(null);
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<BorrowerForm>({
     resolver: zodResolver(createBorrowerSchema),
   });
+
+  // Debounced platform borrower search
+  useEffect(() => {
+    const q = searchTerm.trim();
+    if (q.length < 2) {
+      setResults(null);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const timer = setTimeout(() => {
+      api<PlatformBorrowerSearchResultDto[]>(
+        `/borrowers/platform-search?q=${encodeURIComponent(q)}`,
+      )
+        .then((rows) => setResults(rows))
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false));
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, api]);
+
+  const selectPlatformUser = (user: PlatformBorrowerSearchResultDto) => {
+    setLinkedUser(user);
+    setResults(null);
+    setSearchTerm('');
+    setValue('fullName', user.name, { shouldValidate: true });
+    setValue('email', user.email, { shouldValidate: true });
+    if (user.phone) {
+      setValue('phone', user.phone, { shouldValidate: true });
+    }
+    if (user.idNumber) {
+      setValue('idNumber', user.idNumber, { shouldValidate: true });
+    }
+  };
+
+  const clearLinkedUser = () => {
+    setLinkedUser(null);
+  };
 
   const onSubmit = async (data: BorrowerForm) => {
     setError(null);
     try {
       const borrower = await api<{ id: string }>('/borrowers', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          ...(linkedUser ? { platformUserId: linkedUser.userId } : {}),
+        }),
       });
       router.push(`/dashboard/borrowers/${borrower.id}`);
     } catch (err) {
@@ -47,6 +106,87 @@ export default function NewBorrowerPage() {
         <h1 className="text-2xl font-bold tracking-tight">Add borrower</h1>
         <p className="text-muted-foreground">Create a new borrower profile</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Find a registered borrower</CardTitle>
+          <CardDescription>
+            Search borrowers connected to your organisation by name, email, or ID
+            number — selecting one fills the form automatically and links their
+            account so they can see their loans.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input
+            placeholder="e.g. Jane Dlamini or 9001015009087"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+
+          {searching && (
+            <p className="text-sm text-muted-foreground">Searching…</p>
+          )}
+
+          {results && results.length === 0 && !searching && (
+            <p className="text-sm text-muted-foreground">
+              No connected platform borrowers match. You can still fill the form
+              manually below.
+            </p>
+          )}
+
+          {results && results.length > 0 && (
+            <div className="divide-y rounded-md border">
+              {results.map((user) => (
+                <div
+                  key={user.userId}
+                  className="flex flex-wrap items-center justify-between gap-2 p-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user.email}
+                      {user.phone ? ` · ${user.phone}` : ''}
+                      {user.idNumber ? ` · ID ${user.idNumber}` : ''}
+                    </p>
+                  </div>
+                  {user.existingBorrowerId ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/borrowers/${user.existingBorrowerId}`}>
+                        Already added — view
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => selectPlatformUser(user)}
+                    >
+                      Use details
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {linkedUser && (
+            <div className="flex items-center justify-between rounded-md bg-primary/5 p-3">
+              <p className="text-sm">
+                Linked to platform account <strong>{linkedUser.name}</strong> (
+                {linkedUser.email})
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={clearLinkedUser}
+              >
+                Unlink
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
