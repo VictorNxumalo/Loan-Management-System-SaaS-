@@ -18,6 +18,7 @@ import {
   LOAN_DOCUMENT_TYPES,
 } from '@lms/types';
 import { randomUUID } from 'crypto';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseStorageService } from '../storage/supabase-storage.service';
 
@@ -26,6 +27,7 @@ export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: SupabaseStorageService,
+    private readonly auditService: AuditService,
   ) {}
 
   async list(
@@ -69,8 +71,8 @@ export class DocumentsService {
 
     const signed = await this.storage.createSignedUploadUrl(storagePath);
 
-    const document = await this.prisma.withOrgContext(orgId, userId, async (tx) =>
-      tx.document.create({
+    const document = await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const created = await tx.document.create({
         data: {
           orgId,
           entityType: input.entityType,
@@ -81,8 +83,24 @@ export class DocumentsService {
           uploadedByUserId: userId,
         },
         include: { uploadedBy: { select: { name: true } } },
-      }),
-    );
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'document.uploaded',
+        entityType: 'DOCUMENT',
+        entityId: created.id,
+        after: {
+          targetEntityType: input.entityType,
+          targetEntityId: input.entityId,
+          documentType: input.documentType,
+          filename: input.filename,
+        },
+      });
+
+      return created;
+    });
 
     return {
       documentId: document.id,
@@ -130,6 +148,20 @@ export class DocumentsService {
       await tx.document.update({
         where: { id: documentId },
         data: { deletedAt: new Date() },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'document.deleted',
+        entityType: 'DOCUMENT',
+        entityId: documentId,
+        before: {
+          targetEntityType: row.entityType,
+          targetEntityId: row.entityId,
+          documentType: row.documentType,
+          filename: row.originalFilename,
+        },
       });
 
       return row;

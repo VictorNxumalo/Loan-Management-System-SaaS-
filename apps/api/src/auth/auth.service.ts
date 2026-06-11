@@ -57,6 +57,10 @@ export class AuthService {
   }
 
   private async registerLender(input: RegisterInput): Promise<{ message: string }> {
+    if (input.inviteToken) {
+      return this.registerTeamMember(input);
+    }
+
     const email = input.email.toLowerCase();
 
     const existing = await this.prisma.withAuthLookup(async (tx) =>
@@ -112,6 +116,102 @@ export class AuthService {
       message: isEmailVerificationSkipped()
         ? `Registration successful. You can sign in now (${user.email}).`
         : `Registration successful. Please verify your email (${user.email}).`,
+    };
+  }
+
+  /** Register a new staff account into an existing organisation via team invite. */
+  private async registerTeamMember(input: RegisterInput): Promise<{ message: string }> {
+    const email = input.email.toLowerCase();
+    const tokenHash = this.tokenService.hashToken(input.inviteToken!);
+
+    const existing = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findFirst({ where: { email, deletedAt: null } }),
+    );
+    if (existing) {
+      throw new ConflictException('An account with this email already exists');
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+
+    const { user, orgName } = await this.prisma.withAuthLookup(async (tx) => {
+      const invite = await tx.teamInvite.findUnique({
+        where: { tokenHash },
+        include: { organisation: true },
+      });
+
+      if (
+        !invite ||
+        invite.acceptedAt ||
+        invite.revokedAt ||
+        invite.expiresAt < new Date()
+      ) {
+        throw new BadRequestException('Invalid or expired team invite');
+      }
+
+      if (invite.email.toLowerCase() !== email) {
+        throw new BadRequestException(
+          'This invite was sent to a different email address',
+        );
+      }
+
+      const created = await tx.user.create({
+        data: {
+          accountType: AccountType.LENDER,
+          orgId: invite.orgId,
+          email,
+          name: input.name,
+          role: invite.role,
+          passwordHash,
+          // Org already onboarded — staff skip the onboarding wizard.
+          onboardingCompletedAt: new Date(),
+          ...(isEmailVerificationSkipped()
+            ? { emailVerifiedAt: new Date() }
+            : {}),
+        },
+      });
+
+      // Switch to org+user context so invite update, audit insert, and
+      // verification token insert pass their RLS policies.
+      await this.prisma.setSessionContext(tx, {
+        orgId: invite.orgId,
+        userId: created.id,
+      });
+
+      await tx.teamInvite.update({
+        where: { id: invite.id },
+        data: { acceptedAt: new Date() },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          orgId: invite.orgId,
+          userId: created.id,
+          action: 'team.member_joined',
+          entityType: 'USER',
+          entityId: created.id,
+          afterState: { name: created.name, email, role: invite.role },
+        },
+      });
+
+      if (!isEmailVerificationSkipped()) {
+        const { token, hash } = this.tokenService.generateOpaqueToken();
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + VERIFICATION_EXPIRY_HOURS);
+
+        await tx.emailVerificationToken.create({
+          data: { userId: created.id, tokenHash: hash, expiresAt },
+        });
+
+        await this.emailService.sendVerificationEmail(email, token);
+      }
+
+      return { user: created, orgName: invite.organisation.name };
+    });
+
+    return {
+      message: isEmailVerificationSkipped()
+        ? `You've joined ${orgName}. You can sign in now (${user.email}).`
+        : `You've joined ${orgName}. Please verify your email (${user.email}).`,
     };
   }
 

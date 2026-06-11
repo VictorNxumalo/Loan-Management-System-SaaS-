@@ -20,6 +20,7 @@ import type {
 } from '@lms/types';
 import { LoanStatus } from '@lms/types';
 import { previewRepaymentSchedule } from '@lms/utils';
+import { AuditService } from '../audit/audit.service';
 import { formatCents } from '../common/money';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoanBalanceService } from './loan-balance.service';
@@ -31,6 +32,7 @@ export class LoansService {
     private readonly prisma: PrismaService,
     private readonly scheduleService: LoansScheduleService,
     private readonly loanBalanceService: LoanBalanceService,
+    private readonly auditService: AuditService,
   ) {}
 
   previewSchedule(input: PreviewScheduleInputDto): SchedulePreviewResultDto {
@@ -117,6 +119,21 @@ export class LoansService {
         input,
         tx,
       );
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'loan.created',
+        entityType: 'LOAN',
+        entityId: loan.id,
+        after: {
+          borrowerId: input.borrowerId,
+          principalCents: input.principalCents,
+          annualRate: input.annualRate,
+          termPeriods: input.termPeriods,
+          status: LoanStatus.DRAFT,
+        },
+      });
 
       const created = await tx.loan.findFirstOrThrow({
         where: { id: loan.id, orgId },
@@ -242,6 +259,24 @@ export class LoansService {
         },
       });
 
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'loan.updated',
+        entityType: 'LOAN',
+        entityId: id,
+        before: {
+          principalCents: loan.principalCents,
+          annualRate: Number(loan.interestRate),
+          termPeriods: loan.termPeriods,
+        },
+        after: {
+          principalCents: updated.principalCents,
+          annualRate: Number(updated.interestRate),
+          termPeriods: updated.termPeriods,
+        },
+      });
+
       return this.mapDetail(updated);
     });
   }
@@ -263,6 +298,16 @@ export class LoansService {
       await tx.loan.update({
         where: { id },
         data: { status: LoanStatus.ACTIVE },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'loan.activated',
+        entityType: 'LOAN',
+        entityId: id,
+        before: { status: LoanStatus.DRAFT },
+        after: { status: LoanStatus.ACTIVE },
       });
     });
 
@@ -352,6 +397,20 @@ export class LoansService {
       await tx.loan.update({
         where: { id: loanId },
         data: { status: newSnapshot.resolvedStatus },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'repayment.recorded',
+        entityType: 'REPAYMENT',
+        entityId: repayment.id,
+        after: {
+          loanId,
+          amountCents: input.amountCents,
+          paymentDate: input.paymentDate,
+          loanStatusAfter: newSnapshot.resolvedStatus,
+        },
       });
 
       return {

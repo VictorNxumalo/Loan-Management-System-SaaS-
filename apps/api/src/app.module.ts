@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { BorrowersModule } from './borrowers/borrowers.module';
@@ -19,6 +20,7 @@ import { QueueModule } from './queue/queue.module';
 import { ReportsModule } from './reports/reports.module';
 import { SmsModule } from './sms/sms.module';
 import { StorageModule } from './storage/storage.module';
+import { TeamModule } from './team/team.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { StorageModule } from './storage/storage.module';
     SmsModule,
     EmailModule,
     AuthModule,
+    AuditModule,
+    TeamModule,
     LoansModule,
     BorrowersModule,
     DashboardModule,

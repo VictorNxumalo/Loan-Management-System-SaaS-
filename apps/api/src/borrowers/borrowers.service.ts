@@ -16,6 +16,7 @@ import type {
   UpdateBorrowerInput,
 } from '@lms/types';
 import { LoanStatus } from '@lms/types';
+import { AuditService } from '../audit/audit.service';
 import { formatCents } from '../common/money';
 import { LoanBalanceService } from '../loans/loan-balance.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,6 +26,7 @@ export class BorrowersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly loanBalanceService: LoanBalanceService,
+    private readonly auditService: AuditService,
   ) {}
 
   async list(
@@ -121,6 +123,15 @@ export class BorrowersService {
           },
         });
 
+        await this.auditService.record(tx, {
+          orgId,
+          userId,
+          action: 'borrower.created',
+          entityType: 'BORROWER',
+          entityId: created.id,
+          after: { fullName: created.fullName, idNumber: created.idNumber, phone: created.phone },
+        });
+
         return this.mapDetail(created, {
           totalLoans: 0,
           totalOutstandingFormatted: formatCents(0),
@@ -192,9 +203,30 @@ export class BorrowersService {
           },
         });
 
+        await this.auditService.record(tx, {
+          orgId,
+          userId,
+          action: 'borrower.updated',
+          entityType: 'BORROWER',
+          entityId: id,
+          before: {
+            fullName: existing.fullName,
+            idNumber: existing.idNumber,
+            phone: existing.phone,
+            email: existing.email,
+          },
+          after: {
+            fullName: updated.fullName,
+            idNumber: updated.idNumber,
+            phone: updated.phone,
+            email: updated.email,
+          },
+        });
+
         const summary = await this.buildSummary(tx, orgId, id);
         return this.mapDetail(updated, summary);
-      } catch {
+      } catch (error) {
+        if (error instanceof NotFoundException) throw error;
         throw new ConflictException('A borrower with this ID number already exists');
       }
     });
@@ -228,6 +260,15 @@ export class BorrowersService {
       await tx.borrower.update({
         where: { id },
         data: { deletedAt: new Date() },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'borrower.deleted',
+        entityType: 'BORROWER',
+        entityId: id,
+        before: { fullName: borrower.fullName, idNumber: borrower.idNumber },
       });
 
       return { message: 'Borrower deleted successfully' };

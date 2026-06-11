@@ -9,3 +9,4 @@ export * from './borrower-loan';
 export * from './notification';
 export * from './document';
 export * from './repayment';
+export * from './team';

@@ -7,6 +7,8 @@ export const registerSchema = z.object({
   name: z.string().min(1, 'Name is required').max(120),
   accountType: z.enum(['LENDER', 'BORROWER']),
   phone: z.string().min(7).max(20).optional(),
+  /** Team invite token — joins an existing lender organisation with the invited role. */
+  inviteToken: z.string().min(1).optional(),
 });
 
 export const borrowerOnboardingSchema = z.object({

@@ -24,9 +24,12 @@ type RegisterForm = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const inviteToken = searchParams.get('invite');
   const initialType =
     searchParams.get('type') === 'borrower' ? 'BORROWER' : 'LENDER';
-  const [accountType, setAccountType] = useState<'LENDER' | 'BORROWER'>(initialType);
+  const [accountType, setAccountType] = useState<'LENDER' | 'BORROWER'>(
+    inviteToken ? 'LENDER' : initialType,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +39,7 @@ export default function RegisterPage() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { accountType: initialType },
+    defaultValues: { accountType: inviteToken ? 'LENDER' : initialType },
   });
 
   const onSubmit = async (data: RegisterForm) => {
@@ -45,7 +48,11 @@ export default function RegisterPage() {
     try {
       const result = await apiFetch<{ message: string }>('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ ...data, accountType }),
+        body: JSON.stringify({
+          ...data,
+          accountType,
+          ...(inviteToken ? { inviteToken } : {}),
+        }),
       });
       setMessage(result.message);
       setTimeout(
@@ -66,28 +73,34 @@ export default function RegisterPage() {
     <main className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Create your account</CardTitle>
+          <CardTitle>
+            {inviteToken ? 'Join your team' : 'Create your account'}
+          </CardTitle>
           <CardDescription>
-            Choose whether you are setting up a lending workspace or a borrower profile.
+            {inviteToken
+              ? 'You have been invited to join a lending workspace. Use the email the invite was sent to.'
+              : 'Choose whether you are setting up a lending workspace or a borrower profile.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant={accountType === 'LENDER' ? 'default' : 'outline'}
-              onClick={() => setAccountType('LENDER')}
-            >
-              I lend money
-            </Button>
-            <Button
-              type="button"
-              variant={accountType === 'BORROWER' ? 'default' : 'outline'}
-              onClick={() => setAccountType('BORROWER')}
-            >
-              I want to borrow
-            </Button>
-          </div>
+          {!inviteToken && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={accountType === 'LENDER' ? 'default' : 'outline'}
+                onClick={() => setAccountType('LENDER')}
+              >
+                I lend money
+              </Button>
+              <Button
+                type="button"
+                variant={accountType === 'BORROWER' ? 'default' : 'outline'}
+                onClick={() => setAccountType('BORROWER')}
+              >
+                I want to borrow
+              </Button>
+            </div>
+          )}
 
           {message && (
             <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{message}</p>
@@ -125,7 +138,11 @@ export default function RegisterPage() {
               )}
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating account…' : 'Create account'}
+              {isSubmitting
+                ? 'Creating account…'
+                : inviteToken
+                  ? 'Join team'
+                  : 'Create account'}
             </Button>
           </form>
           <p className="text-center text-sm">

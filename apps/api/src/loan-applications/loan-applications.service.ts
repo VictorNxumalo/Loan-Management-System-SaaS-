@@ -14,6 +14,7 @@ import type {
   SubmitLoanApplicationInput,
 } from '@lms/types';
 import { LoanApplicationStatus, LoanStatus } from '@lms/types';
+import { AuditService } from '../audit/audit.service';
 import { formatCents } from '../common/money';
 import { PrismaService, PrismaTx } from '../prisma/prisma.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
@@ -48,6 +49,7 @@ export class LoanApplicationsService {
     private readonly prisma: PrismaService,
     private readonly scheduleService: LoansScheduleService,
     private readonly notificationDispatch: NotificationDispatchService,
+    private readonly auditService: AuditService,
   ) {}
 
   async submit(
@@ -264,6 +266,19 @@ export class LoanApplicationsService {
         include: { organisation: true },
       });
 
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'application.rejected',
+        entityType: 'LOAN_APPLICATION',
+        entityId: id,
+        before: { status: LoanApplicationStatus.SUBMITTED },
+        after: {
+          status: LoanApplicationStatus.REJECTED,
+          lenderNotes: input.lenderNotes.trim(),
+        },
+      });
+
       const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);
       const detail = this.mapDetail(this.toApplicationRow(updated, borrowerNames));
 
@@ -346,6 +361,21 @@ export class LoanApplicationsService {
           reviewedAt: new Date(),
         },
         include: { organisation: true },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'application.approved',
+        entityType: 'LOAN_APPLICATION',
+        entityId: application.id,
+        before: { status: LoanApplicationStatus.SUBMITTED },
+        after: {
+          status: LoanApplicationStatus.APPROVED,
+          loanId: loan.id,
+          borrowerId: borrowerRecord.id,
+          annualRate: input.annualRate,
+        },
       });
 
       const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);

@@ -79,7 +79,7 @@ export class BorrowersController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
+  @Roles(UserRole.ADMIN)
   remove(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.borrowersService.softDelete(user.orgId!, user.sub, id);
   }

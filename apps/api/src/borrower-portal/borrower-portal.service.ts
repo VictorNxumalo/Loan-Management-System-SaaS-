@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { MarketplaceLenderDto } from '@lms/types';
 import { AccountType, BorrowerLinkSource } from '@lms/types';
+import { AuditService } from '../audit/audit.service';
 import { isPublicListingEnabled } from '../common/organisation-settings';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../auth/token.service';
@@ -134,6 +135,7 @@ export class LenderSettingsService {
     private readonly prisma: PrismaService,
     private readonly tokenService: TokenService,
     private readonly emailService: EmailService,
+    private readonly auditService: AuditService,
   ) {}
 
   async updateOrganisationSettings(
@@ -155,6 +157,16 @@ export class LenderSettingsService {
               : {}),
           },
         },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'settings.updated',
+        entityType: 'ORGANISATION',
+        entityId: orgId,
+        before: { settings: current },
+        after: { settings: (updated.settings as Record<string, unknown>) ?? {} },
       });
 
       return {

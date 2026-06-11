@@ -32,6 +32,18 @@ export class EmailService {
     await this.send(email, subject, body, 'borrower-invite');
   }
 
+  async sendTeamInviteEmail(
+    email: string,
+    organisationName: string,
+    roleLabel: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `You've been invited to join ${organisationName} on LMS`;
+    const body = `You have been invited to join ${organisationName} as a ${roleLabel} on LMS.\n\nCreate your account using this link:\n${link}\n\nThis link expires in 14 days.`;
+
+    await this.send(email, subject, body, 'team-invite');
+  }
+
   async sendApplicationSubmittedEmail(
     email: string,
     borrowerName: string,

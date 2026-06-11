@@ -1,5 +1,6 @@
 import { InterestType, LoanStatus, RepaymentFrequency } from '@lms/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoanBalanceService } from './loan-balance.service';
 import { LoansScheduleService } from './loans-schedule.service';
@@ -11,7 +12,12 @@ describe.runIf(runIntegration)('LoansService integration', () => {
   const prisma = new PrismaService();
   const scheduleService = new LoansScheduleService(prisma);
   const balanceService = new LoanBalanceService();
-  const loansService = new LoansService(prisma, scheduleService, balanceService);
+  const loansService = new LoansService(
+    prisma,
+    scheduleService,
+    balanceService,
+    new AuditService(prisma),
+  );
 
   let orgId = '';
   let userId = '';
@@ -51,6 +57,9 @@ describe.runIf(runIntegration)('LoansService integration', () => {
   });
 
   afterAll(async () => {
+    if (orgId) {
+      await prisma.auditLog.deleteMany({ where: { orgId } });
+    }
     if (loanId) {
       await prisma.repayment.deleteMany({ where: { loanId } });
       await prisma.repaymentSchedule.deleteMany({ where: { loanId } });

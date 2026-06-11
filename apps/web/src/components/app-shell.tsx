@@ -35,9 +35,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Applications
               </Link>
               {showSettings && (
-                <Link href="/dashboard/settings" className="hover:text-foreground">
-                  Settings
-                </Link>
+                <>
+                  <Link href="/dashboard/team" className="hover:text-foreground">
+                    Team
+                  </Link>
+                  <Link href="/dashboard/audit-log" className="hover:text-foreground">
+                    Audit log
+                  </Link>
+                  <Link href="/dashboard/settings" className="hover:text-foreground">
+                    Settings
+                  </Link>
+                </>
               )}
             </nav>
           </div>
