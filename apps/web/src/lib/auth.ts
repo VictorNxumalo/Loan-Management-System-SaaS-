@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import type { AuthTokensResponse } from '@lms/types';
+import type { AuthMeResponse, AuthTokensResponse } from '@lms/types';
 import { apiFetch } from './api';
 
 function isGoogleOAuthEnabled(): boolean {
@@ -99,7 +99,25 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger }) {
+      // Client called useSession().update() after a server-side change
+      // (e.g. onboarding completed, settings saved) — re-fetch fresh state.
+      if (trigger === 'update' && token.accessToken) {
+        try {
+          const me = await apiFetch<AuthMeResponse>('/auth/me', {
+            accessToken: token.accessToken as string,
+          });
+          return {
+            ...token,
+            user: { ...(token.user as AuthTokensResponse['user']), ...me.user },
+            organisation: me.organisation ?? token.organisation,
+            borrowerProfile: me.borrowerProfile ?? token.borrowerProfile,
+          };
+        } catch {
+          return token;
+        }
+      }
+
       if (account?.provider === 'google' && account.id_token) {
         const data = await apiFetch<TokenBundle>('/auth/google', {
           method: 'POST',

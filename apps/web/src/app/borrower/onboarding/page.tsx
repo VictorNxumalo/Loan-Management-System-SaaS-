@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { borrowerOnboardingSchema } from '@lms/types';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ type BorrowerOnboardingForm = z.infer<typeof borrowerOnboardingSchema>;
 export default function BorrowerOnboardingPage() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
   const {
     register,
@@ -34,15 +36,20 @@ export default function BorrowerOnboardingPage() {
 
   const onSubmit = async (data: BorrowerOnboardingForm) => {
     if (!session?.accessToken) return;
+    setError(null);
 
-    await apiFetch('/auth/borrower-onboarding', {
-      method: 'PATCH',
-      accessToken: session.accessToken,
-      body: JSON.stringify(data),
-    });
+    try {
+      await apiFetch('/auth/borrower-onboarding', {
+        method: 'PATCH',
+        accessToken: session.accessToken,
+        body: JSON.stringify(data),
+      });
 
-    await update();
-    router.push('/borrower');
+      await update();
+      router.replace('/borrower');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save your profile');
+    }
   };
 
   if (status === 'loading') {
@@ -64,6 +71,7 @@ export default function BorrowerOnboardingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone number</Label>
