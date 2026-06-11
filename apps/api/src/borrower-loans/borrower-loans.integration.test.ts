@@ -159,6 +159,16 @@ describe.runIf(runIntegration)('Borrower loans integration', () => {
     expect(loan.schedule.length).toBeGreaterThan(0);
   }, 30_000);
 
+  it('borrower A can read an activated loan detail', async () => {
+    const activated = await loansService.activate(orgId, lenderUserId, loanAId);
+    expect(activated.status).toMatch(/ACTIVE|IN_ARREARS/);
+
+    const loan = await borrowerLoansService.getById(borrowerUserAId, loanAId);
+    expect(loan.id).toBe(loanAId);
+    expect(loan.schedule.length).toBeGreaterThan(0);
+    expect(loan.status).toMatch(/ACTIVE|IN_ARREARS|PAID_OFF/);
+  }, 30_000);
+
   it('borrower B cannot read borrower A loan by id', async () => {
     await expect(
       borrowerLoansService.getById(borrowerUserBId, loanAId),

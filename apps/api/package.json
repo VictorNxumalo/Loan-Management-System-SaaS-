@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "predev": "node -e \"try{require('fs').rmSync('dist',{recursive:true,force:true});require('fs').unlinkSync('tsconfig.build.tsbuildinfo')}catch(e){}\"",
-    "dev": "nest build && node --watch dist/main.js",
+    "dev": "nest start --watch",
     "start": "nest start",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "type-check": "tsc --noEmit",

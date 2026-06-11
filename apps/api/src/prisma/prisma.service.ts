@@ -6,17 +6,41 @@ export type PrismaTx = Omit<
   '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'
 >;
 
+const INTERACTIVE_TX_OPTIONS = { timeout: 15_000, maxWait: 10_000 } as const;
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  /**
+   * Supabase transaction pooler (:6543, pgbouncer=true) does not support Prisma
+   * interactive transactions. Use DIRECT_URL (session pooler :5432) for RLS-scoped work.
+   */
+  private readonly interactiveClient: PrismaClient;
+
+  constructor() {
+    super();
+    const directUrl = process.env.DIRECT_URL;
+    const databaseUrl = process.env.DATABASE_URL;
+    this.interactiveClient =
+      directUrl && directUrl !== databaseUrl
+        ? new PrismaClient({ datasources: { db: { url: directUrl } } })
+        : this;
+  }
+
   async onModuleInit() {
     await this.$connect();
+    if (this.interactiveClient !== this) {
+      await this.interactiveClient.$connect();
+    }
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
+    if (this.interactiveClient !== this) {
+      await this.interactiveClient.$disconnect();
+    }
   }
 
   async setSessionContext(
@@ -54,13 +78,10 @@ export class PrismaService
     userId: string,
     fn: (tx: PrismaTx) => Promise<T>,
   ): Promise<T> {
-    return this.$transaction(
-      async (tx) => {
-        await this.setSessionContext(tx, { orgId, userId });
-        return fn(tx);
-      },
-      { timeout: 15_000 },
-    );
+    return this.interactiveClient.$transaction(async (tx) => {
+      await this.setSessionContext(tx, { orgId, userId });
+      return fn(tx);
+    }, INTERACTIVE_TX_OPTIONS);
   }
 
   async withUserContext<T>(
@@ -68,19 +89,19 @@ export class PrismaService
     orgId: string | null | undefined,
     fn: (tx: PrismaTx) => Promise<T>,
   ): Promise<T> {
-    return this.$transaction(async (tx) => {
+    return this.interactiveClient.$transaction(async (tx) => {
       await this.setSessionContext(tx, {
         userId,
         ...(orgId ? { orgId } : {}),
       });
       return fn(tx);
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   }
 
   async withAuthLookup<T>(fn: (tx: PrismaTx) => Promise<T>): Promise<T> {
-    return this.$transaction(async (tx) => {
+    return this.interactiveClient.$transaction(async (tx) => {
       await this.setSessionContext(tx, { authLookup: true, tokenLookup: true });
       return fn(tx);
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   }
 }

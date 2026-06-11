@@ -101,28 +101,11 @@ export class BorrowerLoansService {
         throw new NotFoundException('Loan not found');
       }
 
-      if (loan.status !== LoanStatus.DRAFT && loan.status !== LoanStatus.WRITTEN_OFF) {
-        await this.loanBalanceService.syncLoanStatus(
-          tx,
-          loan.orgId,
-          loan.id,
-          loan.status,
-        );
-      }
-
-      const refreshed = await tx.loan.findFirstOrThrow({
-        where: { id: loanId },
-        include: {
-          repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
-          repayments: { orderBy: { paymentDate: 'desc' } },
-        },
-      });
-
       const org = await tx.organisation.findFirst({
-        where: { id: refreshed.orgId, deletedAt: null },
+        where: { id: loan.orgId, deletedAt: null },
       });
 
-      return this.mapDetail(refreshed, org?.name ?? 'Unknown lender');
+      return this.mapDetail(loan, org?.name ?? 'Unknown lender');
     });
   }
 
@@ -187,14 +170,15 @@ export class BorrowerLoansService {
       row.repayments,
       row.status as typeof LoanStatus.DRAFT,
     );
+    const displayStatus = snapshot.resolvedStatus;
 
     return {
       id: row.id,
       orgId: row.orgId,
       organisationName,
       principalFormatted: formatCents(row.principalCents),
-      status: row.status,
-      statusLabel: this.statusLabel(row.status),
+      status: displayStatus,
+      statusLabel: this.statusLabel(displayStatus),
       startDate: row.startDate.toISOString().slice(0, 10),
       outstandingBalanceFormatted: formatCents(snapshot.outstandingCents),
       createdAt: row.createdAt.toISOString(),
@@ -237,9 +221,10 @@ export class BorrowerLoansService {
       row.repayments,
       row.status as typeof LoanStatus.DRAFT,
     );
+    const displayStatus = snapshot.resolvedStatus;
 
     const daysOverdue =
-      row.status === LoanStatus.IN_ARREARS
+      displayStatus === LoanStatus.IN_ARREARS
         ? computeDaysOverdue(row.repaymentSchedules, snapshot.totalPaidCents)
         : null;
 
@@ -254,8 +239,8 @@ export class BorrowerLoansService {
       termPeriods: row.termPeriods,
       frequency: row.frequency,
       startDate: row.startDate.toISOString().slice(0, 10),
-      status: row.status,
-      statusLabel: this.statusLabel(row.status),
+      status: displayStatus,
+      statusLabel: this.statusLabel(displayStatus),
       totalScheduledFormatted: formatCents(snapshot.totalScheduledCents),
       totalPaidFormatted: formatCents(snapshot.totalPaidCents),
       outstandingBalanceFormatted: formatCents(snapshot.outstandingCents),
