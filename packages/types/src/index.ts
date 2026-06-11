@@ -6,4 +6,5 @@ export * from './dashboard';
 export * from './loan';
 export * from './loan-application';
 export * from './borrower-loan';
+export * from './notification';
 export * from './repayment';

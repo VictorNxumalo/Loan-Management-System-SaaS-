@@ -17,6 +17,7 @@ import { LoanApplicationStatus, LoanStatus } from '@lms/types';
 import { formatCents } from '../common/money';
 import { PrismaService, PrismaTx } from '../prisma/prisma.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
+import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 
 type ApplicationDbRow = {
   id: string;
@@ -46,6 +47,7 @@ export class LoanApplicationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scheduleService: LoansScheduleService,
+    private readonly notificationDispatch: NotificationDispatchService,
   ) {}
 
   async submit(
@@ -100,7 +102,16 @@ export class LoanApplicationsService {
         },
       });
 
-      return this.mapDetail(this.toApplicationRow(created));
+      const detail = this.mapDetail(this.toApplicationRow(created));
+
+      void this.notificationDispatch.notifyApplicationSubmitted({
+        orgId: input.orgId,
+        applicationId: created.id,
+        borrowerName: detail.borrowerName,
+        principalCents: input.principalCents,
+      });
+
+      return detail;
     });
   }
 
@@ -254,7 +265,18 @@ export class LoanApplicationsService {
       });
 
       const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);
-      return this.mapDetail(this.toApplicationRow(updated, borrowerNames));
+      const detail = this.mapDetail(this.toApplicationRow(updated, borrowerNames));
+
+      void this.notificationDispatch.notifyApplicationRejected({
+        orgId,
+        applicationId: id,
+        borrowerUserId: updated.borrowerUserId,
+        organisationName: updated.organisation.name,
+        principalCents: updated.principalCents,
+        lenderNotes: input.lenderNotes.trim(),
+      });
+
+      return detail;
     });
   }
 
@@ -327,9 +349,18 @@ export class LoanApplicationsService {
       });
 
       const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);
+      const detail = this.mapDetail(this.toApplicationRow(updated, borrowerNames));
+
+      void this.notificationDispatch.notifyApplicationApproved({
+        orgId,
+        applicationId: application.id,
+        borrowerUserId: application.borrowerUserId,
+        organisationName: application.organisation.name,
+        principalCents: application.principalCents,
+      });
 
       return {
-        application: this.mapDetail(this.toApplicationRow(updated, borrowerNames)),
+        application: detail,
         loanId: loan.id,
         borrowerId: borrowerRecord.id,
       };

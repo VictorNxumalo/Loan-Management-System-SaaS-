@@ -4,6 +4,7 @@ import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AccountTypeBadge, RoleBadge } from '@/components/role-badge';
+import { NotificationBell } from '@/components/notification-bell';
 import { Button } from '@/components/ui/button';
 import { canManageSettings } from '@/lib/permissions';
 
@@ -41,6 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium">{session?.user?.name}</p>
               <p className="text-xs text-muted-foreground">

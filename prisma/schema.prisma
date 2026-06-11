@@ -410,6 +410,7 @@ model Notification {
   type              String
   title             String
   body              String
+  dedupKey          String?   @map("dedup_key")
   readAt            DateTime? @map("read_at")
   relatedEntityType String?   @map("related_entity_type")
   relatedEntityId   String?   @map("related_entity_id") @db.Uuid
@@ -418,6 +419,7 @@ model Notification {
   organisation Organisation @relation(fields: [orgId], references: [id])
   user         User         @relation(fields: [userId], references: [id])
 
+  @@unique([userId, dedupKey])
   @@index([orgId, userId])
   @@index([orgId, userId, readAt])
   @@map("notifications")

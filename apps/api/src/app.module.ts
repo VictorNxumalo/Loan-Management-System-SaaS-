@@ -12,7 +12,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { LoanApplicationsModule } from './loan-applications/loan-applications.module';
 import { LoansModule } from './loans/loans.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { QueueModule } from './queue/queue.module';
+import { SmsModule } from './sms/sms.module';
 
 @Module({
   imports: [
@@ -23,6 +26,8 @@ import { PrismaModule } from './prisma/prisma.module';
       },
     ]),
     PrismaModule,
+    QueueModule,
+    SmsModule,
     EmailModule,
     AuthModule,
     LoansModule,
@@ -32,6 +37,7 @@ import { PrismaModule } from './prisma/prisma.module';
     BorrowerPortalModule,
     BorrowerLoansModule,
     LoanApplicationsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

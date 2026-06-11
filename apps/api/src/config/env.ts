@@ -18,6 +18,13 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   CRON_OVERDUE_ENABLED: z.coerce.boolean().default(true),
   CRON_OVERDUE_SCHEDULE: z.string().default('0 6 * * *'),
+  CRON_REMINDER_ENABLED: z.coerce.boolean().default(true),
+  CRON_REMINDER_SCHEDULE: z.string().default('0 7 * * *'),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM_NUMBER: z.string().optional(),
+  AFRICASTALKING_API_KEY: z.string().optional(),
+  AFRICASTALKING_USERNAME: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -50,4 +57,20 @@ export function isGoogleOAuthConfigured(): boolean {
 
 export function isEmailVerificationSkipped(): boolean {
   return getEnv().SKIP_EMAIL_VERIFICATION;
+}
+
+export function isTwilioConfigured(): boolean {
+  const env = getEnv();
+  return Boolean(
+    env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER,
+  );
+}
+
+export function isAfricasTalkingConfigured(): boolean {
+  const env = getEnv();
+  return Boolean(env.AFRICASTALKING_API_KEY && env.AFRICASTALKING_USERNAME);
+}
+
+export function isSmsConfigured(): boolean {
+  return isAfricasTalkingConfigured() || isTwilioConfigured();
 }

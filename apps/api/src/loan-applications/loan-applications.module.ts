@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { LoansModule } from '../loans/loans.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import {
   BorrowerApplicationsController,
   LenderApplicationsController,
@@ -7,7 +8,7 @@ import {
 import { LoanApplicationsService } from './loan-applications.service';
 
 @Module({
-  imports: [LoansModule],
+  imports: [LoansModule, NotificationsModule],
   controllers: [BorrowerApplicationsController, LenderApplicationsController],
   providers: [LoanApplicationsService],
 })

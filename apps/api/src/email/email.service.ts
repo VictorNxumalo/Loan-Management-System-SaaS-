@@ -32,6 +32,69 @@ export class EmailService {
     await this.send(email, subject, body, 'borrower-invite');
   }
 
+  async sendApplicationSubmittedEmail(
+    email: string,
+    borrowerName: string,
+    principalFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `New loan application from ${borrowerName}`;
+    const body = `${borrowerName} submitted a loan application for ${principalFormatted}.\n\nReview it here:\n${link}`;
+
+    await this.send(email, subject, body, 'application-submitted');
+  }
+
+  async sendApplicationApprovedEmail(
+    email: string,
+    organisationName: string,
+    principalFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Your loan application was approved — ${organisationName}`;
+    const body = `${organisationName} approved your application for ${principalFormatted}.\n\nView details:\n${link}`;
+
+    await this.send(email, subject, body, 'application-approved');
+  }
+
+  async sendApplicationRejectedEmail(
+    email: string,
+    organisationName: string,
+    principalFormatted: string,
+    reason: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Update on your loan application — ${organisationName}`;
+    const body = `${organisationName} declined your application for ${principalFormatted}.\n\nReason: ${reason}\n\nView details:\n${link}`;
+
+    await this.send(email, subject, body, 'application-rejected');
+  }
+
+  async sendRepaymentReminderEmail(
+    email: string,
+    organisationName: string,
+    dueDate: string,
+    amountFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Repayment reminder — due ${dueDate}`;
+    const body = `Your repayment of ${amountFormatted} to ${organisationName} is due on ${dueDate} (in 3 days).\n\nView your loan:\n${link}`;
+
+    await this.send(email, subject, body, 'repayment-reminder');
+  }
+
+  async sendLoanOverdueEmail(
+    email: string,
+    borrowerName: string,
+    daysOverdue: number,
+    outstandingFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Loan overdue — ${borrowerName}`;
+    const body = `The loan for ${borrowerName} is ${daysOverdue} day(s) overdue with ${outstandingFormatted} outstanding.\n\nReview the loan:\n${link}`;
+
+    await this.send(email, subject, body, 'loan-overdue');
+  }
+
   private async send(
     to: string,
     subject: string,

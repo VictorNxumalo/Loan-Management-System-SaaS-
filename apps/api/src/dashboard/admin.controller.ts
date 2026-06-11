@@ -10,12 +10,18 @@ import { LenderGuard } from '../common/guards/account-type.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { getEnv } from '../config/env';
+import { NotificationSchedulerService } from '../notifications/notification-scheduler.service';
+import { ReminderCronService } from '../notifications/reminder-cron.service';
 import { OverdueSweepService } from './overdue-sweep.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, LenderGuard, RolesGuard)
 export class AdminController {
-  constructor(private readonly overdueSweepService: OverdueSweepService) {}
+  constructor(
+    private readonly overdueSweepService: OverdueSweepService,
+    private readonly notificationSchedulerService: NotificationSchedulerService,
+    private readonly reminderCronService: ReminderCronService,
+  ) {}
 
   @Post('run-overdue-check')
   @Roles(UserRole.ADMIN)
@@ -25,5 +31,15 @@ export class AdminController {
     }
 
     return this.overdueSweepService.sweepAllOrganisations();
+  }
+
+  @Post('run-repayment-reminders')
+  @Roles(UserRole.ADMIN)
+  runRepaymentReminders() {
+    if (getEnv().NODE_ENV !== 'development') {
+      throw new NotFoundException();
+    }
+
+    return this.reminderCronService.run('manual');
   }
 }
