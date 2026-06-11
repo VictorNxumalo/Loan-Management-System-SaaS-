@@ -63,7 +63,7 @@ export class LenderApplicationsController {
   constructor(private readonly applicationsService: LoanApplicationsService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
   list(
     @CurrentUser() user: AccessTokenPayload,
     @Query(new ZodValidationPipe(listLoanApplicationsQuerySchema))
@@ -73,7 +73,7 @@ export class LenderApplicationsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
   getById(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.applicationsService.getForLender(user.orgId!, user.sub, id);
   }

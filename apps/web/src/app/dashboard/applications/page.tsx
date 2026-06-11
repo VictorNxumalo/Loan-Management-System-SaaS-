@@ -1,29 +1,27 @@
 'use client';
 
-import type { LoanApplicationListItemDto } from '@lms/types';
+import type { LoanApplicationListItemDto, PaginatedLoanApplicationsDto } from '@lms/types';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
-import { useApi } from '@/lib/use-api';
+import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 import { canManageRecords } from '@/lib/permissions';
 import { useSession } from 'next-auth/react';
 
 export default function LenderApplicationsPage() {
-  const api = useApi();
   const { data: session } = useSession();
   const canReview = canManageRecords(session?.user?.role ?? undefined);
-  const [applications, setApplications] = useState<LoanApplicationListItemDto[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>('SUBMITTED');
-  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('SUBMITTED');
 
-  useEffect(() => {
+  const path = useMemo(() => {
     const query = statusFilter ? `?status=${statusFilter}&limit=50` : '?limit=50';
-    void api<{ items: LoanApplicationListItemDto[] }>(`/applications${query}`)
-      .then((result) => setApplications(result.items))
-      .catch((err: Error) => setError(err.message));
-  }, [api, statusFilter]);
+    return `/applications${query}`;
+  }, [statusFilter]);
+
+  const { data, error, loading } = useAuthenticatedQuery<PaginatedLoanApplicationsDto>(path);
+  const applications = data?.items ?? [];
 
   return (
     <div className="space-y-6">
@@ -48,6 +46,7 @@ export default function LenderApplicationsPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading applications…</p>}
 
       {!canReview && (
         <p className="text-sm text-muted-foreground">
@@ -55,7 +54,7 @@ export default function LenderApplicationsPage() {
         </p>
       )}
 
-      {applications.length === 0 && !error && (
+      {!loading && applications.length === 0 && !error && (
         <EmptyState
           title="No applications in this view"
           description="When a connected borrower submits a loan request, it will appear here for review."
@@ -63,7 +62,7 @@ export default function LenderApplicationsPage() {
       )}
 
       <div className="space-y-3">
-        {applications.map((application) => (
+        {applications.map((application: LoanApplicationListItemDto) => (
           <Link
             key={application.id}
             href={`/dashboard/applications/${application.id}`}

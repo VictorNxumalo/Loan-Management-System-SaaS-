@@ -30,6 +30,9 @@ export function BorrowerShell({ children }: { children: ReactNode }) {
               <Link href="/borrower/applications" className="hover:text-foreground">
                 My applications
               </Link>
+              <Link href="/borrower/loans" className="hover:text-foreground">
+                My loans
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">

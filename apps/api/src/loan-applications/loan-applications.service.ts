@@ -18,7 +18,7 @@ import { formatCents } from '../common/money';
 import { PrismaService, PrismaTx } from '../prisma/prisma.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
 
-type ApplicationRow = {
+type ApplicationDbRow = {
   id: string;
   orgId: string;
   borrowerUserId: string;
@@ -36,8 +36,10 @@ type ApplicationRow = {
   createdAt: Date;
   updatedAt: Date;
   organisation: { name: string };
-  borrowerUser: { name: string };
+  borrowerUser?: { name: string } | null;
 };
+
+type ApplicationRow = ApplicationDbRow & { borrowerName: string };
 
 @Injectable()
 export class LoanApplicationsService {
@@ -98,7 +100,7 @@ export class LoanApplicationsService {
         },
       });
 
-      return this.mapDetail(created as ApplicationRow);
+      return this.mapDetail(this.toApplicationRow(created));
     });
   }
 
@@ -125,7 +127,7 @@ export class LoanApplicationsService {
         }),
       ]);
 
-      return this.paginate(rows as ApplicationRow[], query, total);
+      return this.paginate(rows.map((row) => this.toApplicationRow(row)), query, total);
     });
   }
 
@@ -143,7 +145,7 @@ export class LoanApplicationsService {
         throw new NotFoundException('Application not found');
       }
 
-      return this.mapDetail(row as ApplicationRow);
+      return this.mapDetail(this.toApplicationRow(row));
     });
   }
 
@@ -164,7 +166,7 @@ export class LoanApplicationsService {
         include: { organisation: true, borrowerUser: true },
       });
 
-      return this.mapDetail(updated as ApplicationRow);
+      return this.mapDetail(this.toApplicationRow(updated));
     });
   }
 
@@ -185,14 +187,22 @@ export class LoanApplicationsService {
         tx.loanApplication.count({ where }),
         tx.loanApplication.findMany({
           where,
-          include: { organisation: true, borrowerUser: true },
+          include: { organisation: true },
           orderBy: { createdAt: 'desc' },
           skip,
           take: query.limit,
         }),
       ]);
 
-      return this.paginate(rows as ApplicationRow[], query, total);
+      const borrowerNames = await this.resolveBorrowerNames(
+        rows.map((row) => row.borrowerUserId),
+      );
+
+      return this.paginate(
+        rows.map((row) => this.toApplicationRow(row, borrowerNames)),
+        query,
+        total,
+      );
     });
   }
 
@@ -204,14 +214,15 @@ export class LoanApplicationsService {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const row = await tx.loanApplication.findFirst({
         where: { id, orgId },
-        include: { organisation: true, borrowerUser: true },
+        include: { organisation: true },
       });
 
       if (!row) {
         throw new NotFoundException('Application not found');
       }
 
-      return this.mapDetail(row as ApplicationRow);
+      const borrowerNames = await this.resolveBorrowerNames([row.borrowerUserId]);
+      return this.mapDetail(this.toApplicationRow(row, borrowerNames));
     });
   }
 
@@ -224,7 +235,7 @@ export class LoanApplicationsService {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const row = await tx.loanApplication.findFirst({
         where: { id, orgId, status: LoanApplicationStatus.SUBMITTED },
-        include: { organisation: true, borrowerUser: true },
+        include: { organisation: true },
       });
 
       if (!row) {
@@ -239,10 +250,11 @@ export class LoanApplicationsService {
           reviewedByUserId: userId,
           reviewedAt: new Date(),
         },
-        include: { organisation: true, borrowerUser: true },
+        include: { organisation: true },
       });
 
-      return this.mapDetail(updated as ApplicationRow);
+      const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);
+      return this.mapDetail(this.toApplicationRow(updated, borrowerNames));
     });
   }
 
@@ -252,10 +264,12 @@ export class LoanApplicationsService {
     id: string,
     input: ApproveLoanApplicationInput,
   ): Promise<ApproveLoanApplicationResultDto> {
+    const platformUser = await this.loadBorrowerPlatformUser(id, orgId, userId);
+
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const application = await tx.loanApplication.findFirst({
         where: { id, orgId, status: LoanApplicationStatus.SUBMITTED },
-        include: { organisation: true, borrowerUser: true },
+        include: { organisation: true },
       });
 
       if (!application) {
@@ -266,6 +280,7 @@ export class LoanApplicationsService {
         tx,
         orgId,
         application.borrowerUserId,
+        platformUser,
       );
 
       const loan = await tx.loan.create({
@@ -308,21 +323,75 @@ export class LoanApplicationsService {
           reviewedByUserId: userId,
           reviewedAt: new Date(),
         },
-        include: { organisation: true, borrowerUser: true },
+        include: { organisation: true },
       });
 
+      const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);
+
       return {
-        application: this.mapDetail(updated as ApplicationRow),
+        application: this.mapDetail(this.toApplicationRow(updated, borrowerNames)),
         loanId: loan.id,
         borrowerId: borrowerRecord.id,
       };
     });
   }
 
+  private async loadBorrowerPlatformUser(
+    applicationId: string,
+    orgId: string,
+    userId: string,
+  ) {
+    const application = await this.prisma.withOrgContext(orgId, userId, async (tx) =>
+      tx.loanApplication.findFirst({
+        where: { id: applicationId, orgId, status: LoanApplicationStatus.SUBMITTED },
+        select: { borrowerUserId: true },
+      }),
+    );
+
+    if (!application) {
+      throw new NotFoundException('Pending application not found');
+    }
+
+    return this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findUnique({
+        where: { id: application.borrowerUserId },
+        include: { borrowerAccount: true },
+      }),
+    );
+  }
+
+  private async resolveBorrowerNames(userIds: string[]): Promise<Map<string, string>> {
+    const uniqueIds = [...new Set(userIds)];
+    if (uniqueIds.length === 0) {
+      return new Map();
+    }
+
+    const users = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findMany({
+        where: { id: { in: uniqueIds } },
+        select: { id: true, name: true },
+      }),
+    );
+
+    return new Map(users.map((user) => [user.id, user.name]));
+  }
+
+  private toApplicationRow(
+    row: ApplicationDbRow,
+    borrowerNames?: Map<string, string>,
+  ): ApplicationRow {
+    return {
+      ...row,
+      borrowerName:
+        row.borrowerUser?.name ?? borrowerNames?.get(row.borrowerUserId) ?? 'Borrower',
+    };
+  }
+
   private async ensureBorrowerRecord(
     tx: PrismaTx,
     orgId: string,
     borrowerUserId: string,
+    platformUser: Awaited<ReturnType<LoanApplicationsService['loadBorrowerPlatformUser']>>,
   ) {
     const existing = await tx.borrower.findFirst({
       where: { orgId, platformUserId: borrowerUserId, deletedAt: null },
@@ -332,27 +401,22 @@ export class LoanApplicationsService {
       return existing;
     }
 
-    const user = await tx.user.findUnique({
-      where: { id: borrowerUserId },
-      include: { borrowerAccount: true },
-    });
-
-    if (!user?.borrowerAccount) {
+    if (!platformUser?.borrowerAccount) {
       throw new BadRequestException('Borrower profile is incomplete');
     }
 
     const idNumber =
-      user.borrowerAccount.idNumber?.trim() ||
+      platformUser.borrowerAccount.idNumber?.trim() ||
       `PLATFORM-${borrowerUserId.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
 
     return tx.borrower.create({
       data: {
         orgId,
         platformUserId: borrowerUserId,
-        fullName: user.name,
+        fullName: platformUser.name,
         idNumber,
-        phone: user.borrowerAccount.phone,
-        email: user.email,
+        phone: platformUser.borrowerAccount.phone,
+        email: platformUser.email,
       },
     });
   }
@@ -377,7 +441,7 @@ export class LoanApplicationsService {
       orgId: row.orgId,
       organisationName: row.organisation.name,
       borrowerUserId: row.borrowerUserId,
-      borrowerName: row.borrowerUser.name,
+      borrowerName: row.borrowerName,
       principalFormatted: formatCents(row.principalCents),
       status: row.status,
       purpose: row.purpose,

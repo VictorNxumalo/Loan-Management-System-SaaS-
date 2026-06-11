@@ -59,6 +59,20 @@ export default function BorrowerHomePage() {
             </Button>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>My loans</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              View active and completed loans from lenders you are connected with.
+            </p>
+            <Button variant="outline" asChild>
+              <Link href="/borrower/loans">View my loans</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

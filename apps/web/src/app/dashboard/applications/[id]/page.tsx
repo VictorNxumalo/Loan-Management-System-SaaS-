@@ -6,12 +6,13 @@ import type {
 } from '@lms/types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useApi } from '@/lib/use-api';
+import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 import { canManageRecords } from '@/lib/permissions';
 import { useSession } from 'next-auth/react';
 
@@ -22,22 +23,20 @@ export default function LenderApplicationDetailPage() {
   const { data: session } = useSession();
   const canReview = canManageRecords(session?.user?.role ?? undefined);
 
-  const [application, setApplication] = useState<LoanApplicationDetailDto | null>(null);
+  const { data: application, error, loading, refetch } =
+    useAuthenticatedQuery<LoanApplicationDetailDto>(
+      params.id ? `/applications/${params.id}` : null,
+    );
+
   const [annualRate, setAnnualRate] = useState('12');
   const [approveNotes, setApproveNotes] = useState('');
   const [rejectNotes, setRejectNotes] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<'approve' | 'reject' | null>(null);
-
-  useEffect(() => {
-    void api<LoanApplicationDetailDto>(`/applications/${params.id}`)
-      .then(setApplication)
-      .catch((err: Error) => setError(err.message));
-  }, [api, params.id]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | null>(null);
 
   const approve = async () => {
-    setLoading('approve');
-    setError(null);
+    setActionLoading('approve');
+    setActionError(null);
     try {
       const result = await api<ApproveLoanApplicationResultDto>(
         `/applications/${params.id}/approve`,
@@ -49,44 +48,51 @@ export default function LenderApplicationDetailPage() {
           }),
         },
       );
-      setApplication(result.application);
+      await refetch();
+      if (result.application) {
+        // refetch updates application state via hook
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not approve application');
+      setActionError(err instanceof Error ? err.message : 'Could not approve application');
     } finally {
-      setLoading(null);
+      setActionLoading(null);
     }
   };
 
   const reject = async () => {
     if (!rejectNotes.trim()) {
-      setError('Please provide a reason for rejection');
+      setActionError('Please provide a reason for rejection');
       return;
     }
 
-    setLoading('reject');
-    setError(null);
+    setActionLoading('reject');
+    setActionError(null);
     try {
-      const updated = await api<LoanApplicationDetailDto>(
-        `/applications/${params.id}/reject`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ lenderNotes: rejectNotes.trim() }),
-        },
-      );
-      setApplication(updated);
+      await api<LoanApplicationDetailDto>(`/applications/${params.id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ lenderNotes: rejectNotes.trim() }),
+      });
+      await refetch();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reject application');
+      setActionError(err instanceof Error ? err.message : 'Could not reject application');
     } finally {
-      setLoading(null);
+      setActionLoading(null);
     }
   };
 
-  if (!application && !error) {
+  if (loading) {
     return <p className="text-muted-foreground">Loading application…</p>;
   }
 
-  if (!application) {
-    return <p className="text-sm text-destructive">{error}</p>;
+  if (error || !application) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-destructive">{error ?? 'Application not found'}</p>
+        <Link href="/dashboard/applications" className="text-sm text-primary hover:underline">
+          Back to applications
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -108,7 +114,7 @@ export default function LenderApplicationDetailPage() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
       <div className="rounded-lg border bg-background p-6 space-y-4">
         <dl className="grid gap-4 sm:grid-cols-2">
@@ -191,11 +197,8 @@ export default function LenderApplicationDetailPage() {
                 onChange={(e) => setApproveNotes(e.target.value)}
               />
             </div>
-            <Button
-              disabled={loading !== null}
-              onClick={() => void approve()}
-            >
-              {loading === 'approve' ? 'Approving…' : 'Approve application'}
+            <Button disabled={actionLoading !== null} onClick={() => void approve()}>
+              {actionLoading === 'approve' ? 'Approving…' : 'Approve application'}
             </Button>
           </div>
 
@@ -214,10 +217,10 @@ export default function LenderApplicationDetailPage() {
             </div>
             <Button
               variant="destructive"
-              disabled={loading !== null}
+              disabled={actionLoading !== null}
               onClick={() => void reject()}
             >
-              {loading === 'reject' ? 'Rejecting…' : 'Reject application'}
+              {actionLoading === 'reject' ? 'Rejecting…' : 'Reject application'}
             </Button>
           </div>
         </div>
