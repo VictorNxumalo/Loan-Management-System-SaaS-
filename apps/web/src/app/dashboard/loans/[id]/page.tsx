@@ -1,17 +1,28 @@
 'use client';
 
 import type { LoanDetailDto, RepaymentDto } from '@lms/types';
+import { LOAN_DOCUMENT_LABELS, LoanDocumentType } from '@lms/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { DocumentUploadPanel } from '@/components/document-upload-panel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { canManageRecords } from '@/lib/permissions';
 import { useApi } from '@/lib/use-api';
+
+const loanDocumentTypes = Object.values(LoanDocumentType).map((value) => ({
+  value,
+  label: LOAN_DOCUMENT_LABELS[value],
+}));
 
 export default function LoanDetailPage() {
   const api = useApi();
+  const { data: session } = useSession();
+  const canManage = canManageRecords(session?.user?.role ?? undefined);
   const params = useParams<{ id: string }>();
   const [loan, setLoan] = useState<LoanDetailDto | null>(null);
   const [repayments, setRepayments] = useState<RepaymentDto[]>([]);
@@ -108,6 +119,14 @@ export default function LoanDetailPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <DocumentUploadPanel
+        entityType="LOAN"
+        entityId={loan.id}
+        documentTypes={loanDocumentTypes}
+        canManage={canManage}
+        title="Loan documents"
+      />
 
       {canRecordRepayment && (
         <Card>

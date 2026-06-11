@@ -366,7 +366,7 @@ model Document {
   entityType       DocumentEntityType @map("entity_type")
   entityId         String             @map("entity_id") @db.Uuid
   documentType     String             @map("document_type")
-  s3Key            String             @map("s3_key")
+  storagePath      String             @map("storage_path")
   originalFilename String             @map("original_filename")
   uploadedByUserId String             @map("uploaded_by_user_id") @db.Uuid
   createdAt        DateTime           @default(now()) @map("created_at")

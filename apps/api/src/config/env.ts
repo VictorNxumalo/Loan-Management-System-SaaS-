@@ -25,6 +25,10 @@ const envSchema = z.object({
   TWILIO_FROM_NUMBER: z.string().optional(),
   AFRICASTALKING_API_KEY: z.string().optional(),
   AFRICASTALKING_USERNAME: z.string().optional(),
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  SUPABASE_STORAGE_BUCKET: z.string().default('lms-documents'),
+  DOCUMENT_URL_EXPIRY_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -73,4 +77,13 @@ export function isAfricasTalkingConfigured(): boolean {
 
 export function isSmsConfigured(): boolean {
   return isAfricasTalkingConfigured() || isTwilioConfigured();
+}
+
+export function isSupabaseStorageConfigured(): boolean {
+  const env = getEnv();
+  return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+export function getDocumentUrlExpirySeconds(): number {
+  return getEnv().DOCUMENT_URL_EXPIRY_SECONDS;
 }

@@ -4,6 +4,7 @@ import type { DashboardDto } from '@lms/types';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { ReportsExportPanel } from '@/components/reports-export-panel';
 import {
   Card,
   CardContent,
@@ -69,6 +70,8 @@ export default function DashboardPage() {
               value={`${data.kpis.arrearsRatePercent}%`}
             />
           </div>
+
+          <ReportsExportPanel />
 
           <Card>
             <CardHeader>

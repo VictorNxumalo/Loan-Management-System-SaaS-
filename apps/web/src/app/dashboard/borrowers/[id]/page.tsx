@@ -1,15 +1,30 @@
 'use client';
 
 import type { BorrowerDetailDto, PaginatedLoansDto } from '@lms/types';
+import {
+  BORROWER_DOCUMENT_LABELS,
+  BorrowerDocumentType,
+} from '@lms/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { DocumentUploadPanel } from '@/components/document-upload-panel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { apiDownload } from '@/lib/api-download';
+import { canManageRecords } from '@/lib/permissions';
 import { useApi } from '@/lib/use-api';
+
+const borrowerDocumentTypes = Object.values(BorrowerDocumentType).map((value) => ({
+  value,
+  label: BORROWER_DOCUMENT_LABELS[value],
+}));
 
 export default function BorrowerDetailPage() {
   const api = useApi();
+  const { data: session } = useSession();
+  const canManage = canManageRecords(session?.user?.role ?? undefined);
   const params = useParams<{ id: string }>();
   const [borrower, setBorrower] = useState<BorrowerDetailDto | null>(null);
   const [loans, setLoans] = useState<PaginatedLoansDto | null>(null);
@@ -43,6 +58,22 @@ export default function BorrowerDetailPage() {
           <p className="text-muted-foreground">{borrower.idNumber}</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!session?.accessToken}
+            onClick={() => {
+              if (!session?.accessToken) {
+                return;
+              }
+              void apiDownload(
+                `/reports/borrowers/${borrower.id}/statement.pdf`,
+                session.accessToken,
+                'statement.pdf',
+              ).catch((err: Error) => setError(err.message));
+            }}
+          >
+            Download statement PDF
+          </Button>
           <Button variant="outline" asChild>
             <Link href={`/dashboard/borrowers/${borrower.id}/edit`}>Edit</Link>
           </Button>
@@ -79,6 +110,14 @@ export default function BorrowerDetailPage() {
           </p>
         </CardContent>
       </Card>
+
+      <DocumentUploadPanel
+        entityType="BORROWER"
+        entityId={borrower.id}
+        documentTypes={borrowerDocumentTypes}
+        canManage={canManage}
+        title="Borrower documents"
+      />
 
       <Card>
         <CardHeader>
