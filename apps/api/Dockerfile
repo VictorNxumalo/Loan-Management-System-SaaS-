@@ -8,13 +8,13 @@ WORKDIR /app
 
 FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY prisma ./prisma
 COPY apps/api/package.json apps/api/
 COPY packages/types/package.json packages/types/
 COPY packages/utils/package.json packages/utils/
 COPY packages/config/package.json packages/config/
 RUN pnpm install --frozen-lockfile
 
-COPY prisma ./prisma
 COPY packages ./packages
 COPY apps/api ./apps/api
 RUN pnpm db:generate \
@@ -27,20 +27,17 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY prisma ./prisma
 COPY apps/api/package.json apps/api/
 COPY packages/types/package.json packages/types/
 COPY packages/utils/package.json packages/utils/
 COPY packages/config/package.json packages/config/
 RUN pnpm install --frozen-lockfile --prod \
-  && pnpm add -w prisma@^6.8.2 @prisma/client@^6.8.2
+  && pnpm add -w prisma@^6.8.2 @prisma/client@^6.8.2 \
+  && pnpm exec prisma generate --schema=./prisma/schema.prisma
 
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/packages/types/dist ./packages/types/dist
-COPY --from=build /app/packages/types/package.json ./packages/types/package.json
 COPY --from=build /app/packages/utils/dist ./packages/utils/dist
-COPY --from=build /app/packages/utils/package.json ./packages/utils/package.json
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 
 COPY scripts/docker-start-api.sh ./scripts/docker-start-api.sh
