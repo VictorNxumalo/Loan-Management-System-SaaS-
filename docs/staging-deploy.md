@@ -1,7 +1,6 @@
-# Staging deployment (hosted testing)
+# Staging / hosted testing — see docs/sandbox-environment.md for sandbox vs production split.
 
-Deploy a **staging-only** environment for internal testing. Use fake borrowers, small amounts, and Stripe **test** keys. Data is disposable — reset the Supabase project or re-run migrations if needed.
-
+Deploy a **sandbox** environment for internal testing before promoting to production (`main`). Use fake borrowers, small amounts, and Stripe **test** keys. Data is disposable — reset the sandbox Supabase project or re-run migrations if needed.
 **Stack**
 
 | Component | Provider | Notes |
@@ -11,8 +10,9 @@ Deploy a **staging-only** environment for internal testing. Use fake borrowers, 
 | Postgres + Storage | [Supabase](https://supabase.com) | Reuse existing project (see §1) or free a slot |
 | Redis | Render Redis or [Upstash](https://upstash.com) | BullMQ notification queue |
 
-Set `NODE_ENV=production` on staging (production build behaviour) but treat all data as throwaway.
+Set `NODE_ENV=production` on sandbox (production build behaviour) but treat all data as throwaway.
 
+> **Sandbox vs production:** For the full branch pipeline (`staging` → sandbox, `main` → production), see **[sandbox-environment.md](./sandbox-environment.md)**.
 ---
 
 ## 1. Supabase (database + storage)

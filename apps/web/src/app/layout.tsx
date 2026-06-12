@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
+import { EnvBanner } from '@/components/brand/env-banner';
 import { AuthSessionProvider } from '@/components/providers/session-provider';
 import './globals.css';
 
@@ -31,6 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${plusJakarta.variable} font-sans`}>
+        <EnvBanner />
         <AuthSessionProvider>{children}</AuthSessionProvider>
       </body>
     </html>

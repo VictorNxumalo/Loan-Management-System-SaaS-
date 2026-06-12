@@ -1,8 +1,5 @@
-# Staging blueprint (legacy filename — same as render.sandbox.yaml).
-# Prefer render.sandbox.yaml for new setups. See docs/sandbox-environment.md.
-#
-# Usage: Render Dashboard → New → Blueprint → connect repo → apply render.sandbox.yaml
-# Set secret env vars (DATABASE_URL, DIRECT_URL, JWT_*, SUPABASE_*, NEXTAUTH_URL) in the dashboard.
+# Sandbox API + Redis on Render — deploys from the `staging` branch only.
+# See docs/sandbox-environment.md. Production uses render.production.yaml (main branch).
 
 services:
   - type: redis

@@ -1,29 +1,26 @@
-# Staging blueprint (legacy filename — same as render.sandbox.yaml).
-# Prefer render.sandbox.yaml for new setups. See docs/sandbox-environment.md.
-#
-# Usage: Render Dashboard → New → Blueprint → connect repo → apply render.sandbox.yaml
-# Set secret env vars (DATABASE_URL, DIRECT_URL, JWT_*, SUPABASE_*, NEXTAUTH_URL) in the dashboard.
+# Production API + Redis on Render — deploys from `main` only.
+# Apply as a separate Blueprint from render.sandbox.yaml. See docs/sandbox-environment.md.
 
 services:
   - type: redis
-    name: lms-sandbox-redis
-    plan: free
-    maxmemoryPolicy: allkeys-lru
+    name: lms-production-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
     ipAllowList: []
 
   - type: web
-    name: lms-sandbox-api
+    name: lms-production-api
     runtime: docker
-    branch: staging
+    branch: main
     dockerfilePath: apps/api/Dockerfile
     dockerContext: .
-    plan: free
+    plan: starter
     healthCheckPath: /v1/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: SKIP_EMAIL_VERIFICATION
-        value: "true"
+        value: "false"
       - key: SUPABASE_STORAGE_BUCKET
         value: lms-documents
       - key: TRIAL_DAYS
@@ -32,12 +29,10 @@ services:
         value: "true"
       - key: CRON_REMINDER_ENABLED
         value: "true"
-      - key: STAGING_ALLOW_VERCEL_CORS
-        value: "true"
       - key: REDIS_URL
         fromService:
           type: redis
-          name: lms-sandbox-redis
+          name: lms-production-redis
           property: connectionString
       - key: DATABASE_URL
         sync: false
@@ -52,4 +47,12 @@ services:
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
         sync: false
