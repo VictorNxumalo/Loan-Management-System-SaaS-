@@ -1,11 +1,11 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/v1';
+import { getApiBaseUrl } from './api-url';
 
 export async function apiDownload(
   path: string,
   accessToken: string,
   fallbackFilename: string,
 ): Promise<void> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

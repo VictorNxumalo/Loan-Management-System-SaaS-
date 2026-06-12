@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/v1';
+import { getApiBaseUrl } from './api-url';
 
 export async function apiFetch<T>(
   path: string,
@@ -6,7 +6,7 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { accessToken, headers, ...rest } = options;
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...rest,
     headers: {
       'Content-Type': 'application/json',
