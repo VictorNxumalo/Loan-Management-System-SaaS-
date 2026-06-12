@@ -17,6 +17,13 @@ const runId = Date.now().toString(36);
 const lenderEmail = `staging.lender.${runId}@test.local`;
 const borrowerEmail = `staging.borrower.${runId}@test.local`;
 
+const STAGING_TEST_BANK_DETAILS = {
+  accountHolder: 'Staging Borrower',
+  bankName: 'FNB',
+  branchCode: '250655',
+  accountNumber: '62000012345',
+};
+
 const proofPath = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/fake-eft-proof-of-payment.pdf');
 const proofBytes = readFileSync(proofPath);
 
@@ -51,6 +58,30 @@ function isoDaysFromNow(days) {
   return d.toISOString().slice(0, 10);
 }
 
+async function uploadApplicationDocument(token, applicationId, documentType, filename, bytes) {
+  const uploadMeta = await api(
+    `/borrower/applications/${applicationId}/documents/upload-url`,
+    {
+      method: 'POST',
+      token,
+      body: {
+        documentType,
+        filename,
+        contentType: 'application/pdf',
+        sizeBytes: bytes.length,
+      },
+    },
+  );
+  const uploadRes = await fetch(uploadMeta.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/pdf' },
+    body: bytes,
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`${documentType} upload failed: ${uploadRes.status}`);
+  }
+}
+
 async function registerAndLogin(name, email, accountType) {
   await api('/auth/register', {
     method: 'POST',
@@ -61,6 +92,11 @@ async function registerAndLogin(name, email, accountType) {
 
 async function main() {
   console.log(`Smoke test against ${API}`);
+  if (API.includes('localhost') && !process.env.STAGING_API_URL) {
+    console.warn(
+      'Tip: set STAGING_API_URL to your Render API (PowerShell: $env:STAGING_API_URL = "https://....onrender.com/v1")',
+    );
+  }
   console.log(`Lender:  ${lenderEmail}`);
   console.log(`Borrower: ${borrowerEmail}`);
 
@@ -111,11 +147,32 @@ async function main() {
       frequency: 'MONTHLY',
       startDate: isoDaysFromNow(7),
       purpose: 'Staging smoke test — small loan.',
+      bankDetails: STAGING_TEST_BANK_DETAILS,
     },
   });
+  await uploadApplicationDocument(bt, application.id, 'ID_COPY', 'staging-id.pdf', proofBytes);
+  await uploadApplicationDocument(
+    bt,
+    application.id,
+    'BANK_STATEMENT',
+    'staging-statement.pdf',
+    proofBytes,
+  );
+  await api(`/borrower/applications/${application.id}/submit`, { method: 'POST', token: bt });
   console.log('✓ Borrower applied for loan');
 
-  // ── Lender: approve → activate (creates loan) ───────────────────
+  // ── Lender: checklist → approve → activate ─────────────────────
+  await api(`/applications/${application.id}/review-checklist`, {
+    method: 'POST',
+    token: lt,
+    body: {
+      idVerified: true,
+      bankDetailsVerified: true,
+      statementsVerified: true,
+      affordabilityReviewed: true,
+      purposePlausible: true,
+    },
+  });
   const approval = await api(`/applications/${application.id}/approve`, {
     method: 'POST',
     token: lt,
