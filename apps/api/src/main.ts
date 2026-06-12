@@ -1,4 +1,3 @@
-import { config } from 'dotenv';
 import { resolve } from 'path';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
@@ -6,8 +5,11 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { getEnv, isEmailVerificationSkipped } from './config/env';
 
-// Load monorepo root .env (Nest runs from apps/api by default)
-config({ path: resolve(__dirname, '../../../.env') });
+// Local dev only — hosted staging/production inject env vars via the platform (Render, etc.)
+if (process.env.NODE_ENV !== 'production') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('dotenv').config({ path: resolve(__dirname, '../../../.env') });
+}
 
 async function bootstrap() {
   getEnv();

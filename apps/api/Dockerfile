@@ -23,7 +23,6 @@ RUN pnpm db:generate \
   && pnpm --filter @lms/api build
 
 FROM base AS runner
-ENV NODE_ENV=production
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -33,12 +32,15 @@ COPY packages/types/package.json packages/types/
 COPY packages/utils/package.json packages/utils/
 COPY packages/config/package.json packages/config/
 
-# Reuse install + generated Prisma client from build (pnpm layout differs from npm)
-COPY --from=build /app/node_modules ./node_modules
-
 COPY --from=build /app/packages/types/dist ./packages/types/dist
 COPY --from=build /app/packages/utils/dist ./packages/utils/dist
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+
+# Fresh install so pnpm creates apps/api/node_modules symlinks (copying root node_modules alone breaks resolution)
+RUN pnpm install --frozen-lockfile \
+  && pnpm exec prisma generate --schema=./prisma/schema.prisma
+
+ENV NODE_ENV=production
 
 COPY scripts/docker-start-api.sh ./scripts/docker-start-api.sh
 RUN chmod +x ./scripts/docker-start-api.sh
