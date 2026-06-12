@@ -19,6 +19,9 @@ function notificationHref(notification: NotificationDto, accountType?: string) {
       ? `/borrower/loans/${notification.relatedEntityId}`
       : `/dashboard/loans/${notification.relatedEntityId}`;
   }
+  if (notification.relatedEntityType === 'PAYMENT_SUBMISSION') {
+    return `/dashboard/payment-submissions/${notification.relatedEntityId}`;
+  }
   return accountType === 'BORROWER' ? '/borrower' : '/dashboard';
 }
 

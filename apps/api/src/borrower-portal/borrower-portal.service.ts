@@ -1,17 +1,24 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { MarketplaceLenderDto } from '@lms/types';
+import type { MarketplaceLenderDto, OrganisationSettingsInput } from '@lms/types';
 import { AccountType, BorrowerLinkSource } from '@lms/types';
+import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { isPublicListingEnabled } from '../common/organisation-settings';
+import {
+  isPublicListingEnabled,
+  mergeMarketplaceProfile,
+  parseMarketplaceProfile,
+} from '../common/organisation-settings';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../auth/token.service';
 import { EmailService } from '../email/email.service';
+import { BorrowerLendingConstraintsService } from './borrower-lending-constraints.service';
 
 @Injectable()
 export class BorrowerPortalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokenService: TokenService,
+    private readonly lendingConstraints: BorrowerLendingConstraintsService,
   ) {}
 
   async listMyLenders(userId: string): Promise<MarketplaceLenderDto[]> {
@@ -47,6 +54,7 @@ export class BorrowerPortalService {
           plan: org.plan,
           isPublic: isPublicListingEnabled(org.settings),
           isConnected: true,
+          profile: parseMarketplaceProfile(org.settings),
         });
       }
 
@@ -55,6 +63,8 @@ export class BorrowerPortalService {
   }
 
   async connectToPublicLender(userId: string, orgId: string): Promise<{ message: string }> {
+    await this.lendingConstraints.assertCanEngageWithLender(userId, orgId);
+
     return this.prisma.withUserContext(userId, null, async (tx) => {
       const org = await tx.organisation.findFirst({
         where: { id: orgId, deletedAt: null },
@@ -107,6 +117,8 @@ export class BorrowerPortalService {
         throw new BadRequestException('Invite email does not match your account');
       }
 
+      await this.lendingConstraints.assertCanEngageWithLender(userId, invite.orgId);
+
       await tx.lenderInvite.update({
         where: { id: invite.id },
         data: { acceptedAt: new Date() },
@@ -141,22 +153,25 @@ export class LenderSettingsService {
   async updateOrganisationSettings(
     orgId: string,
     userId: string,
-    input: { publicListing?: boolean },
+    input: OrganisationSettingsInput,
   ) {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const org = await tx.organisation.findFirstOrThrow({ where: { id: orgId } });
       const current = (org.settings as Record<string, unknown>) ?? {};
 
+      let nextSettings: Record<string, unknown> = { ...current };
+
+      if (input.publicListing !== undefined) {
+        nextSettings.publicListing = input.publicListing;
+      }
+
+      if (input.marketplaceProfile) {
+        nextSettings = mergeMarketplaceProfile(nextSettings, input.marketplaceProfile);
+      }
+
       const updated = await tx.organisation.update({
         where: { id: orgId },
-        data: {
-          settings: {
-            ...current,
-            ...(input.publicListing !== undefined
-              ? { publicListing: input.publicListing }
-              : {}),
-          },
-        },
+        data: { settings: nextSettings as Prisma.InputJsonValue },
       });
 
       await this.auditService.record(tx, {

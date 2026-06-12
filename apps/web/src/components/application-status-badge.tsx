@@ -1,4 +1,5 @@
 const statusStyles: Record<string, string> = {
+  DRAFT: 'bg-slate-100 text-slate-800',
   SUBMITTED: 'bg-amber-100 text-amber-900',
   APPROVED: 'bg-green-100 text-green-900',
   REJECTED: 'bg-red-100 text-red-900',
@@ -6,6 +7,7 @@ const statusStyles: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
+  DRAFT: 'Draft — incomplete',
   SUBMITTED: 'Pending review',
   APPROVED: 'Approved',
   REJECTED: 'Rejected',

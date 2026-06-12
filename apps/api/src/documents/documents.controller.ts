@@ -18,12 +18,13 @@ import type { AccessTokenPayload } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { LenderGuard } from '../common/guards/account-type.guard';
+import { PlanGuard } from '../common/guards/plan.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { DocumentsService } from './documents.service';
 
 @Controller('documents')
-@UseGuards(JwtAuthGuard, LenderGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, LenderGuard, PlanGuard, RolesGuard)
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 

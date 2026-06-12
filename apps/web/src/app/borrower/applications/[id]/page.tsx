@@ -3,9 +3,17 @@
 import type { LoanApplicationDetailDto } from '@lms/types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ApplicationDocumentsPanel } from '@/components/application-documents-panel';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { useApi } from '@/lib/use-api';
 
 export default function BorrowerApplicationDetailPage() {
@@ -16,11 +24,16 @@ export default function BorrowerApplicationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    void api<LoanApplicationDetailDto>(`/borrower/applications/${params.id}`)
-      .then(setApplication)
-      .catch((err: Error) => setError(err.message));
+  const load = useCallback(async () => {
+    const result = await api<LoanApplicationDetailDto>(
+      `/borrower/applications/${params.id}`,
+    );
+    setApplication(result);
   }, [api, params.id]);
+
+  useEffect(() => {
+    void load().catch((err: Error) => setError(err.message));
+  }, [load]);
 
   const withdraw = async () => {
     setLoading(true);
@@ -38,6 +51,22 @@ export default function BorrowerApplicationDetailPage() {
     }
   };
 
+  const submit = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await api<LoanApplicationDetailDto>(
+        `/borrower/applications/${params.id}/submit`,
+        { method: 'POST' },
+      );
+      setApplication(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not submit application');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!application && !error) {
     return <p className="text-muted-foreground">Loading application…</p>;
   }
@@ -45,6 +74,9 @@ export default function BorrowerApplicationDetailPage() {
   if (!application) {
     return <p className="text-sm text-destructive">{error}</p>;
   }
+
+  const isDraft = application.status === 'DRAFT';
+  const isOpen = isDraft || application.status === 'SUBMITTED';
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -58,7 +90,9 @@ export default function BorrowerApplicationDetailPage() {
               Application to {application.organisationName}
             </h1>
             <p className="mt-1 text-muted-foreground">
-              Submitted {new Date(application.submittedAt).toLocaleDateString()}
+              {isDraft
+                ? 'Draft — complete documents and submit when ready'
+                : `Submitted ${new Date(application.submittedAt).toLocaleDateString()}`}
             </p>
           </div>
           <ApplicationStatusBadge status={application.status} />
@@ -98,6 +132,30 @@ export default function BorrowerApplicationDetailPage() {
           </div>
         )}
 
+        {application.bankDetails && (
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium">Bank details</p>
+            <dl className="mt-2 grid gap-2 sm:grid-cols-2 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Account holder</dt>
+                <dd>{application.bankDetails.accountHolder}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Bank</dt>
+                <dd>{application.bankDetails.bankName}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Branch code</dt>
+                <dd>{application.bankDetails.branchCode}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Account number</dt>
+                <dd>{application.bankDetails.accountNumber}</dd>
+              </div>
+            </dl>
+          </div>
+        )}
+
         {application.lenderNotes && (
           <div>
             <p className="text-sm text-muted-foreground">Lender response</p>
@@ -113,9 +171,39 @@ export default function BorrowerApplicationDetailPage() {
         )}
       </div>
 
-      {application.status === 'SUBMITTED' && (
+      {isDraft && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Supporting documents</CardTitle>
+            <CardDescription>
+              Upload your SA ID and at least one bank statement, then submit to the lender.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ApplicationDocumentsPanel
+              applicationId={application.id}
+              requirements={application.documents.requirements}
+              canManage
+              onChange={() => void load()}
+            />
+            <Button
+              disabled={loading || !application.documents.isComplete}
+              onClick={() => void submit()}
+            >
+              {loading ? 'Submitting…' : 'Submit application to lender'}
+            </Button>
+            {!application.documents.isComplete && (
+              <p className="text-sm text-amber-700">
+                Upload all required documents before submitting.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isOpen && (
         <Button variant="outline" disabled={loading} onClick={() => void withdraw()}>
-          {loading ? 'Withdrawing…' : 'Withdraw application'}
+          {loading ? 'Cancelling…' : isDraft ? 'Discard application' : 'Withdraw application'}
         </Button>
       )}
 

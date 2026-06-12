@@ -5,6 +5,7 @@ import {
   BorrowerPortalController,
   SettingsController,
 } from './borrower-portal.controller';
+import { BorrowerLendingConstraintsService } from './borrower-lending-constraints.service';
 import {
   BorrowerPortalService,
   LenderSettingsService,
@@ -13,6 +14,7 @@ import {
 @Module({
   imports: [AuthModule, EmailModule],
   controllers: [BorrowerPortalController, SettingsController],
-  providers: [BorrowerPortalService, LenderSettingsService],
+  providers: [BorrowerPortalService, LenderSettingsService, BorrowerLendingConstraintsService],
+  exports: [BorrowerLendingConstraintsService],
 })
 export class BorrowerPortalModule {}

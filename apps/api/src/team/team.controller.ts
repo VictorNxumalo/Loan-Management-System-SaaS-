@@ -13,12 +13,13 @@ import type { AccessTokenPayload } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { LenderGuard } from '../common/guards/account-type.guard';
+import { PlanGuard } from '../common/guards/plan.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { TeamService } from './team.service';
 
 @Controller('team')
-@UseGuards(JwtAuthGuard, LenderGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, LenderGuard, PlanGuard, RolesGuard)
 export class TeamController {
   constructor(private readonly teamService: TeamService) {}
 

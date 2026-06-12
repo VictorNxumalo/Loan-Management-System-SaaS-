@@ -12,7 +12,7 @@ config({ path: resolve(__dirname, '../../../.env') });
 async function bootstrap() {
   getEnv();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('v1');
   app.use(helmet());
   app.use(cookieParser());

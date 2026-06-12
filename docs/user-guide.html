@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LMS — Lender &amp; Borrower User Guide</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --ink: #0f172a;
+    --paper: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber-soft: #fef3c7;
+    --rose-soft: #ffe4e6;
+    --slate-soft: #f1f5f9;
+    --mono: "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--paper); color: var(--ink); line-height: 1.6; display: flex;
+  }
+
+  nav.sidebar {
+    width: 280px; min-width: 280px; background: var(--bg); color: #cbd5e1;
+    height: 100vh; position: sticky; top: 0; overflow-y: auto; padding: 28px 0;
+  }
+  nav.sidebar .brand { padding: 0 24px 20px; border-bottom: 1px solid #334155; margin-bottom: 16px; }
+  nav.sidebar .brand h1 { font-size: 19px; color: #fff; }
+  nav.sidebar .brand p { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  nav.sidebar a { display: block; padding: 6px 24px; color: #cbd5e1; text-decoration: none; font-size: 13px; border-left: 3px solid transparent; }
+  nav.sidebar a:hover { background: #1e293b; color: #fff; border-left-color: var(--accent); }
+  nav.sidebar .group { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #64748b; padding: 16px 24px 6px; }
+
+  main { flex: 1; max-width: 1080px; padding: 48px 56px 96px; }
+  header.hero .eyebrow { color: var(--accent); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; }
+  header.hero h1 { font-size: 32px; margin: 6px 0 10px; line-height: 1.2; }
+  header.hero p.sub { color: var(--muted); font-size: 15.5px; max-width: 780px; }
+  .meta-chips { margin: 18px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 4px 14px; font-size: 12.5px; color: #334155; font-weight: 600; }
+
+  section { margin-bottom: 64px; }
+  h2 { font-size: 24px; margin: 40px 0 6px; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--bg); color: #fff; font-size: 13px; min-width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; padding: 0 8px; }
+  h3 { font-size: 18px; margin: 34px 0 8px; }
+  h3 .step { color: var(--accent); font-weight: 800; margin-right: 6px; }
+  p.lead { color: var(--muted); margin-bottom: 14px; max-width: 840px; }
+
+  .persona { border-radius: 12px; padding: 14px 20px; margin: 12px 0 22px; font-size: 14px; border: 1.5px solid; }
+  .persona.lender { background: var(--accent-soft); border-color: #93c5fd; }
+  .persona.borrower { background: var(--green-soft); border-color: #6ee7b7; }
+  .persona b { font-size: 14.5px; }
+
+  figure { margin: 14px 0 8px; }
+  figure img {
+    width: 100%; border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08); display: block;
+  }
+  figure figcaption { font-size: 12.5px; color: var(--muted); margin-top: 8px; font-style: italic; text-align: center; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13.5px; margin: 14px 0; }
+  th { background: var(--slate-soft); text-align: left; padding: 8px 14px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  code { font-family: var(--mono); font-size: 12px; background: var(--slate-soft); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+
+  .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 10px 10px 0; padding: 12px 18px; margin: 16px 0; font-size: 13.5px; }
+  .callout.warn { border-left-color: #d97706; background: var(--amber-soft); }
+  .callout.good { border-left-color: var(--green); background: var(--green-soft); }
+
+  .flow {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 20px; margin: 14px 0; font-family: var(--mono); font-size: 12.5px;
+    overflow-x: auto; white-space: pre; line-height: 1.9; color: #334155;
+  }
+  .flow b { color: var(--accent); }
+
+  ol.steps { margin: 10px 0 10px 22px; font-size: 14px; }
+  ol.steps li { margin: 6px 0; }
+  ul.notes { margin: 8px 0 8px 22px; font-size: 13.5px; color: #334155; }
+  ul.notes li { margin: 4px 0; }
+
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .b-blue { background: var(--accent-soft); color: #1d4ed8; }
+  .b-green { background: var(--green-soft); color: #047857; }
+  .b-rose { background: var(--rose-soft); color: #be123c; }
+  .b-slate { background: var(--slate-soft); color: #475569; }
+
+  footer { color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--border); padding-top: 18px; margin-top: 56px; }
+  footer a { color: var(--accent); }
+
+  @media (max-width: 900px) { nav.sidebar { display: none; } main { padding: 32px 20px; } }
+  @media print {
+    nav.sidebar { display: none; }
+    main { max-width: 100%; padding: 0; }
+    section, figure, table { break-inside: avoid; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="brand">
+    <h1>LMS User Guide</h1>
+    <p>How lenders &amp; borrowers<br/>use the platform</p>
+  </div>
+  <div class="group">Getting Started</div>
+  <a href="#intro">1 · The Two Portals</a>
+  <a href="#signup">2 · Signing Up &amp; Logging In</a>
+  <div class="group">Lender Journey</div>
+  <a href="#l-onboarding">3 · Workspace Setup</a>
+  <a href="#l-dashboard">4 · Dashboard &amp; Reports</a>
+  <a href="#l-borrowers">5 · Managing Borrowers</a>
+  <a href="#l-loans">6 · Creating Loans</a>
+  <a href="#l-repayments">7 · Repayments &amp; Loan Detail</a>
+  <a href="#l-applications">8 · Reviewing Applications</a>
+  <a href="#l-team">9 · Team, Settings &amp; Audit</a>
+  <div class="group">Borrower Journey</div>
+  <a href="#b-onboarding">10 · Borrower Setup</a>
+  <a href="#b-lenders">11 · Finding Lenders</a>
+  <a href="#b-apply">12 · Applying for a Loan</a>
+  <a href="#b-loans">13 · Tracking Your Loans</a>
+  <div class="group">Reference</div>
+  <a href="#notifications">14 · Notifications</a>
+  <a href="#lifecycle">15 · End-to-End Lifecycle</a>
+  <a href="#permissions">16 · Who Can Do What</a>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">User Guide · with live screenshots</div>
+  <h1>How Lenders &amp; Borrowers Use the LMS</h1>
+  <p class="sub">
+    A step-by-step walkthrough of both user journeys — every screen, what each button does, and where each
+    action takes you. All screenshots were captured from the running application with realistic demo data.
+  </p>
+  <div class="meta-chips">
+    <span class="chip">Lender workspace · /dashboard</span>
+    <span class="chip">Borrower portal · /borrower</span>
+    <span class="chip">29 annotated screens</span>
+  </div>
+</header>
+
+<!-- ═══════════════ 1. INTRO ═══════════════ -->
+<section id="intro">
+  <h2><span class="num">1</span>The Two Portals</h2>
+  <p class="lead">
+    The LMS serves two distinct audiences from one landing page. Which portal you see is decided by your
+    <strong>account type</strong>, chosen at registration and enforced everywhere afterwards — a borrower who
+    types a lender URL is bounced back to the borrower portal, and vice versa.
+  </p>
+  <div class="persona lender"><b>Lender</b> — runs a lending business. Works in the <strong>Lending workspace</strong> (<code>/dashboard</code>): manages the people they lend to, creates loans, records repayments, reviews incoming applications, and exports reports. Staff have roles: <span class="badge b-rose">Admin</span> <span class="badge b-blue">Loan officer</span> <span class="badge b-slate">Viewer</span></div>
+  <div class="persona borrower"><b>Borrower</b> — an individual on the platform. Works in the <strong>Borrower portal</strong> (<code>/borrower</code>): browses public lenders, connects to organisations, submits loan applications, and tracks their own loans read-only.</div>
+  <figure>
+    <img src="img/public-landing.png" alt="Landing page" />
+    <figcaption>The landing page (<code>/</code>). "Create lender account" → registration pre-set to lender; "Create borrower account" → pre-set to borrower; "Sign in" → login.</figcaption>
+  </figure>
+</section>
+
+<!-- ═══════════════ 2. SIGNUP ═══════════════ -->
+<section id="signup">
+  <h2><span class="num">2</span>Signing Up &amp; Logging In</h2>
+  <h3><span class="step">2.1</span>Registration — <code>/auth/register</code></h3>
+  <p class="lead">One form serves both account types. The <strong>"I lend money" / "I want to borrow"</strong> toggle decides which journey you enter. Required: full name, email, and a password of at least 8 characters.</p>
+  <figure>
+    <img src="img/auth-register-lender.png" alt="Register as lender" />
+    <figcaption>Registering as a <strong>lender</strong>. Staff joining an existing organisation arrive via an emailed invite link (<code>?invite=TOKEN</code>) — the toggle is hidden and the button reads "Join team".</figcaption>
+  </figure>
+  <figure>
+    <img src="img/auth-register-borrower.png" alt="Register as borrower" />
+    <figcaption>The same form with <strong>"I want to borrow"</strong> selected. After success you're taken to the login page after 2 seconds.</figcaption>
+  </figure>
+
+  <h3><span class="step">2.2</span>Login — <code>/auth/login</code></h3>
+  <figure>
+    <img src="img/auth-login.png" alt="Login page" />
+    <figcaption>Email + password sign-in. "Forgot password?" → reset flow; Google sign-in appears when OAuth is configured.</figcaption>
+  </figure>
+  <p class="lead">After signing in, a <strong>post-login resolver</strong> (<code>/auth/post-login</code>) routes you automatically:</p>
+  <div class="flow">Sign in
+  ├─ Borrower, first time   → <b>/borrower/onboarding</b>   (profile setup)
+  ├─ Borrower, returning    → <b>/borrower</b>              (borrower home)
+  ├─ Lender, first time     → <b>/onboarding</b>            (workspace setup)
+  └─ Lender, returning      → <b>/dashboard</b>             (lending workspace)</div>
+  <div class="callout">If you opened a lender's <strong>invite link</strong>, login first redirects to <code>/borrower/invites/accept</code> so the connection is completed before anything else.</div>
+</section>
+
+<!-- ═══════════════ 3. LENDER ONBOARDING ═══════════════ -->
+<section id="l-onboarding">
+  <h2><span class="num">3</span>Lender — Setting Up Your Workspace</h2>
+  <p class="lead">First login as a lender lands on <code>/onboarding</code>. This creates your <strong>organisation</strong> — the container for all your borrowers, loans and team members.</p>
+  <figure>
+    <img src="img/lender-onboarding.png" alt="Lender onboarding" />
+    <figcaption>Workspace setup: organisation name, default currency (ZAR pre-filled) and default interest method (flat or reducing balance). <strong>Complete setup</strong> → creates the org and takes you to <code>/dashboard</code>.</figcaption>
+  </figure>
+  <ul class="notes">
+    <li>The person who completes onboarding becomes the organisation's <span class="badge b-rose">Admin</span>.</li>
+    <li>Defaults (currency, interest method) pre-fill the new-loan form later; they can be changed per loan.</li>
+  </ul>
+</section>
+
+<!-- ═══════════════ 4. DASHBOARD ═══════════════ -->
+<section id="l-dashboard">
+  <h2><span class="num">4</span>Lender — Dashboard &amp; Reports</h2>
+  <p class="lead"><code>/dashboard</code> is the home screen for lender staff: portfolio health at a glance plus quick exports.</p>
+  <figure>
+    <img src="img/lender-dashboard.png" alt="Lender dashboard" />
+    <figcaption>Top: five KPI cards (active loans, portfolio value, repayments this month, loans in arrears, arrears rate). Middle: CSV exports. Bottom: repayments due in 7/30 days and an overdue-loans table — borrower names link straight to the loan or borrower detail.</figcaption>
+  </figure>
+  <table>
+    <tr><th>Action</th><th>What it does</th></tr>
+    <tr><td><strong>Download portfolio CSV</strong></td><td>Exports every loan with balances (<code>/reports/portfolio.csv</code>)</td></tr>
+    <tr><td><strong>Download arrears CSV</strong></td><td>Exports overdue loans with days-overdue (<code>/reports/arrears.csv</code>)</td></tr>
+    <tr><td>Borrower link in tables</td><td>Opens that borrower or loan's detail page</td></tr>
+  </table>
+</section>
+
+<!-- ═══════════════ 5. BORROWERS ═══════════════ -->
+<section id="l-borrowers">
+  <h2><span class="num">5</span>Lender — Managing the People You Lend To</h2>
+  <h3><span class="step">5.1</span>Borrower list — <code>/dashboard/borrowers</code></h3>
+  <figure>
+    <img src="img/lender-borrowers.png" alt="Borrowers list" />
+    <figcaption>"People I lend to": searchable by name or ID number. <strong>Add borrower</strong> (admins and loan officers only) → the create form. Clicking a name → borrower detail.</figcaption>
+  </figure>
+
+  <h3><span class="step">5.2</span>Adding a borrower — <code>/dashboard/borrowers/new</code></h3>
+  <figure>
+    <img src="img/lender-borrower-new.png" alt="Add borrower" />
+    <figcaption>Two ways to add someone: <strong>search registered platform borrowers</strong> (links their account so approvals and notifications flow to them), or fill in the form manually for offline clients. Required: full name, ID number, phone. <strong>Create borrower</strong> → their detail page.</figcaption>
+  </figure>
+
+  <h3><span class="step">5.3</span>Borrower detail — <code>/dashboard/borrowers/[id]</code></h3>
+  <figure>
+    <img src="img/lender-borrower-detail.png" alt="Borrower detail" />
+    <figcaption>Everything about one client: lending summary cards, contact details, document uploads (ID copy, proof of income/address) and full loan history. Header buttons: <strong>Download statement PDF</strong>, <strong>Edit</strong> → edit form, <strong>New loan</strong> → loan form pre-filled with this borrower.</figcaption>
+  </figure>
+</section>
+
+<!-- ═══════════════ 6. LOANS ═══════════════ -->
+<section id="l-loans">
+  <h2><span class="num">6</span>Lender — Creating a Loan</h2>
+  <h3><span class="step">6.1</span>Loan list — <code>/dashboard/loans</code></h3>
+  <figure>
+    <img src="img/lender-loans.png" alt="Loans list" />
+    <figcaption>All loans with status badges (Draft, Active, In arrears, Completed) and outstanding balances. <strong>New loan</strong> → the loan form. Principal amounts link to loan detail.</figcaption>
+  </figure>
+
+  <h3><span class="step">6.2</span>New loan — <code>/dashboard/loans/new</code></h3>
+  <p class="lead">The form follows a deliberate <strong>preview-before-save</strong> flow: you must see the full repayment schedule before the loan can be created.</p>
+  <figure>
+    <img src="img/lender-loan-new.png" alt="New loan form" />
+    <figcaption>Pick the borrower (typeahead search), then principal (in cents), annual rate, interest type, term, frequency and start date.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/lender-loan-preview.png" alt="Schedule preview" />
+    <figcaption><strong>Preview schedule</strong> computes the full amortisation table — every instalment's principal/interest split and running balance — without saving anything. <strong>Confirm and save loan</strong> then creates the loan as a <span class="badge b-slate">Draft</span> and opens its detail page.</figcaption>
+  </figure>
+  <div class="callout good"><strong>Draft → Active:</strong> a new loan starts as a Draft so you can double-check terms. Click <strong>Activate loan</strong> on the detail page to lock in the schedule and start tracking repayments.</div>
+</section>
+
+<!-- ═══════════════ 7. REPAYMENTS ═══════════════ -->
+<section id="l-repayments">
+  <h2><span class="num">7</span>Lender — Loan Detail &amp; Recording Repayments</h2>
+  <figure>
+    <img src="img/lender-loan-detail.png" alt="Loan detail" />
+    <figcaption><code>/dashboard/loans/[id]</code> — summary cards (total scheduled / paid / outstanding / rate), the <strong>Record repayment</strong> form (amount, payment date, optional note), repayment history showing who recorded each payment, the full amortisation schedule, and loan documents (signed agreement, disbursement proof).</figcaption>
+  </figure>
+  <ul class="notes">
+    <li>Repayments are <strong>insert-only</strong> — they can't be edited or deleted afterwards, which keeps the books trustworthy. Every entry is audit-logged.</li>
+    <li>When total payments cover the schedule, the daily sweep marks the loan <span class="badge b-green">Completed</span>; missed due dates flip it to <span class="badge b-rose">In arrears</span> automatically.</li>
+    <li>The borrower sees the same repayment history and schedule (read-only) in their portal the moment you record a payment.</li>
+  </ul>
+</section>
+
+<!-- ═══════════════ 8. APPLICATIONS ═══════════════ -->
+<section id="l-applications">
+  <h2><span class="num">8</span>Lender — Reviewing Loan Applications</h2>
+  <p class="lead">When connected borrowers apply to your organisation, applications land in <code>/dashboard/applications</code> and you're notified (bell + email).</p>
+  <figure>
+    <img src="img/lender-applications.png" alt="Applications queue" />
+    <figcaption>The queue, filtered by status (Submitted / Approved / Rejected / Withdrawn / All). Each card shows the borrower, amount, term and purpose — click to open the review page.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/lender-application-review.png" alt="Application review" />
+    <figcaption><code>/dashboard/applications/[id]</code> — the requested terms on top, then two panels: <strong>Approve</strong> (set the annual interest rate, optional notes) and <strong>Reject</strong> (reason required — the borrower sees it on their side).</figcaption>
+  </figure>
+  <div class="flow"><b>Approve</b> ──► creates a borrower CRM record (if needed)
+          ──► creates a <b>Draft loan</b> with the agreed terms
+          ──► "Open draft loan" button appears → review → <b>Activate</b>
+          ──► borrower is notified and sees the loan under "My loans"
+
+<b>Reject</b>  ──► application marked Rejected, your reason is shown to the borrower</div>
+</section>
+
+<!-- ═══════════════ 9. TEAM / SETTINGS / AUDIT ═══════════════ -->
+<section id="l-team">
+  <h2><span class="num">9</span>Lender — Team, Settings &amp; Audit Log <span class="badge b-rose">Admin only</span></h2>
+  <h3><span class="step">9.1</span>Team — <code>/dashboard/team</code></h3>
+  <figure>
+    <img src="img/lender-team.png" alt="Team management" />
+    <figcaption>Invite staff by email as <strong>Loan officer</strong> (can manage records) or <strong>Read-only viewer</strong>. Invitees get an email link to <code>/auth/register?invite=TOKEN</code> and join your organisation directly. You can revoke pending invites or remove members' access.</figcaption>
+  </figure>
+
+  <h3><span class="step">9.2</span>Settings — <code>/dashboard/settings</code></h3>
+  <figure>
+    <img src="img/lender-settings.png" alt="Settings" />
+    <figcaption>Two switches that control how borrowers find you: <strong>public directory listing</strong> (appear in the borrower marketplace) and <strong>borrower email invites</strong> (send a private connect link to a specific borrower).</figcaption>
+  </figure>
+
+  <h3><span class="step">9.3</span>Audit log — <code>/dashboard/audit-log</code></h3>
+  <figure>
+    <img src="img/lender-audit-log.png" alt="Audit log" />
+    <figcaption>An immutable trail of every change in the workspace — who did what, when, with before/after values. Covers borrowers, loans, repayments, applications, documents, team and settings.</figcaption>
+  </figure>
+</section>
+
+<!-- ═══════════════ 10. BORROWER ONBOARDING ═══════════════ -->
+<section id="b-onboarding">
+  <h2><span class="num">10</span>Borrower — Setting Up Your Profile</h2>
+  <p class="lead">First login as a borrower lands on <code>/borrower/onboarding</code> — a minimal profile before you can use the portal.</p>
+  <figure>
+    <img src="img/borrower-onboarding.png" alt="Borrower onboarding" />
+    <figcaption>Phone number (required — lenders use it to verify you) and optional ID/passport number. <strong>Continue</strong> → borrower home.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/borrower-home.png" alt="Borrower home" />
+    <figcaption><code>/borrower</code> — the home hub with four tiles mirroring the nav: Browse lenders, My lenders, My applications, My loans.</figcaption>
+  </figure>
+</section>
+
+<!-- ═══════════════ 11. FINDING LENDERS ═══════════════ -->
+<section id="b-lenders">
+  <h2><span class="num">11</span>Borrower — Finding &amp; Connecting to Lenders</h2>
+  <p class="lead">You can't apply to a lender until you're <strong>connected</strong> to them. There are two ways in:</p>
+  <table>
+    <tr><th>Path</th><th>How it works</th></tr>
+    <tr><td><span class="badge b-green">Marketplace</span></td><td>Browse the public directory and click <strong>Connect</strong> on any listed lender</td></tr>
+    <tr><td><span class="badge b-blue">Invite</span></td><td>A lender emails you a private link → you log in → <code>/borrower/invites/accept</code> → <strong>Accept invite</strong></td></tr>
+  </table>
+  <figure>
+    <img src="img/borrower-browse-lenders.png" alt="Browse lenders" />
+    <figcaption><code>/borrower/lenders/browse</code> — every publicly listed organisation. <strong>Connect</strong> links you instantly; already-connected lenders show "Connected" with a shortcut to My lenders.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/borrower-my-lenders.png" alt="My lenders" />
+    <figcaption><code>/borrower/lenders/mine</code> — your connections. <strong>Apply for loan</strong> carries the lender straight into the application form.</figcaption>
+  </figure>
+</section>
+
+<!-- ═══════════════ 12. APPLYING ═══════════════ -->
+<section id="b-apply">
+  <h2><span class="num">12</span>Borrower — Applying for a Loan</h2>
+  <p class="lead">Applications always start from <strong>My lenders → Apply for loan</strong>, so the target lender is already chosen when the form opens.</p>
+  <figure>
+    <img src="img/borrower-application-new.png" alt="New application" />
+    <figcaption><code>/borrower/applications/new</code> — amount, preferred interest method, number of payments, frequency, preferred start date and an optional purpose. <strong>Submit application</strong> → your application detail page; the lender is notified immediately.</figcaption>
+  </figure>
+  <div class="callout warn">You can have only <strong>one pending application per lender</strong> at a time — withdraw or wait for a decision before applying again.</div>
+  <figure>
+    <img src="img/borrower-applications.png" alt="My applications" />
+    <figcaption><code>/borrower/applications</code> — all your applications with status badges. Click any card for detail.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/borrower-application-pending.png" alt="Pending application" />
+    <figcaption>A <strong>pending</strong> application: while it's under review you can still <strong>Withdraw application</strong>.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/borrower-application-approved.png" alt="Approved application" />
+    <figcaption>An <strong>approved</strong> application shows the lender's notes and the agreed rate. Once the lender activates the loan it appears under <strong>My loans</strong>. If rejected, the lender's reason is shown here instead.</figcaption>
+  </figure>
+</section>
+
+<!-- ═══════════════ 13. BORROWER LOANS ═══════════════ -->
+<section id="b-loans">
+  <h2><span class="num">13</span>Borrower — Tracking Your Loans</h2>
+  <figure>
+    <img src="img/borrower-loans.png" alt="My loans" />
+    <figcaption><code>/borrower/loans</code> — every loan across all your lenders, with outstanding balances and status.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/borrower-loan-detail.png" alt="Borrower loan detail" />
+    <figcaption><code>/borrower/loans/[id]</code> — read-only mirror of the lender's view: summary cards, loan terms, repayment history (updated the moment the lender records a payment) and the full instalment schedule. An overdue banner appears if the loan slips into arrears.</figcaption>
+  </figure>
+  <div class="callout">Borrowers can't record payments themselves — payments happen outside the platform (EFT, cash) and the lender records them. The portal is your single source of truth for what's been captured and what's still owed.</div>
+</section>
+
+<!-- ═══════════════ 14. NOTIFICATIONS ═══════════════ -->
+<section id="notifications">
+  <h2><span class="num">14</span>Notifications — Both Portals</h2>
+  <p class="lead">The bell in the header is the in-app channel; the same events also go out by email (and SMS where configured).</p>
+  <figure>
+    <img src="img/lender-notifications.png" alt="Notification bell" />
+    <figcaption>The bell shows an unread badge; the dropdown lists recent notifications. Clicking one marks it read and <strong>deep-links to the related record</strong> — an application notification opens that application, a loan notification opens that loan.</figcaption>
+  </figure>
+  <table>
+    <tr><th>Event</th><th>Who is notified</th></tr>
+    <tr><td>Application submitted</td><td>Lender staff</td></tr>
+    <tr><td>Application approved / rejected</td><td>The borrower</td></tr>
+    <tr><td>Repayment due in 3 days (daily 07:00 sweep)</td><td>The borrower</td></tr>
+    <tr><td>Loan overdue (daily 06:00 sweep)</td><td>Lender staff + borrower</td></tr>
+  </table>
+</section>
+
+<!-- ═══════════════ 15. LIFECYCLE ═══════════════ -->
+<section id="lifecycle">
+  <h2><span class="num">15</span>The End-to-End Lifecycle</h2>
+  <p class="lead">How the two journeys interlock, from first contact to a fully repaid loan:</p>
+  <div class="flow"><b>BORROWER</b>                              <b>LENDER</b>
+Register + onboard
+Browse marketplace ───connect───►  (or: Settings → invite borrower by email)
+Apply for loan     ───────────►   Applications queue  🔔
+                                  Review → <b>Approve</b> (set rate) or Reject
+        🔔 ◄──────approved──────  Draft loan created → <b>Activate</b>
+My loans: schedule visible        Loan detail: record repayments as money arrives
+        🔔 reminder (due in 3d)   Dashboard: upcoming / overdue tables
+        🔔 ◄──────overdue───────  Daily sweep flags <b>In arrears</b>
+Loan completed ✓                  Loan completed ✓ → statement PDF, CSV exports</div>
+</section>
+
+<!-- ═══════════════ 16. PERMISSIONS ═══════════════ -->
+<section id="permissions">
+  <h2><span class="num">16</span>Who Can Do What</h2>
+  <table>
+    <tr><th>Action</th><th>Admin</th><th>Loan officer</th><th>Viewer</th><th>Borrower</th></tr>
+    <tr><td>View dashboard, loans, borrowers, reports</td><td>✔</td><td>✔</td><td>✔</td><td>own data only</td></tr>
+    <tr><td>Add/edit borrowers, create loans, record repayments</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
+    <tr><td>Approve / reject applications</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
+    <tr><td>Upload / delete documents</td><td>✔</td><td>✔</td><td>download only</td><td>—</td></tr>
+    <tr><td>Delete borrowers</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>Team, settings, audit log</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>Connect to lenders, submit/withdraw applications</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
+    <tr><td>View own loans, schedules, repayment history</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
+  </table>
+  <div class="callout good">Viewers see the same screens but without create/edit buttons; if a write is attempted anyway, the API rejects it — and the database's row-level security guarantees no one ever sees another organisation's data.</div>
+</section>
+
+<footer>
+  <p><strong>LMS User Guide</strong> · screenshots captured from the live app (June 2026) with demo data ·
+  print to PDF with Ctrl+P · see also the companion <a href="architecture.html">Architecture &amp; Tech Stack Reference</a>.</p>
+</footer>
+</main>
+</body>
+</html>

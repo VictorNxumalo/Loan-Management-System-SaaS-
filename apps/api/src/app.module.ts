@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BillingModule } from './billing/billing.module';
 import { EmailModule } from './email/email.module';
 import { BorrowersModule } from './borrowers/borrowers.module';
 import { BorrowerLoansModule } from './borrower-loans/borrower-loans.module';
@@ -17,6 +18,7 @@ import { LoansModule } from './loans/loans.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
+import { PaymentSubmissionsModule } from './payment-submissions/payment-submissions.module';
 import { ReportsModule } from './reports/reports.module';
 import { SmsModule } from './sms/sms.module';
 import { StorageModule } from './storage/storage.module';
@@ -38,6 +40,7 @@ import { TeamModule } from './team/team.module';
     AuthModule,
     AuditModule,
     TeamModule,
+    BillingModule,
     LoansModule,
     BorrowersModule,
     DashboardModule,
@@ -45,6 +48,7 @@ import { TeamModule } from './team/team.module';
     BorrowerPortalModule,
     BorrowerLoansModule,
     LoanApplicationsModule,
+    PaymentSubmissionsModule,
     NotificationsModule,
     DocumentsModule,
     ReportsModule,

@@ -63,6 +63,7 @@ enum RepaymentFrequency {
 }
 
 enum LoanApplicationStatus {
+  DRAFT
   SUBMITTED
   APPROVED
   REJECTED
@@ -72,6 +73,20 @@ enum LoanApplicationStatus {
 enum DocumentEntityType {
   BORROWER
   LOAN
+  LOAN_APPLICATION
+  PAYMENT_SUBMISSION
+}
+
+enum PaymentProvider {
+  MANUAL
+  STRIPE
+}
+
+enum PaymentSubmissionStatus {
+  AWAITING_PROOF
+  PENDING
+  CONFIRMED
+  REJECTED
 }
 
 enum SubscriptionStatus {
@@ -89,6 +104,7 @@ model Organisation {
   name               String
   plan               OrganisationPlan @default(STARTER)
   planStatus         PlanStatus       @default(TRIAL) @map("plan_status")
+  trialEndsAt        DateTime?        @map("trial_ends_at")
   settings           Json             @default("{}")
   stripeCustomerId   String?          @unique @map("stripe_customer_id")
   createdAt          DateTime         @default(now()) @map("created_at")
@@ -106,6 +122,7 @@ model Organisation {
   lenderInvites     LenderInvite[]
   borrowerLinks     BorrowerLenderLink[]
   loanApplications  LoanApplication[]
+  paymentSubmissions PaymentSubmission[]
   teamInvites       TeamInvite[]
 
   @@map("organisations")
@@ -141,6 +158,8 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
   teamInvitesSent         TeamInvite[]             @relation("TeamInviteInvitedBy")
+  paymentSubmissionsSubmitted PaymentSubmission[]  @relation("PaymentSubmissionSubmittedBy")
+  paymentSubmissionsReviewed  PaymentSubmission[]  @relation("PaymentSubmissionReviewedBy")
 
   @@index([orgId])
   @@index([email])
@@ -265,8 +284,13 @@ model LoanApplication {
   frequency        RepaymentFrequency
   startDate        DateTime              @map("start_date") @db.Date
   purpose          String?
-  status           LoanApplicationStatus @default(SUBMITTED)
+  status           LoanApplicationStatus @default(DRAFT)
+  bankAccountHolder String?              @map("bank_account_holder")
+  bankName          String?              @map("bank_name")
+  bankBranchCode    String?              @map("bank_branch_code")
+  bankAccountNumber String?              @map("bank_account_number")
   lenderNotes      String?               @map("lender_notes")
+  reviewChecklist  Json?                 @map("review_checklist")
   reviewedByUserId String?               @map("reviewed_by_user_id") @db.Uuid
   reviewedAt       DateTime?             @map("reviewed_at")
   createdAt        DateTime              @default(now()) @map("created_at")
@@ -333,6 +357,7 @@ model Loan {
   repaymentSchedules RepaymentSchedule[]
   repayments         Repayment[]
   loanApplication    LoanApplication?
+  paymentSubmissions PaymentSubmission[]
 
   @@index([orgId])
   @@index([orgId, status])
@@ -374,11 +399,43 @@ model Repayment {
   loan       Loan         @relation(fields: [loanId], references: [id])
   organisation Organisation @relation(fields: [orgId], references: [id])
   recordedBy User         @relation("RepaymentRecordedBy", fields: [recordedByUserId], references: [id])
+  paymentSubmission PaymentSubmission?
 
   @@index([loanId])
   @@index([orgId])
   @@index([orgId, paymentDate])
   @@map("repayments")
+}
+
+model PaymentSubmission {
+  id                String                  @id @default(uuid()) @db.Uuid
+  orgId             String                  @map("org_id") @db.Uuid
+  loanId            String                  @map("loan_id") @db.Uuid
+  submittedByUserId String                  @map("submitted_by_user_id") @db.Uuid
+  amountCents       Int                     @map("amount_cents")
+  paymentDate       DateTime                @map("payment_date") @db.Date
+  referenceNote     String?                 @map("reference_note")
+  provider          PaymentProvider         @default(MANUAL)
+  externalReference String?                 @map("external_reference")
+  status            PaymentSubmissionStatus @default(AWAITING_PROOF)
+  repaymentId       String?                 @unique @map("repayment_id") @db.Uuid
+  reviewedByUserId  String?                 @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt        DateTime?               @map("reviewed_at")
+  reviewNote        String?                 @map("review_note")
+  submittedAt       DateTime?               @map("submitted_at")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  loan         Loan         @relation(fields: [loanId], references: [id])
+  submittedBy  User         @relation("PaymentSubmissionSubmittedBy", fields: [submittedByUserId], references: [id])
+  reviewedBy   User?        @relation("PaymentSubmissionReviewedBy", fields: [reviewedByUserId], references: [id])
+  repayment    Repayment?   @relation(fields: [repaymentId], references: [id])
+
+  @@index([orgId, status])
+  @@index([loanId])
+  @@index([submittedByUserId])
+  @@map("payment_submissions")
 }
 
 model Document {

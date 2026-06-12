@@ -1,13 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import type { MarketplaceLenderDto } from '@lms/types';
-import { isPublicListingEnabled } from '../common/organisation-settings';
+import type { ListMarketplaceLendersQuery, MarketplaceLenderDto } from '@lms/types';
+import {
+  isPublicListingEnabled,
+  parseMarketplaceProfile,
+} from '../common/organisation-settings';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class MarketplaceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listPublicLenders(borrowerUserId?: string): Promise<MarketplaceLenderDto[]> {
+  async listPublicLenders(
+    borrowerUserId?: string,
+    query: ListMarketplaceLendersQuery = {},
+  ): Promise<MarketplaceLenderDto[]> {
     const orgs = await this.prisma.organisation.findMany({
       where: { deletedAt: null },
       orderBy: { name: 'asc' },
@@ -32,6 +38,10 @@ export class MarketplaceService {
         plan: org.plan,
         isPublic: true,
         isConnected: connectedOrgIds.has(org.id),
-      }));
+        profile: parseMarketplaceProfile(org.settings),
+      }))
+      .filter((lender) =>
+        query.category ? lender.profile.category === query.category : true,
+      );
   }
 }

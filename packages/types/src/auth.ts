@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { marketplaceProfileSchema } from './marketplace';
 import { interestTypeSchema } from './schemas';
 
 export const registerSchema = z.object({
@@ -42,6 +43,7 @@ export const onboardingSchema = z.object({
 
 export const organisationSettingsSchema = z.object({
   publicListing: z.boolean().optional(),
+  marketplaceProfile: marketplaceProfileSchema.optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -66,14 +68,6 @@ export interface AuthUserResponse {
 export interface BorrowerProfileResponse {
   phone: string;
   idNumber: string | null;
-}
-
-export interface MarketplaceLenderDto {
-  id: string;
-  name: string;
-  plan: string;
-  isPublic: boolean;
-  isConnected: boolean;
 }
 
 export interface AuthOrganisationResponse {

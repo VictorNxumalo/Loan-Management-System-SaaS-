@@ -16,6 +16,7 @@ import type {
 } from '@lms/types';
 import { AccountType, BorrowerLinkSource, UserRole } from '@lms/types';
 import * as bcrypt from 'bcrypt';
+import { computeTrialEndsAt } from '../billing/trial.util';
 import { OAuth2Client } from 'google-auth-library';
 import { EmailService } from '../email/email.service';
 import {
@@ -77,6 +78,7 @@ export class AuthService {
         data: {
           name: `${input.name}'s Organisation`,
           settings: { publicListing: true },
+          trialEndsAt: computeTrialEndsAt(),
         },
       });
 
@@ -374,7 +376,11 @@ export class AuthService {
     if (!user) {
       user = await this.prisma.$transaction(async (tx) => {
         const org = await tx.organisation.create({
-          data: { name: `${name}'s Organisation`, settings: { publicListing: true } },
+          data: {
+            name: `${name}'s Organisation`,
+            settings: { publicListing: true },
+            trialEndsAt: computeTrialEndsAt(),
+          },
         });
 
         await this.prisma.setSessionContext(tx, { orgId: org.id });

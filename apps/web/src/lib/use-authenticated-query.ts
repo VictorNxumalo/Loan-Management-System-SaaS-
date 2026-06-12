@@ -11,12 +11,14 @@ export function useAuthenticatedQuery<T>(path: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (options?: { silent?: boolean }) => {
     if (!path || status !== 'authenticated' || !session?.accessToken) {
       return null;
     }
 
-    setLoading(true);
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -25,10 +27,14 @@ export function useAuthenticatedQuery<T>(path: string | null) {
       return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Request failed');
-      setData(null);
+      if (!options?.silent) {
+        setData(null);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [api, path, session?.accessToken, status]);
 
@@ -49,7 +55,8 @@ export function useAuthenticatedQuery<T>(path: string | null) {
   useEffect(() => {
     const onFocus = () => {
       if (status === 'authenticated' && path) {
-        void refetch();
+        // File pickers blur/refocus the window; avoid wiping in-progress forms.
+        void refetch({ silent: true });
       }
     };
 

@@ -4,11 +4,13 @@ import { UserRole } from '@lms/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AccessTokenPayload } from '../auth/token.service';
 import { BorrowerGuard, LenderGuard } from '../common/guards/account-type.guard';
+import { PlanGuard } from '../common/guards/plan.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { z } from 'zod';
+import { BorrowerLendingConstraintsService } from './borrower-lending-constraints.service';
 import {
   BorrowerPortalService,
   LenderSettingsService,
@@ -25,7 +27,15 @@ const acceptInviteSchema = z.object({
 @Controller('borrower')
 @UseGuards(JwtAuthGuard, BorrowerGuard)
 export class BorrowerPortalController {
-  constructor(private readonly borrowerPortalService: BorrowerPortalService) {}
+  constructor(
+    private readonly borrowerPortalService: BorrowerPortalService,
+    private readonly lendingConstraints: BorrowerLendingConstraintsService,
+  ) {}
+
+  @Get('lending-status')
+  lendingStatus(@CurrentUser() user: AccessTokenPayload) {
+    return this.lendingConstraints.getStatus(user.sub);
+  }
 
   @Get('lenders')
   listMyLenders(@CurrentUser() user: AccessTokenPayload) {
@@ -50,7 +60,7 @@ export class BorrowerPortalController {
 }
 
 @Controller('settings')
-@UseGuards(JwtAuthGuard, LenderGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, LenderGuard, PlanGuard, RolesGuard)
 export class SettingsController {
   constructor(private readonly lenderSettingsService: LenderSettingsService) {}
 
@@ -59,7 +69,7 @@ export class SettingsController {
   updateOrganisation(
     @CurrentUser() user: AccessTokenPayload,
     @Body(new ZodValidationPipe(organisationSettingsSchema))
-    body: { publicListing?: boolean },
+    body: Parameters<LenderSettingsService['updateOrganisationSettings']>[2],
   ) {
     return this.lenderSettingsService.updateOrganisationSettings(
       user.orgId!,

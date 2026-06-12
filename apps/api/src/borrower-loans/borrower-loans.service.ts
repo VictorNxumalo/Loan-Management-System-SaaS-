@@ -9,6 +9,8 @@ import {
   BORROWER_LOAN_STATUS_LABELS,
   BORROWER_VISIBLE_LOAN_STATUSES,
   LoanStatus,
+  PAYMENT_SUBMISSION_STATUS_LABELS,
+  PaymentSubmissionStatus,
 } from '@lms/types';
 import { computeDaysOverdue } from '@lms/utils';
 import { formatCents } from '../common/money';
@@ -105,7 +107,26 @@ export class BorrowerLoansService {
         where: { id: loan.orgId, deletedAt: null },
       });
 
-      return this.mapDetail(loan, org?.name ?? 'Unknown lender');
+      const pendingPayments = await tx.paymentSubmission.findMany({
+        where: {
+          loanId,
+          submittedByUserId: userId,
+          status: {
+            in: [
+              PaymentSubmissionStatus.AWAITING_PROOF,
+              PaymentSubmissionStatus.PENDING,
+              PaymentSubmissionStatus.REJECTED,
+            ],
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return this.mapDetail(
+        loan,
+        org?.name ?? 'Unknown lender',
+        pendingPayments,
+      );
     });
   }
 
@@ -215,6 +236,15 @@ export class BorrowerLoansService {
       }[];
     },
     organisationName: string,
+    pendingPayments: {
+      id: string;
+      amountCents: number;
+      paymentDate: Date;
+      status: string;
+      referenceNote: string | null;
+      submittedAt: Date | null;
+      reviewNote: string | null;
+    }[] = [],
   ): BorrowerLoanDetailDto {
     const snapshot = this.loanBalanceService.computeFromData(
       row.repaymentSchedules,
@@ -260,6 +290,24 @@ export class BorrowerLoansService {
         note: repayment.note,
         createdAt: repayment.createdAt.toISOString(),
       })),
+      pendingPayments: pendingPayments.map((payment) => ({
+        id: payment.id,
+        amountFormatted: formatCents(payment.amountCents),
+        paymentDate: payment.paymentDate.toISOString().slice(0, 10),
+        status: payment.status,
+        statusLabel: PAYMENT_SUBMISSION_STATUS_LABELS[payment.status] ?? payment.status,
+        referenceNote: payment.referenceNote,
+        submittedAt: payment.submittedAt?.toISOString() ?? null,
+        reviewNote: payment.reviewNote,
+      })),
+      canSubmitPayment:
+        (displayStatus === LoanStatus.ACTIVE ||
+          displayStatus === LoanStatus.IN_ARREARS) &&
+        !pendingPayments.some(
+          (payment) =>
+            payment.status === PaymentSubmissionStatus.AWAITING_PROOF ||
+            payment.status === PaymentSubmissionStatus.PENDING,
+        ),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

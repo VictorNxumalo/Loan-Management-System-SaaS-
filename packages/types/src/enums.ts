@@ -22,6 +22,7 @@ export type BorrowerLinkSource =
   (typeof BorrowerLinkSource)[keyof typeof BorrowerLinkSource];
 
 export const LoanApplicationStatus = {
+  DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
@@ -60,6 +61,8 @@ export type RepaymentFrequency =
 export const DocumentEntityType = {
   BORROWER: 'BORROWER',
   LOAN: 'LOAN',
+  LOAN_APPLICATION: 'LOAN_APPLICATION',
+  PAYMENT_SUBMISSION: 'PAYMENT_SUBMISSION',
 } as const;
 
 export type DocumentEntityType =

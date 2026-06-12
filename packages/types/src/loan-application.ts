@@ -6,14 +6,28 @@ import {
   repaymentFrequencySchema,
 } from './schemas';
 
+export const bankDetailsSchema = z.object({
+  accountHolder: z.string().trim().min(2).max(120),
+  bankName: z.string().trim().min(2).max(120),
+  branchCode: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Branch code must be exactly 6 digits'),
+  accountNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{6,20}$/, 'Account number must be 6–20 digits'),
+});
+
 export const loanApplicationStatusSchema = z.enum([
+  LoanApplicationStatus.DRAFT,
   LoanApplicationStatus.SUBMITTED,
   LoanApplicationStatus.APPROVED,
   LoanApplicationStatus.REJECTED,
   LoanApplicationStatus.WITHDRAWN,
 ]);
 
-export const submitLoanApplicationSchema = z.object({
+export const createLoanApplicationDraftSchema = z.object({
   orgId: z.string().uuid(),
   principalCents: z.number().int().positive(),
   interestType: interestTypeSchema,
@@ -21,11 +35,73 @@ export const submitLoanApplicationSchema = z.object({
   frequency: repaymentFrequencySchema,
   startDate: z.coerce.date(),
   purpose: z.string().min(1).max(1000).optional(),
+  bankDetails: bankDetailsSchema,
+});
+
+/** @deprecated Use createLoanApplicationDraftSchema — kept as alias for imports */
+export const submitLoanApplicationSchema = createLoanApplicationDraftSchema;
+
+export const requestApplicationDocumentUploadSchema = z.object({
+  documentType: z.enum(['ID_COPY', 'BANK_STATEMENT']),
+  filename: z.string().min(1).max(255),
+  contentType: z.string().min(1).max(128),
+  sizeBytes: z.number().int().positive().max(10_485_760),
 });
 
 export const rejectLoanApplicationSchema = z.object({
   lenderNotes: z.string().min(1).max(2000),
 });
+
+export const APPLICATION_REVIEW_CHECKLIST_ITEMS = [
+  {
+    id: 'idVerified',
+    label: 'SA ID verified',
+    description: 'ID document matches the borrower profile and appears authentic.',
+  },
+  {
+    id: 'bankDetailsVerified',
+    label: 'Bank details verified',
+    description: 'Account holder, bank, branch code, and account number are complete and consistent.',
+  },
+  {
+    id: 'statementsVerified',
+    label: 'Bank statements reviewed',
+    description: 'Required bank statements were received and reviewed.',
+  },
+  {
+    id: 'affordabilityReviewed',
+    label: 'Affordability reviewed',
+    description: 'Repayment capacity and requested terms were assessed.',
+  },
+  {
+    id: 'purposePlausible',
+    label: 'Purpose plausible',
+    description: 'The stated loan purpose is reasonable for the amount requested.',
+  },
+] as const;
+
+export type ApplicationReviewChecklistItemId =
+  (typeof APPLICATION_REVIEW_CHECKLIST_ITEMS)[number]['id'];
+
+export const applicationReviewChecklistSchema = z.object({
+  idVerified: z.boolean(),
+  bankDetailsVerified: z.boolean(),
+  statementsVerified: z.boolean(),
+  affordabilityReviewed: z.boolean(),
+  purposePlausible: z.boolean(),
+});
+
+export function isApplicationReviewChecklistComplete(
+  checklist: ApplicationReviewChecklist | null | undefined,
+): boolean {
+  if (!checklist) {
+    return false;
+  }
+
+  return APPLICATION_REVIEW_CHECKLIST_ITEMS.every((item) => checklist[item.id] === true);
+}
+
+export type ApplicationReviewChecklist = z.infer<typeof applicationReviewChecklistSchema>;
 
 export const approveLoanApplicationSchema = z.object({
   annualRate: z.number().nonnegative(),
@@ -37,10 +113,37 @@ export const listLoanApplicationsQuerySchema = paginationQuerySchema.extend({
   page: z.coerce.number().int().min(1).default(1),
 });
 
-export type SubmitLoanApplicationInput = z.infer<typeof submitLoanApplicationSchema>;
+export type CreateLoanApplicationDraftInput = z.infer<
+  typeof createLoanApplicationDraftSchema
+>;
+export type SubmitLoanApplicationInput = CreateLoanApplicationDraftInput;
+export type RequestApplicationDocumentUploadInput = z.infer<
+  typeof requestApplicationDocumentUploadSchema
+>;
 export type RejectLoanApplicationInput = z.infer<typeof rejectLoanApplicationSchema>;
 export type ApproveLoanApplicationInput = z.infer<typeof approveLoanApplicationSchema>;
 export type ListLoanApplicationsQuery = z.infer<typeof listLoanApplicationsQuerySchema>;
+
+export interface ApplicationBankDetailsDto {
+  accountHolder: string;
+  bankName: string;
+  branchCode: string;
+  accountNumber: string;
+}
+
+export interface ApplicationDocumentRequirementDto {
+  documentType: string;
+  label: string;
+  min: number;
+  max: number;
+  uploaded: number;
+  met: boolean;
+}
+
+export interface ApplicationDocumentsSummaryDto {
+  requirements: ApplicationDocumentRequirementDto[];
+  isComplete: boolean;
+}
 
 export interface LoanApplicationListItemDto {
   id: string;
@@ -60,10 +163,23 @@ export interface LoanApplicationListItemDto {
   reviewedAt: string | null;
 }
 
+export interface ApplicationReviewChecklistStatusDto {
+  items: {
+    id: ApplicationReviewChecklistItemId;
+    label: string;
+    description: string;
+    checked: boolean;
+  }[];
+  isComplete: boolean;
+}
+
 export interface LoanApplicationDetailDto extends LoanApplicationListItemDto {
   lenderNotes: string | null;
   borrowerId: string | null;
   updatedAt: string;
+  bankDetails: ApplicationBankDetailsDto | null;
+  documents: ApplicationDocumentsSummaryDto;
+  reviewChecklist: ApplicationReviewChecklistStatusDto;
 }
 
 export interface PaginatedLoanApplicationsDto {

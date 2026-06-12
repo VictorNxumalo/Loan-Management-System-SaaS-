@@ -11,6 +11,8 @@ import type {
   RequestDocumentUploadInput,
 } from '@lms/types';
 import {
+  APPLICATION_DOCUMENT_LABELS,
+  APPLICATION_DOCUMENT_TYPES,
   BORROWER_DOCUMENT_LABELS,
   BORROWER_DOCUMENT_TYPES,
   DocumentEntityType,
@@ -187,6 +189,20 @@ export class DocumentsService {
       return;
     }
 
+    if (entityType === DocumentEntityType.LOAN_APPLICATION) {
+      if (!(APPLICATION_DOCUMENT_TYPES as readonly string[]).includes(documentType)) {
+        throw new BadRequestException('Invalid application document type');
+      }
+      return;
+    }
+
+    if (entityType === DocumentEntityType.PAYMENT_SUBMISSION) {
+      if (documentType !== 'PROOF_OF_PAYMENT') {
+        throw new BadRequestException('Invalid payment submission document type');
+      }
+      return;
+    }
+
     throw new BadRequestException('Invalid entity type');
   }
 
@@ -217,6 +233,16 @@ export class DocumentsService {
         return;
       }
 
+      if (entityType === DocumentEntityType.LOAN_APPLICATION) {
+        const application = await tx.loanApplication.findFirst({
+          where: { id: entityId, orgId },
+        });
+        if (!application) {
+          throw new NotFoundException('Application not found');
+        }
+        return;
+      }
+
       throw new BadRequestException('Invalid entity type');
     });
   }
@@ -232,7 +258,9 @@ export class DocumentsService {
     const folder =
       entityType === DocumentEntityType.BORROWER
         ? `borrowers/${entityId}`
-        : `loans/${entityId}`;
+        : entityType === DocumentEntityType.LOAN
+          ? `loans/${entityId}`
+          : `applications/${entityId}`;
 
     return `${orgId}/${folder}/${documentType}/${randomUUID()}-${safeName}`;
   }
@@ -252,7 +280,11 @@ export class DocumentsService {
         ? BORROWER_DOCUMENT_LABELS[
             row.documentType as keyof typeof BORROWER_DOCUMENT_LABELS
           ]
-        : LOAN_DOCUMENT_LABELS[row.documentType as keyof typeof LOAN_DOCUMENT_LABELS];
+        : row.entityType === DocumentEntityType.LOAN
+          ? LOAN_DOCUMENT_LABELS[row.documentType as keyof typeof LOAN_DOCUMENT_LABELS]
+          : APPLICATION_DOCUMENT_LABELS[
+              row.documentType as keyof typeof APPLICATION_DOCUMENT_LABELS
+            ];
 
     return {
       id: row.id,

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LoanStatus } from './enums';
 import type { LoanSchedulePeriodDto } from './loan';
+import type { BorrowerPendingPaymentDto } from './payment-submission';
 import { paginationQuerySchema } from './schemas';
 
 export const BORROWER_VISIBLE_LOAN_STATUSES = [
@@ -65,6 +66,8 @@ export interface BorrowerLoanDetailDto {
   daysOverdue: number | null;
   schedule: LoanSchedulePeriodDto[];
   repayments: BorrowerLoanRepaymentDto[];
+  pendingPayments: BorrowerPendingPaymentDto[];
+  canSubmitPayment: boolean;
   createdAt: string;
   updatedAt: string;
 }

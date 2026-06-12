@@ -1,6 +1,7 @@
 import { InterestType, RepaymentFrequency } from '@lms/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AuditService } from '../audit/audit.service';
+import { BillingService } from '../billing/billing.service';
 import { BorrowersService } from '../borrowers/borrowers.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoanBalanceService } from '../loans/loan-balance.service';
@@ -14,11 +15,15 @@ describe.runIf(runIntegration)('Tenant isolation integration', () => {
   const scheduleService = new LoansScheduleService(prisma);
   const balanceService = new LoanBalanceService();
   const auditService = new AuditService(prisma);
+  const billingService = {
+    assertActiveLoanCapacity: async () => {},
+  } as unknown as BillingService;
   const loansService = new LoansService(
     prisma,
     scheduleService,
     balanceService,
     auditService,
+    billingService,
   );
   const borrowersService = new BorrowersService(prisma, balanceService, auditService);
 

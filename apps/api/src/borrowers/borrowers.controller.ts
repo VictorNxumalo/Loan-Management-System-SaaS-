@@ -21,13 +21,14 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { LenderGuard } from '../common/guards/account-type.guard';
+import { PlanGuard } from '../common/guards/plan.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AccessTokenPayload } from '../auth/token.service';
 import { BorrowersService } from './borrowers.service';
 
 @Controller('borrowers')
-@UseGuards(JwtAuthGuard, LenderGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, LenderGuard, PlanGuard, RolesGuard)
 export class BorrowersController {
   constructor(private readonly borrowersService: BorrowersService) {}
 

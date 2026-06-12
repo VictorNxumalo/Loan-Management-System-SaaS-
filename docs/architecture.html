@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LMS — High-Level Architecture &amp; Tech Stack Reference</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --ink: #0f172a;
+    --paper: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --purple: #7c3aed;
+    --purple-soft: #ede9fe;
+    --rose: #e11d48;
+    --rose-soft: #ffe4e6;
+    --cyan: #0891b2;
+    --cyan-soft: #cffafe;
+    --slate-soft: #f1f5f9;
+    --mono: "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.6;
+    display: flex;
+  }
+
+  /* ── Sidebar ─────────────────────────────────────── */
+  nav.sidebar {
+    width: 270px;
+    min-width: 270px;
+    background: var(--bg);
+    color: #cbd5e1;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    padding: 28px 0;
+  }
+  nav.sidebar .brand {
+    padding: 0 24px 20px;
+    border-bottom: 1px solid #334155;
+    margin-bottom: 16px;
+  }
+  nav.sidebar .brand h1 { font-size: 19px; color: #fff; letter-spacing: 0.5px; }
+  nav.sidebar .brand p { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  nav.sidebar a {
+    display: block;
+    padding: 7px 24px;
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 13.5px;
+    border-left: 3px solid transparent;
+  }
+  nav.sidebar a:hover { background: #1e293b; color: #fff; border-left-color: var(--accent); }
+  nav.sidebar .group { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #64748b; padding: 16px 24px 6px; }
+
+  /* ── Main ────────────────────────────────────────── */
+  main { flex: 1; max-width: 1060px; padding: 48px 56px 96px; }
+  header.hero { margin-bottom: 40px; }
+  header.hero .eyebrow { color: var(--accent); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; }
+  header.hero h1 { font-size: 34px; margin: 6px 0 10px; line-height: 1.2; }
+  header.hero p.sub { color: var(--muted); font-size: 16px; max-width: 760px; }
+  .meta-chips { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 14px; font-size: 12.5px; color: #334155; font-weight: 600;
+  }
+  .chip b { color: var(--accent); }
+
+  section { margin-bottom: 56px; }
+  h2 {
+    font-size: 24px; margin-bottom: 6px; padding-top: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .num {
+    background: var(--bg); color: #fff; font-size: 13px; width: 28px; height: 28px;
+    border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700;
+  }
+  h3 { font-size: 17px; margin: 26px 0 10px; color: #1e293b; }
+  p.lead { color: var(--muted); margin-bottom: 18px; max-width: 820px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13.5px; margin: 14px 0; }
+  th { background: var(--slate-soft); text-align: left; padding: 9px 14px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td code, li code, p code { font-family: var(--mono); font-size: 12px; background: var(--slate-soft); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+
+  pre.tree {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7;
+    background: var(--bg); color: #e2e8f0; padding: 20px 24px; border-radius: 12px;
+    overflow-x: auto; margin: 14px 0;
+  }
+  pre.tree .c { color: #64748b; }
+  pre.tree .d { color: #7dd3fc; font-weight: 600; }
+  pre.tree .f { color: #e2e8f0; }
+
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.3px; }
+  .b-blue   { background: var(--accent-soft); color: #1d4ed8; }
+  .b-green  { background: var(--green-soft); color: #047857; }
+  .b-amber  { background: var(--amber-soft); color: #b45309; }
+  .b-purple { background: var(--purple-soft); color: #6d28d9; }
+  .b-rose   { background: var(--rose-soft); color: #be123c; }
+  .b-cyan   { background: var(--cyan-soft); color: #0e7490; }
+  .b-slate  { background: var(--slate-soft); color: #475569; }
+
+  /* ── Diagram primitives ──────────────────────────── */
+  .diagram {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 26px; margin: 18px 0;
+  }
+  .diagram .caption { text-align: center; font-size: 12px; color: var(--muted); margin-top: 16px; font-style: italic; }
+  .lane { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: stretch; }
+  .node {
+    border-radius: 10px; padding: 12px 16px; min-width: 150px; flex: 1;
+    border: 1.5px solid; text-align: center; font-size: 13px;
+  }
+  .node .t { font-weight: 700; font-size: 13.5px; }
+  .node .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .n-actor  { background: #fff7ed; border-color: #fdba74; }
+  .n-web    { background: var(--accent-soft); border-color: #93c5fd; }
+  .n-api    { background: var(--green-soft); border-color: #6ee7b7; }
+  .n-data   { background: var(--purple-soft); border-color: #c4b5fd; }
+  .n-ext    { background: var(--slate-soft); border-color: #cbd5e1; border-style: dashed; }
+  .n-queue  { background: var(--amber-soft); border-color: #fcd34d; }
+  .arrow-row { display: flex; justify-content: center; padding: 4px 0; }
+  .arrow {
+    color: var(--muted); font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 0;
+  }
+  .arrow::after { content: "▼"; font-size: 11px; color: #94a3b8; }
+  .arrow.up::after { content: ""; }
+  .arrow.up::before { content: "▲"; font-size: 11px; color: #94a3b8; }
+  .flow-h { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .flow-h .harrow { color: #94a3b8; font-size: 16px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .legend span::before { content: "■ "; }
+  .lg-actor::before { color: #fdba74; } .lg-web::before { color: #93c5fd; }
+  .lg-api::before { color: #6ee7b7; } .lg-data::before { color: #c4b5fd; }
+  .lg-ext::before { color: #cbd5e1; } .lg-queue::before { color: #fcd34d; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .cols, .cols-3 { grid-template-columns: 1fr; } main { padding: 32px 24px; } nav.sidebar { display: none; } }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .card h4 { font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .card ul { margin-left: 18px; font-size: 13px; color: #334155; }
+  .card ul li { margin: 3px 0; }
+
+  .callout {
+    border-left: 4px solid var(--accent); background: var(--accent-soft);
+    border-radius: 0 10px 10px 0; padding: 12px 18px; margin: 16px 0; font-size: 13.5px;
+  }
+  .callout.warn { border-left-color: var(--amber); background: var(--amber-soft); }
+  .callout.good { border-left-color: var(--green); background: var(--green-soft); }
+
+  footer { color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--border); padding-top: 18px; margin-top: 56px; }
+
+  /* ── Print / PDF ─────────────────────────────────── */
+  @media print {
+    nav.sidebar { display: none; }
+    main { max-width: 100%; padding: 0; }
+    body { background: #fff; }
+    section { page-break-inside: avoid; }
+    .diagram, table, .card { break-inside: avoid; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="brand">
+    <h1>LMS Architecture</h1>
+    <p>Loan Management System<br/>High-Level Design Reference</p>
+  </div>
+  <div class="group">Overview</div>
+  <a href="#overview">1 · System Overview</a>
+  <a href="#context">2 · System Context</a>
+  <a href="#containers">3 · Container Architecture</a>
+  <a href="#stack">4 · Tech Stack Matrix</a>
+  <div class="group">Structure</div>
+  <a href="#monorepo">5 · Monorepo Layout</a>
+  <a href="#backend">6 · Backend (NestJS API)</a>
+  <a href="#frontend">7 · Frontend (Next.js)</a>
+  <a href="#api-surface">8 · REST API Surface</a>
+  <div class="group">Data &amp; Security</div>
+  <a href="#data-model">9 · Data Model</a>
+  <a href="#auth">10 · Auth &amp; Identity</a>
+  <a href="#tenancy">11 · Multi-Tenancy &amp; RLS</a>
+  <div class="group">Operations</div>
+  <a href="#async">12 · Async &amp; Notifications</a>
+  <a href="#crosscutting">13 · Cross-Cutting Concerns</a>
+  <a href="#infra">14 · Environments, CI &amp; Infra</a>
+  <a href="#roadmap">15 · Planned / Roadmap</a>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Architecture Reference · v1.0</div>
+  <h1>LMS — Loan Management System<br/>High-Level Architecture &amp; Tech Stack</h1>
+  <p class="sub">
+    A dual-portal, multi-tenant lending platform: lenders manage borrowers, loans, repayments and reporting in an
+    organisation workspace, while borrowers discover lenders, apply for loans and track repayments through a
+    self-service portal. This document is the single-page reference for the system's structure, technology choices
+    and security model.
+  </p>
+  <div class="meta-chips">
+    <span class="chip">Monorepo · <b>pnpm workspaces</b></span>
+    <span class="chip">Frontend · <b>Next.js 14</b></span>
+    <span class="chip">Backend · <b>NestJS 11</b></span>
+    <span class="chip">Database · <b>PostgreSQL (Supabase) + Prisma 6</b></span>
+    <span class="chip">Queue · <b>BullMQ + Redis</b></span>
+    <span class="chip">Tenancy · <b>Postgres RLS</b></span>
+  </div>
+</header>
+
+<!-- ════════════════════════ 1. OVERVIEW ════════════════════════ -->
+<section id="overview">
+  <h2><span class="num">1</span>System Overview</h2>
+  <p class="lead">
+    The LMS is an <strong>API-first, multi-tenant SaaS</strong>. Every lender is an <em>Organisation</em> (tenant);
+    every piece of tenant data carries an <code>org_id</code> and is isolated at the database layer with Row Level
+    Security. Borrowers are platform-level users who connect to one or more lender organisations.
+  </p>
+  <div class="cols-3">
+    <div class="card">
+      <h4><span class="badge b-blue">Portal</span> Lender Workspace</h4>
+      <ul>
+        <li>Portfolio dashboard &amp; metrics</li>
+        <li>Borrower CRM (CRUD + platform search)</li>
+        <li>Loan origination, schedules, repayments</li>
+        <li>Application review (approve / reject)</li>
+        <li>Team management, audit log, reports</li>
+        <li>Org settings &amp; borrower invites</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-green">Portal</span> Borrower Portal</h4>
+      <ul>
+        <li>Onboarding &amp; profile</li>
+        <li>Lender marketplace (browse / connect)</li>
+        <li>Accept lender invites</li>
+        <li>Submit &amp; track loan applications</li>
+        <li>View active loans &amp; schedules</li>
+        <li>In-app notifications</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-purple">Core</span> Platform Services</h4>
+      <ul>
+        <li>JWT auth + Google OAuth</li>
+        <li>Financial engine (flat / reducing interest)</li>
+        <li>Notification pipeline (in-app, email, SMS)</li>
+        <li>Document storage (signed URLs)</li>
+        <li>Scheduled jobs (overdue, reminders)</li>
+        <li>Immutable audit trail</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ 2. CONTEXT ════════════════════════ -->
+<section id="context">
+  <h2><span class="num">2</span>System Context (C4 — Level 1)</h2>
+  <p class="lead">Who uses the system and which external services it depends on.</p>
+  <div class="diagram">
+    <div class="lane">
+      <div class="node n-actor"><div class="t">Lender Staff</div><div class="s">ADMIN · LOAN_OFFICER · VIEWER</div></div>
+      <div class="node n-actor"><div class="t">Borrower</div><div class="s">Platform-level user</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">HTTPS / browser</div></div>
+    <div class="lane">
+      <div class="node n-web" style="flex: 0 1 420px;"><div class="t">LMS Platform</div><div class="s">Next.js portal + NestJS API + Postgres (Supabase)</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">outbound integrations</div></div>
+    <div class="lane">
+      <div class="node n-ext"><div class="t">Google OAuth</div><div class="s">Social sign-in (id_token)</div></div>
+      <div class="node n-ext"><div class="t">SendGrid</div><div class="s">Transactional email</div></div>
+      <div class="node n-ext"><div class="t">Africa's Talking / Twilio</div><div class="s">SMS notifications</div></div>
+      <div class="node n-ext"><div class="t">Supabase</div><div class="s">Managed Postgres + Storage</div></div>
+      <div class="node n-ext"><div class="t">Stripe</div><div class="s">Billing (planned — schema only)</div></div>
+    </div>
+    <div class="caption">External actors and third-party dependencies. All providers have dev-mode console fallbacks.</div>
+  </div>
+</section>
+
+<!-- ════════════════════════ 3. CONTAINERS ════════════════════════ -->
+<section id="containers">
+  <h2><span class="num">3</span>Container Architecture (C4 — Level 2)</h2>
+  <p class="lead">The deployable/runtime units and how requests flow between them.</p>
+  <div class="diagram">
+    <div class="lane">
+      <div class="node n-actor" style="flex: 0 1 300px;"><div class="t">Browser</div><div class="s">Lender &amp; borrower users</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">HTTPS · NextAuth session cookie (JWT)</div></div>
+    <div class="lane">
+      <div class="node n-web"><div class="t">Web App — <code>@lms/web</code></div><div class="s">Next.js 14 App Router · React 18 · Tailwind + shadcn/ui · NextAuth.js · port 3000</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">REST · <code>Authorization: Bearer &lt;access token&gt;</code> · base path <code>/v1</code></div></div>
+    <div class="lane">
+      <div class="node n-api"><div class="t">API — <code>@lms/api</code></div><div class="s">NestJS 11 · Express · Passport-JWT · Zod validation · Helmet · Throttler · port 3001</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">Prisma 6 · interactive transactions · RLS session context</div></div>
+    <div class="lane">
+      <div class="node n-data"><div class="t">PostgreSQL 15</div><div class="s">Supabase-hosted · Row Level Security · Supavisor poolers (6543 tx / 5432 direct)</div></div>
+      <div class="node n-queue"><div class="t">Redis 7 + BullMQ</div><div class="s">Async notification jobs · sync fallback when Redis is absent</div></div>
+      <div class="node n-data"><div class="t">Supabase Storage</div><div class="s">Private bucket <code>lms-documents</code> · signed upload/download URLs</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">dispatch channels</div></div>
+    <div class="lane">
+      <div class="node n-ext"><div class="t">SendGrid</div><div class="s">Email</div></div>
+      <div class="node n-ext"><div class="t">Africa's Talking / Twilio</div><div class="s">SMS</div></div>
+      <div class="node n-ext"><div class="t">Google OAuth</div><div class="s">id_token verification</div></div>
+    </div>
+    <div class="legend">
+      <span class="lg-actor">Actor</span><span class="lg-web">Frontend</span><span class="lg-api">Backend</span>
+      <span class="lg-data">Data stores</span><span class="lg-queue">Queue</span><span class="lg-ext">External (dashed)</span>
+    </div>
+  </div>
+  <div class="callout">
+    <strong>Shared contract layer:</strong> both containers consume <code>@lms/types</code> (Zod schemas + DTOs + enums)
+    and <code>@lms/utils</code> (Decimal.js financial engine). The API validates requests with the <em>same</em> Zod
+    schemas the frontend uses in its forms — one source of truth for the wire contract.
+  </div>
+</section>
+
+<!-- ════════════════════════ 4. TECH STACK ════════════════════════ -->
+<section id="stack">
+  <h2><span class="num">4</span>Tech Stack Matrix</h2>
+  <p class="lead">Every technology choice across all layers of the system.</p>
+  <table>
+    <tr><th style="width:180px">Layer</th><th>Technology</th><th>Notes</th></tr>
+    <tr><td><strong>Language</strong></td><td>TypeScript 5.8 (strict)</td><td>End-to-end, including shared packages</td></tr>
+    <tr><td><strong>Monorepo</strong></td><td>pnpm 9 workspaces</td><td><code>apps/*</code> + <code>packages/*</code>; no Turborepo/Nx — root scripts orchestrate</td></tr>
+    <tr><td><strong>Frontend</strong></td><td>Next.js 14.2 (App Router), React 18.3</td><td>SSR/CSR hybrid; route groups for lender vs borrower portals</td></tr>
+    <tr><td><strong>UI</strong></td><td>Tailwind CSS 3.4 · shadcn/ui (New York) · Radix · lucide-react · CVA</td><td>Design-system primitives in <code>components/ui</code></td></tr>
+    <tr><td><strong>Forms / client validation</strong></td><td>react-hook-form + @hookform/resolvers + Zod</td><td>Schemas imported from <code>@lms/types</code></td></tr>
+    <tr><td><strong>Data fetching</strong></td><td>Custom hooks (<code>useApi</code>, <code>useAuthenticatedQuery</code>)</td><td>No React Query/SWR; manual fetch + refetch-on-focus</td></tr>
+    <tr><td><strong>Web auth</strong></td><td>NextAuth.js 4 (JWT session strategy)</td><td>Credentials + Google providers; session carries API tokens, auto-refresh</td></tr>
+    <tr><td><strong>Backend</strong></td><td>NestJS 11 on Express</td><td>Modular feature architecture, global <code>/v1</code> prefix</td></tr>
+    <tr><td><strong>API auth</strong></td><td>Custom JWT (15-min access) + opaque rotating refresh tokens (30-day, SHA-256 hashed, httpOnly cookie)</td><td>Passport-JWT strategy; bcrypt(12) passwords; google-auth-library for OAuth</td></tr>
+    <tr><td><strong>Server validation</strong></td><td>Zod via custom <code>ZodValidationPipe</code></td><td>No class-validator; schemas shared from <code>@lms/types</code></td></tr>
+    <tr><td><strong>ORM</strong></td><td>Prisma 6.8</td><td>Schema + migrations at repo root (<code>prisma/</code>)</td></tr>
+    <tr><td><strong>Database</strong></td><td>PostgreSQL 15 (Supabase-managed)</td><td>RLS for tenant isolation; Supavisor pooling (tx + direct URLs)</td></tr>
+    <tr><td><strong>File storage</strong></td><td>Supabase Storage (private bucket)</td><td>Direct client uploads via signed URLs; PDF/JPEG/PNG, 10 MB cap</td></tr>
+    <tr><td><strong>Queue / jobs</strong></td><td>BullMQ + Redis 7 (ioredis) · @nestjs/schedule crons</td><td>Notification dispatch queue; daily overdue + reminder sweeps</td></tr>
+    <tr><td><strong>Email</strong></td><td>SendGrid REST API</td><td>Verification, resets, invites, application lifecycle, reminders; console fallback in dev</td></tr>
+    <tr><td><strong>SMS</strong></td><td>Africa's Talking (preferred) or Twilio</td><td>Console fallback in dev</td></tr>
+    <tr><td><strong>Financial math</strong></td><td>Decimal.js in <code>@lms/utils</code></td><td>Flat &amp; reducing-balance schedules; all money stored as integer cents</td></tr>
+    <tr><td><strong>Reports</strong></td><td>pdfkit (statement PDFs) · in-process CSV</td><td>Portfolio CSV, arrears CSV, borrower statement PDF</td></tr>
+    <tr><td><strong>API hardening</strong></td><td>helmet · @nestjs/throttler · cookie-parser · CORS allow-list (prod)</td><td>Global 1000 req/min; auth routes 100/min</td></tr>
+    <tr><td><strong>Testing</strong></td><td>Vitest (API integration + utils unit tests)</td><td>Tenant-isolation, loans, schedules, dispatch, reports; web tests pending</td></tr>
+    <tr><td><strong>CI</strong></td><td>GitHub Actions</td><td>Node 22 + Postgres 15 service; install → prisma generate → lint → type-check → test</td></tr>
+    <tr><td><strong>Local infra</strong></td><td>docker-compose (postgres:15-alpine, redis:7-alpine)</td><td>For local dev; production DB is Supabase</td></tr>
+    <tr><td><strong>Billing (planned)</strong></td><td>Stripe</td><td>Schema (<code>Subscription</code>, plan enums) and env vars exist; no SDK integration yet</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════ 5. MONOREPO ════════════════════════ -->
+<section id="monorepo">
+  <h2><span class="num">5</span>Monorepo Layout</h2>
+  <p class="lead">pnpm workspace with two apps and three shared packages. Prisma lives at the root so the schema is owned by the platform, not one app.</p>
+<pre class="tree">
+<span class="d">LMS/</span>
+├── <span class="d">apps/</span>
+│   ├── <span class="d">api/</span>                  <span class="c"># @lms/api — NestJS 11 REST API (port 3001, prefix /v1)</span>
+│   │   └── <span class="d">src/</span>
+│   │       ├── <span class="f">auth/  team/  borrowers/  loans/  loan-applications/</span>
+│   │       ├── <span class="f">borrower-portal/  borrower-loans/  marketplace/  dashboard/</span>
+│   │       ├── <span class="f">documents/  notifications/  audit/  reports/</span>
+│   │       ├── <span class="f">email/  sms/  queue/  storage/  prisma/</span>
+│   │       ├── <span class="d">common/</span>           <span class="c"># guards, decorators, ZodValidationPipe, money helpers</span>
+│   │       └── <span class="d">config/</span>           <span class="c"># Zod-validated environment config</span>
+│   └── <span class="d">web/</span>                  <span class="c"># @lms/web — Next.js 14 App Router (port 3000)</span>
+│       └── <span class="d">src/</span>
+│           ├── <span class="d">app/</span>              <span class="c"># routes: /auth, /onboarding, /dashboard/*, /borrower/*</span>
+│           ├── <span class="d">components/</span>       <span class="c"># feature components + ui/ (shadcn primitives)</span>
+│           ├── <span class="d">lib/</span>              <span class="c"># api client, auth helpers, hooks, permissions, routes</span>
+│           └── <span class="f">middleware.ts</span>     <span class="c"># NextAuth route protection</span>
+├── <span class="d">packages/</span>
+│   ├── <span class="d">types/</span>                <span class="c"># @lms/types — Zod schemas, DTOs, enums (the wire contract)</span>
+│   ├── <span class="d">utils/</span>                <span class="c"># @lms/utils — Decimal.js finance + loan-balance engine</span>
+│   └── <span class="d">config/</span>               <span class="c"># @lms/config — shared ESLint / tsconfig / Tailwind presets</span>
+├── <span class="d">prisma/</span>                   <span class="c"># schema.prisma + 11 migrations (incl. RLS policies)</span>
+├── <span class="d">scripts/</span>                  <span class="c"># dev utilities (port cleanup, notification test)</span>
+├── <span class="d">.github/workflows/</span>        <span class="c"># ci.yml — lint, type-check, test vs Postgres 15</span>
+├── <span class="f">docker-compose.yml</span>        <span class="c"># local Postgres + Redis</span>
+├── <span class="f">pnpm-workspace.yaml</span>
+└── <span class="f">.env.example</span>              <span class="c"># single env contract for both apps</span>
+</pre>
+  <h3>Dependency direction</h3>
+  <div class="diagram">
+    <div class="flow-h">
+      <div class="node n-web" style="flex:0 1 180px;"><div class="t">@lms/web</div></div>
+      <span class="harrow">→</span>
+      <div class="node n-data" style="flex:0 1 200px;"><div class="t">@lms/types · @lms/utils</div><div class="s">shared contract + math</div></div>
+      <span class="harrow">←</span>
+      <div class="node n-api" style="flex:0 1 180px;"><div class="t">@lms/api</div></div>
+    </div>
+    <div class="caption">Apps never import from each other — they meet only at the shared packages and the REST API.</div>
+  </div>
+</section>
+
+<!-- ════════════════════════ 6. BACKEND ════════════════════════ -->
+<section id="backend">
+  <h2><span class="num">6</span>Backend — NestJS API Modules</h2>
+  <p class="lead">Feature-module architecture: each domain owns its controller, service and tests. Cross-cutting infrastructure (prisma, queue, email, sms, storage, audit) is provided as injectable modules.</p>
+  <table>
+    <tr><th style="width:170px">Module</th><th style="width:90px">Type</th><th>Responsibility</th></tr>
+    <tr><td><code>auth</code></td><td><span class="badge b-blue">Domain</span></td><td>Register/login, Google OAuth, JWT issue/refresh/rotate, email verification, password reset, lender &amp; borrower onboarding</td></tr>
+    <tr><td><code>borrowers</code></td><td><span class="badge b-blue">Domain</span></td><td>Org-scoped borrower CRM: CRUD, search, platform borrower search &amp; linking</td></tr>
+    <tr><td><code>loans</code></td><td><span class="badge b-blue">Domain</span></td><td>Loan lifecycle: create (draft), schedule preview, activate, update, record repayments</td></tr>
+    <tr><td><code>loan-applications</code></td><td><span class="badge b-blue">Domain</span></td><td>Borrower submit/withdraw; lender review queue, approve (→ creates loan) / reject</td></tr>
+    <tr><td><code>borrower-portal</code></td><td><span class="badge b-blue">Domain</span></td><td>Lender connections, invite acceptance, org public-listing settings, borrower email invites</td></tr>
+    <tr><td><code>borrower-loans</code></td><td><span class="badge b-blue">Domain</span></td><td>Borrower-side read-only views of their loans and schedules</td></tr>
+    <tr><td><code>marketplace</code></td><td><span class="badge b-blue">Domain</span></td><td>Public lender directory + borrower-scoped listing with connection status</td></tr>
+    <tr><td><code>dashboard</code></td><td><span class="badge b-blue">Domain</span></td><td>Lender portfolio summary metrics</td></tr>
+    <tr><td><code>team</code></td><td><span class="badge b-blue">Domain</span></td><td>Staff invites and member management (ADMIN only)</td></tr>
+    <tr><td><code>documents</code></td><td><span class="badge b-blue">Domain</span></td><td>Document metadata + signed upload/download URL issuance</td></tr>
+    <tr><td><code>reports</code></td><td><span class="badge b-blue">Domain</span></td><td>Portfolio CSV, arrears CSV, borrower statement PDF (pdfkit)</td></tr>
+    <tr><td><code>notifications</code></td><td><span class="badge b-purple">Platform</span></td><td>In-app notifications, dedup, cron sweeps (overdue / reminders), multi-channel dispatch</td></tr>
+    <tr><td><code>audit</code></td><td><span class="badge b-purple">Platform</span></td><td>Immutable audit-log writes inside business transactions; ADMIN read API</td></tr>
+    <tr><td><code>queue</code></td><td><span class="badge b-green">Infra</span></td><td>BullMQ + Redis producer/worker; synchronous fallback without Redis</td></tr>
+    <tr><td><code>email</code> / <code>sms</code></td><td><span class="badge b-green">Infra</span></td><td>SendGrid · Africa's Talking / Twilio adapters with dev console fallbacks</td></tr>
+    <tr><td><code>storage</code></td><td><span class="badge b-green">Infra</span></td><td>Supabase Storage signed-URL service</td></tr>
+    <tr><td><code>prisma</code></td><td><span class="badge b-green">Infra</span></td><td>DB client + RLS session-context transaction helpers</td></tr>
+    <tr><td><code>common</code> / <code>config</code></td><td><span class="badge b-green">Infra</span></td><td>Guards, decorators, Zod pipe, money helpers; Zod-validated env config</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════ 7. FRONTEND ════════════════════════ -->
+<section id="frontend">
+  <h2><span class="num">7</span>Frontend — Next.js Route Map</h2>
+  <p class="lead">App Router with three zones: public/auth, the lender workspace under <code>/dashboard</code>, and the borrower portal under <code>/borrower</code>. NextAuth middleware guards the protected zones; layouts re-verify account type and onboarding state via <code>/v1/auth/me</code>.</p>
+  <div class="cols-3">
+    <div class="card">
+      <h4><span class="badge b-slate">Public / Auth</span></h4>
+      <ul>
+        <li><code>/</code> — landing (lender vs borrower CTA)</li>
+        <li><code>/auth/login</code> · <code>/auth/register</code></li>
+        <li><code>/auth/verify-email</code></li>
+        <li><code>/auth/reset-password</code></li>
+        <li><code>/auth/post-login</code> — redirect resolver</li>
+        <li><code>/api/auth/[...nextauth]</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-blue">Lender — /dashboard</span></h4>
+      <ul>
+        <li><code>/onboarding</code> — org setup</li>
+        <li><code>/dashboard</code> — portfolio metrics</li>
+        <li><code>/dashboard/borrowers</code> (+ new / [id] / edit)</li>
+        <li><code>/dashboard/loans</code> (+ new / [id])</li>
+        <li><code>/dashboard/applications</code> (+ [id] review)</li>
+        <li><code>/dashboard/team</code> · <code>/audit-log</code> · <code>/settings</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-green">Borrower — /borrower</span></h4>
+      <ul>
+        <li><code>/borrower</code> — home</li>
+        <li><code>/borrower/onboarding</code></li>
+        <li><code>/borrower/lenders/browse</code> · <code>/mine</code></li>
+        <li><code>/borrower/invites/accept</code></li>
+        <li><code>/borrower/applications</code> (+ new / [id])</li>
+        <li><code>/borrower/loans</code> (+ [id])</li>
+      </ul>
+    </div>
+  </div>
+  <h3>Notable components &amp; client architecture</h3>
+  <ul style="font-size:13.5px; margin-left:20px; color:#334155;">
+    <li><code>AppShell</code> / <code>BorrowerShell</code> — navigation chrome per portal, with <code>NotificationBell</code></li>
+    <li><code>SchedulePreview</code> — live repayment-schedule preview from <code>POST /loans/preview-schedule</code></li>
+    <li><code>DocumentUploadPanel</code> — signed-URL upload directly to Supabase Storage</li>
+    <li><code>ReportsExportPanel</code> — CSV/PDF download triggers</li>
+    <li><code>lib/permissions.ts</code> — mirrors API RBAC (<code>canManageRecords</code>, <code>canManageSettings</code>, <code>isViewer</code>)</li>
+    <li><code>lib/api.ts</code> + <code>useApi()</code> — Bearer-token fetch wrapper bound to the NextAuth session</li>
+  </ul>
+</section>
+
+<!-- ════════════════════════ 8. API SURFACE ════════════════════════ -->
+<section id="api-surface">
+  <h2><span class="num">8</span>REST API Surface (prefix <code>/v1</code>)</h2>
+  <p class="lead">All endpoints validated with shared Zod schemas; guarded by JWT + account-type + role guards.</p>
+  <table>
+    <tr><th style="width:190px">Area</th><th>Endpoints</th><th style="width:150px">Access</th></tr>
+    <tr><td><code>/auth</code></td><td>register · login · google · refresh · logout · me · verify-email · forgot/reset-password · onboarding · borrower-onboarding</td><td><span class="badge b-slate">Public / Auth'd</span></td></tr>
+    <tr><td><code>/borrowers</code></td><td>list · search · platform-search · create · get/update/delete by id</td><td><span class="badge b-blue">Lender</span></td></tr>
+    <tr><td><code>/loans</code></td><td>preview-schedule · list/create · get/update · activate · list/record repayments</td><td><span class="badge b-blue">Lender</span></td></tr>
+    <tr><td><code>/applications</code></td><td>queue list · detail · approve · reject</td><td><span class="badge b-blue">Lender</span></td></tr>
+    <tr><td><code>/dashboard</code> · <code>/reports</code></td><td>summary metrics · portfolio.csv · arrears.csv · borrower statement.pdf</td><td><span class="badge b-blue">Lender</span></td></tr>
+    <tr><td><code>/team</code> · <code>/audit-logs</code> · <code>/settings</code></td><td>members · invite/revoke · remove · audit list · org settings · borrower invites</td><td><span class="badge b-rose">Lender ADMIN</span></td></tr>
+    <tr><td><code>/borrower/*</code></td><td>applications (submit/list/detail/withdraw) · loans (list/detail) · lenders (list/connect) · invites/accept</td><td><span class="badge b-green">Borrower</span></td></tr>
+    <tr><td><code>/marketplace</code></td><td>lenders (public directory) · lenders/me (with connection status)</td><td><span class="badge b-slate">Public / Borrower</span></td></tr>
+    <tr><td><code>/documents</code></td><td>list · upload-url · download-url · delete</td><td><span class="badge b-blue">Lender</span></td></tr>
+    <tr><td><code>/notifications</code></td><td>list · unread-count · mark read / read-all</td><td><span class="badge b-slate">Any auth'd</span></td></tr>
+    <tr><td><code>/admin</code> (dev only)</td><td>run-overdue-check · run-repayment-reminders</td><td><span class="badge b-amber">Dev ADMIN</span></td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════ 9. DATA MODEL ════════════════════════ -->
+<section id="data-model">
+  <h2><span class="num">9</span>Data Model (Prisma / PostgreSQL)</h2>
+  <p class="lead">~19 models in four clusters. All money is integer cents; repayments and audit logs are insert-only (immutable).</p>
+  <div class="diagram">
+    <div class="lane">
+      <div class="node n-data"><div class="t">Identity &amp; Tenancy</div><div class="s">Organisation · User · BorrowerAccount · RefreshToken · EmailVerificationToken · PasswordResetToken</div></div>
+      <div class="node n-api"><div class="t">Connections</div><div class="s">BorrowerLenderLink · LenderInvite · TeamInvite</div></div>
+    </div>
+    <div class="lane" style="margin-top:14px;">
+      <div class="node n-web"><div class="t">Lending Core</div><div class="s">LoanApplication → Loan → RepaymentSchedule · Repayment · Borrower (org CRM record)</div></div>
+      <div class="node n-queue"><div class="t">Platform</div><div class="s">Document · Notification · AuditLog · Subscription (Stripe, planned)</div></div>
+    </div>
+    <div class="caption">Entity clusters. Tenant-scoped tables all carry <code>org_id</code> and are protected by RLS policies.</div>
+  </div>
+
+  <h3>Key relationships &amp; lifecycle</h3>
+  <div class="diagram">
+    <div class="flow-h">
+      <div class="node n-actor" style="flex:0 1 170px;"><div class="t">Borrower (User)</div><div class="s">platform account</div></div>
+      <span class="harrow">→ connects via →</span>
+      <div class="node n-api" style="flex:0 1 190px;"><div class="t">BorrowerLenderLink</div><div class="s">INVITE or PUBLIC</div></div>
+      <span class="harrow">→ submits →</span>
+      <div class="node n-web" style="flex:0 1 180px;"><div class="t">LoanApplication</div><div class="s">PENDING → APPROVED / REJECTED / WITHDRAWN</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">approval creates</div></div>
+    <div class="flow-h">
+      <div class="node n-data" style="flex:0 1 170px;"><div class="t">Borrower</div><div class="s">org CRM record (links platformUserId)</div></div>
+      <span class="harrow">→ owns →</span>
+      <div class="node n-web" style="flex:0 1 170px;"><div class="t">Loan</div><div class="s">DRAFT → ACTIVE → COMPLETED / IN_ARREARS / WRITTEN_OFF</div></div>
+      <span class="harrow">→ generates →</span>
+      <div class="node n-queue" style="flex:0 1 210px;"><div class="t">RepaymentSchedule + Repayments</div><div class="s">immutable schedule rows · insert-only payments</div></div>
+    </div>
+    <div class="caption">Core lending lifecycle, from marketplace connection to repayment tracking.</div>
+  </div>
+
+  <h3>Enums (status machines)</h3>
+  <table>
+    <tr><th style="width:230px">Enum</th><th>Values</th></tr>
+    <tr><td><code>AccountType</code></td><td>LENDER · BORROWER</td></tr>
+    <tr><td><code>UserRole</code></td><td>ADMIN · LOAN_OFFICER · VIEWER</td></tr>
+    <tr><td><code>LoanStatus</code></td><td>DRAFT · ACTIVE · COMPLETED · IN_ARREARS · WRITTEN_OFF</td></tr>
+    <tr><td><code>LoanApplicationStatus</code></td><td>PENDING · APPROVED · REJECTED · WITHDRAWN</td></tr>
+    <tr><td><code>InterestType</code></td><td>FLAT · REDUCING_BALANCE</td></tr>
+    <tr><td><code>RepaymentFrequency</code></td><td>WEEKLY · BIWEEKLY · MONTHLY</td></tr>
+    <tr><td><code>BorrowerLinkSource</code></td><td>INVITE · PUBLIC</td></tr>
+    <tr><td><code>DocumentEntityType</code></td><td>BORROWER · LOAN</td></tr>
+    <tr><td><code>OrganisationPlan</code> / <code>PlanStatus</code> / <code>SubscriptionStatus</code></td><td>Billing tiers and Stripe states (reserved for billing rollout)</td></tr>
+  </table>
+
+  <h3>Migration history → feature phases</h3>
+  <table>
+    <tr><th style="width:300px">Migration</th><th>Phase / capability delivered</th></tr>
+    <tr><td><code>init</code></td><td>Core schema: orgs, users, borrowers, loans, schedules, repayments, documents, audit, notifications, subscriptions</td></tr>
+    <tr><td><code>phase1_auth_and_rls</code></td><td>Auth token tables + Row Level Security policies</td></tr>
+    <tr><td><code>account_types_borrower_portal</code></td><td>Dual account types, borrower accounts, lender links/invites, marketplace</td></tr>
+    <tr><td><code>loan_applications</code></td><td>Application workflow + platform-user link on borrowers</td></tr>
+    <tr><td><code>…public_listing / connected_borrowers / notifications_dedup</code></td><td>Marketplace defaults + cross-tenant read policies + notification dedup</td></tr>
+    <tr><td><code>documents_storage_path</code></td><td>Migration to Supabase Storage (<code>lms-documents</code> bucket)</td></tr>
+    <tr><td><code>phase7_team_invites</code></td><td>Team member invitations</td></tr>
+    <tr><td><code>lender_reads_connected_borrower_profiles</code></td><td>RLS for lender-side platform borrower search</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════ 10. AUTH ════════════════════════ -->
+<section id="auth">
+  <h2><span class="num">10</span>Authentication &amp; Identity</h2>
+  <p class="lead">Hybrid model: NextAuth manages the <em>browser session</em>; the NestJS API issues and verifies its <em>own</em> JWTs. Supabase Auth is <strong>not</strong> used.</p>
+  <div class="diagram">
+    <div class="flow-h">
+      <div class="node n-actor" style="flex:0 1 150px;"><div class="t">Browser</div></div>
+      <span class="harrow">① credentials / Google →</span>
+      <div class="node n-web" style="flex:0 1 200px;"><div class="t">NextAuth (web)</div><div class="s">JWT session cookie holds API tokens</div></div>
+      <span class="harrow">② login / google →</span>
+      <div class="node n-api" style="flex:0 1 220px;"><div class="t">NestJS /v1/auth</div><div class="s">bcrypt verify or Google id_token verify</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">③ issues tokens</div></div>
+    <div class="flow-h">
+      <div class="node n-queue" style="flex:0 1 260px;"><div class="t">Access token (JWT)</div><div class="s">15-minute expiry · Bearer header on every API call</div></div>
+      <div class="node n-queue" style="flex:0 1 300px;"><div class="t">Refresh token (opaque)</div><div class="s">30-day · SHA-256 hash stored in DB · rotated on use · httpOnly cookie on /v1/auth</div></div>
+    </div>
+    <div class="caption">NextAuth silently calls <code>/v1/auth/refresh</code> when the access token nears expiry.</div>
+  </div>
+
+  <h3>Authorization layers</h3>
+  <table>
+    <tr><th style="width:230px">Layer</th><th>Mechanism</th></tr>
+    <tr><td>1 · Route protection (web)</td><td>NextAuth middleware on <code>/dashboard/*</code>, <code>/onboarding/*</code>, <code>/borrower/*</code>; layouts re-verify via <code>/auth/me</code> and redirect by account type / onboarding state</td></tr>
+    <tr><td>2 · Authentication (API)</td><td><code>JwtAuthGuard</code> (Passport-JWT) on all protected controllers</td></tr>
+    <tr><td>3 · Account type (API)</td><td><code>LenderGuard</code> (requires <code>orgId</code>) vs <code>BorrowerGuard</code> — separates the two API surfaces</td></tr>
+    <tr><td>4 · Role (API)</td><td><code>@Roles()</code> + <code>RolesGuard</code> — ADMIN / LOAN_OFFICER / VIEWER</td></tr>
+    <tr><td>5 · Rate limiting</td><td>Global <code>ThrottlerGuard</code> (1000 req/min); auth endpoints 100/min</td></tr>
+    <tr><td>6 · Data isolation</td><td>Postgres RLS (see §11) — final backstop even if application code has a bug</td></tr>
+  </table>
+
+  <h3>RBAC matrix (lender workspace)</h3>
+  <table>
+    <tr><th>Capability</th><th>ADMIN</th><th>LOAN_OFFICER</th><th>VIEWER</th></tr>
+    <tr><td>View dashboard, loans, borrowers, applications, reports</td><td>✔</td><td>✔</td><td>✔</td></tr>
+    <tr><td>Create/edit borrowers, loans, repayments, documents</td><td>✔</td><td>✔</td><td>—</td></tr>
+    <tr><td>Approve / reject applications</td><td>✔</td><td>✔</td><td>—</td></tr>
+    <tr><td>Delete borrowers</td><td>✔</td><td>—</td><td>—</td></tr>
+    <tr><td>Org settings, team management, audit log</td><td>✔</td><td>—</td><td>—</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════ 11. TENANCY ════════════════════════ -->
+<section id="tenancy">
+  <h2><span class="num">11</span>Multi-Tenancy &amp; Row Level Security</h2>
+  <p class="lead">Tenant isolation is enforced in the database itself, not just in application queries. This is the system's most important security property.</p>
+  <div class="diagram">
+    <div class="lane">
+      <div class="node n-api" style="flex:0 1 600px;"><div class="t">Request-scoped Prisma interactive transaction (DIRECT_URL)</div>
+        <div class="s">PrismaService.setSessionContext() runs <code>set_config('app.current_org_id', …)</code> · <code>app.current_user_id</code> · <code>app.auth_lookup</code> · <code>app.token_lookup</code></div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">every query in the transaction</div></div>
+    <div class="lane">
+      <div class="node n-data" style="flex:0 1 600px;"><div class="t">PostgreSQL RLS policies</div>
+        <div class="s">Tenant tables filtered by <code>org_id = current_setting('app.current_org_id')</code>; borrower-side policies grant cross-tenant reads only via BorrowerLenderLink connections</div></div>
+    </div>
+    <div class="caption">Even a buggy or missing WHERE clause cannot leak another tenant's rows.</div>
+  </div>
+  <ul style="font-size:13.5px; margin-left:20px; color:#334155;">
+    <li><strong>Two connection strings:</strong> <code>DATABASE_URL</code> (Supavisor transaction pooler, port 6543, <code>pgbouncer=true</code>) for general traffic; <code>DIRECT_URL</code> (session pooler, port 5432) for migrations and RLS interactive transactions.</li>
+    <li><strong>Cross-tenant policies are explicit:</strong> dedicated migrations grant borrowers read access to connected orgs, lenders read access to connected borrower profiles, and public marketplace listing reads.</li>
+    <li><strong>Tested:</strong> dedicated <code>tenant-isolation</code> integration tests in the API suite.</li>
+  </ul>
+</section>
+
+<!-- ════════════════════════ 12. ASYNC ════════════════════════ -->
+<section id="async">
+  <h2><span class="num">12</span>Async Processing &amp; Notification Pipeline</h2>
+  <p class="lead">Domain events fan out to three channels through a queue, with scheduled sweeps generating time-based events.</p>
+  <div class="diagram">
+    <div class="lane">
+      <div class="node n-web"><div class="t">Domain events</div><div class="s">APPLICATION_SUBMITTED · APPROVED · REJECTED</div></div>
+      <div class="node n-queue"><div class="t">Cron sweeps (@nestjs/schedule)</div><div class="s">Overdue check 06:00 → IN_ARREARS / COMPLETED · Reminders 07:00 → due in 3 days</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">enqueue NotificationJobData</div></div>
+    <div class="lane">
+      <div class="node n-api" style="flex:0 1 480px;"><div class="t">BullMQ queue (Redis)</div><div class="s">Falls back to synchronous in-process dispatch when Redis is unavailable</div></div>
+    </div>
+    <div class="arrow-row"><div class="arrow">dispatch worker</div></div>
+    <div class="lane">
+      <div class="node n-data"><div class="t">In-app</div><div class="s"><code>notifications</code> table · dedup keys · bell UI</div></div>
+      <div class="node n-ext"><div class="t">Email</div><div class="s">SendGrid templates</div></div>
+      <div class="node n-ext"><div class="t">SMS</div><div class="s">Africa's Talking / Twilio</div></div>
+    </div>
+    <div class="caption">Notification types: APPLICATION_SUBMITTED, APPLICATION_APPROVED, APPLICATION_REJECTED, REPAYMENT_REMINDER, LOAN_OVERDUE.</div>
+  </div>
+</section>
+
+<!-- ════════════════════════ 13. CROSS-CUTTING ════════════════════════ -->
+<section id="crosscutting">
+  <h2><span class="num">13</span>Cross-Cutting Concerns</h2>
+  <div class="cols">
+    <div class="card">
+      <h4><span class="badge b-purple">Money</span> Financial integrity</h4>
+      <ul>
+        <li>All amounts stored and transmitted as <strong>integer cents</strong></li>
+        <li><code>@lms/utils/finance</code>: Decimal.js schedule generation — flat &amp; reducing-balance interest, weekly/biweekly/monthly periods</li>
+        <li><code>loan-balance</code>: outstanding balance + <code>computeDaysOverdue</code></li>
+        <li>Schedules immutable once generated; repayments insert-only</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-rose">Audit</span> Compliance trail</h4>
+      <ul>
+        <li>Immutable <code>audit_logs</code> with before/after JSON snapshots</li>
+        <li>Written inside the same org-scoped transaction as the business change</li>
+        <li>Covers borrowers, loans, applications, documents, team, connections</li>
+        <li>Audit failures are logged but never break the business operation</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-blue">Contract</span> Validation strategy</h4>
+      <ul>
+        <li>One Zod schema per operation in <code>@lms/types</code></li>
+        <li>Frontend: react-hook-form resolvers</li>
+        <li>Backend: <code>ZodValidationPipe</code> on every endpoint</li>
+        <li>API env itself validated with Zod at boot (<code>config/</code>)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-cyan">Files</span> Document handling</h4>
+      <ul>
+        <li>Private Supabase bucket <code>lms-documents</code>, org-scoped paths</li>
+        <li>Browser uploads directly via short-lived signed URLs (API never proxies bytes)</li>
+        <li>Metadata in <code>documents</code> table; PDF/JPEG/PNG, 10 MB cap</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ 14. INFRA ════════════════════════ -->
+<section id="infra">
+  <h2><span class="num">14</span>Environments, CI &amp; Infrastructure</h2>
+  <table>
+    <tr><th style="width:200px">Concern</th><th>Approach</th></tr>
+    <tr><td>Local development</td><td><code>pnpm dev</code> — builds shared packages, then runs API (3001) + web (3000) in parallel; <code>docker-compose.yml</code> provides local Postgres 15 + Redis 7</td></tr>
+    <tr><td>Configuration</td><td>Single root <code>.env</code> contract (documented in <code>.env.example</code>): DB URLs, JWT secrets, NextAuth, Supabase, SendGrid, SMS, Redis, cron schedules, Stripe (reserved)</td></tr>
+    <tr><td>Continuous integration</td><td>GitHub Actions on push/PR to <code>main</code>/<code>develop</code>: pnpm install → prisma generate → lint → type-check → test, against a Postgres 15 service container (Node 22)</td></tr>
+    <tr><td>Database operations</td><td><code>prisma migrate dev</code> via <code>DIRECT_URL</code>; RLS policies are versioned inside migrations</td></tr>
+    <tr><td>Production hosting</td><td>Not yet pinned in-repo. Natural fit: Vercel (web) + Node host/container (API) + Supabase (DB/storage) + managed Redis. No Dockerfiles or vercel.json committed yet</td></tr>
+    <tr><td>Observability</td><td>Nest logger; no APM/metrics stack yet (candidate gap — see §15)</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════ 15. ROADMAP ════════════════════════ -->
+<section id="roadmap">
+  <h2><span class="num">15</span>Planned Work &amp; Known Gaps</h2>
+  <div class="callout warn">
+    These items have scaffolding (schema, env vars, placeholders) but no implementation yet — useful to know before extending the system.
+  </div>
+  <table>
+    <tr><th style="width:230px">Item</th><th style="width:120px">Status</th><th>Notes</th></tr>
+    <tr><td>Stripe billing</td><td><span class="badge b-amber">Schema only</span></td><td><code>Subscription</code> model, plan enums, <code>stripeCustomerId</code>, env vars exist; no SDK, checkout, or webhooks</td></tr>
+    <tr><td>Web app test suite</td><td><span class="badge b-amber">Placeholder</span></td><td><code>test</code> script is a no-op; API + utils are covered by Vitest</td></tr>
+    <tr><td>Deployment definition</td><td><span class="badge b-amber">Missing</span></td><td>No Dockerfiles / IaC / hosting config committed</td></tr>
+    <tr><td>Observability</td><td><span class="badge b-amber">Missing</span></td><td>No APM, structured log shipping, or alerting</td></tr>
+    <tr><td>Balance-logic duplication</td><td><span class="badge b-slate">Tech debt</span></td><td>API's <code>loan-balance.service.ts</code> partially duplicates <code>@lms/utils</code> math — consolidate into the shared package</td></tr>
+  </table>
+</section>
+
+<footer>
+  <p><strong>LMS Architecture Reference</strong> · generated June 2026 from the live codebase ·
+  open this file in any browser, or print to PDF (Ctrl+P) — print styles are built in ·
+  see also the companion <a href="user-guide.html">Lender &amp; Borrower User Guide</a> with screenshots.</p>
+</footer>
+</main>
+</body>
+</html>

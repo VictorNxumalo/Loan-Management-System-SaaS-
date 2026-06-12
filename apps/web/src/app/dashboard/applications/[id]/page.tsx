@@ -8,6 +8,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
+import { ApplicationReviewChecklistPanel } from '@/components/application-review-checklist';
+import { LenderApplicationDocumentsPanel } from '@/components/lender-application-documents-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -147,6 +149,30 @@ export default function LenderApplicationDetailPage() {
           </div>
         )}
 
+        {application.bankDetails && (
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium">Bank details (borrower provided)</p>
+            <dl className="mt-2 grid gap-2 sm:grid-cols-2 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Account holder</dt>
+                <dd>{application.bankDetails.accountHolder}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Bank</dt>
+                <dd>{application.bankDetails.bankName}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Branch code</dt>
+                <dd>{application.bankDetails.branchCode}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Account number</dt>
+                <dd>{application.bankDetails.accountNumber}</dd>
+              </div>
+            </dl>
+          </div>
+        )}
+
         {application.lenderNotes && (
           <div>
             <p className="text-sm text-muted-foreground">Your notes</p>
@@ -170,6 +196,20 @@ export default function LenderApplicationDetailPage() {
         )}
       </div>
 
+      <div className="rounded-lg border bg-background p-6 space-y-3">
+        <h2 className="font-semibold">Supporting documents</h2>
+        <LenderApplicationDocumentsPanel applicationId={application.id} />
+      </div>
+
+      {application.status === 'SUBMITTED' && (
+        <ApplicationReviewChecklistPanel
+          applicationId={application.id}
+          checklist={application.reviewChecklist}
+          canEdit={canReview}
+          onSaved={() => void refetch({ silent: true })}
+        />
+      )}
+
       {application.status === 'SUBMITTED' && canReview && (
         <div className="grid gap-6 md:grid-cols-2">
           <div className="rounded-lg border bg-background p-4 space-y-4">
@@ -178,6 +218,11 @@ export default function LenderApplicationDetailPage() {
               Creates a borrower record (if needed) and a draft loan you can review and
               activate.
             </p>
+            {!application.reviewChecklist.isComplete && (
+              <p className="text-sm text-amber-800">
+                Complete and save the review checklist first.
+              </p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="annualRate">Annual interest rate (%)</Label>
               <Input
@@ -197,7 +242,10 @@ export default function LenderApplicationDetailPage() {
                 onChange={(e) => setApproveNotes(e.target.value)}
               />
             </div>
-            <Button disabled={actionLoading !== null} onClick={() => void approve()}>
+            <Button
+              disabled={actionLoading !== null || !application.reviewChecklist.isComplete}
+              onClick={() => void approve()}
+            >
               {actionLoading === 'approve' ? 'Approving…' : 'Approve application'}
             </Button>
           </div>
@@ -207,6 +255,11 @@ export default function LenderApplicationDetailPage() {
             <p className="text-sm text-muted-foreground">
               The borrower will see your reason on their application detail page.
             </p>
+            {!application.reviewChecklist.isComplete && (
+              <p className="text-sm text-amber-800">
+                Complete and save the review checklist first.
+              </p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="rejectNotes">Reason for rejection</Label>
               <Input
@@ -217,7 +270,7 @@ export default function LenderApplicationDetailPage() {
             </div>
             <Button
               variant="destructive"
-              disabled={actionLoading !== null}
+              disabled={actionLoading !== null || !application.reviewChecklist.isComplete}
               onClick={() => void reject()}
             >
               {actionLoading === 'reject' ? 'Rejecting…' : 'Reject application'}

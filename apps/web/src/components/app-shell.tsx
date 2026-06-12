@@ -12,9 +12,24 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const role = session?.user?.role ?? undefined;
   const showSettings = canManageSettings(role);
+  const planStatus = session?.organisation?.planStatus;
+  const isReadOnly = planStatus === 'READ_ONLY' || planStatus === 'CANCELLED';
 
   return (
     <div className="min-h-screen bg-muted/30">
+      {isReadOnly && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+          This workspace is read-only.{' '}
+          {showSettings ? (
+            <Link href="/dashboard/billing" className="font-medium underline">
+              Subscribe on the Billing page
+            </Link>
+          ) : (
+            'Ask your admin to subscribe to a plan.'
+          )}{' '}
+          to continue making changes.
+        </div>
+      )}
       <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
@@ -36,6 +51,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
               {showSettings && (
                 <>
+                  <Link href="/dashboard/billing" className="hover:text-foreground">
+                    Billing
+                  </Link>
                   <Link href="/dashboard/team" className="hover:text-foreground">
                     Team
                   </Link>

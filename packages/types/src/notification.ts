@@ -7,6 +7,7 @@ export const NotificationType = {
   APPLICATION_REJECTED: 'APPLICATION_REJECTED',
   REPAYMENT_REMINDER: 'REPAYMENT_REMINDER',
   LOAN_OVERDUE: 'LOAN_OVERDUE',
+  PAYMENT_SUBMITTED: 'PAYMENT_SUBMITTED',
 } as const;
 
 export type NotificationType =
@@ -88,8 +89,20 @@ export interface LoanOverdueJobData {
   outstandingFormatted: string;
 }
 
+export interface PaymentSubmittedJobData {
+  eventType: typeof NotificationType.PAYMENT_SUBMITTED;
+  dedupKey: string;
+  orgId: string;
+  paymentSubmissionId: string;
+  loanId: string;
+  borrowerName: string;
+  amountFormatted: string;
+  paymentDate: string;
+}
+
 export type NotificationJobData =
   | ApplicationSubmittedJobData
   | ApplicationDecisionJobData
   | RepaymentReminderJobData
-  | LoanOverdueJobData;
+  | LoanOverdueJobData
+  | PaymentSubmittedJobData;

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -9,9 +10,11 @@ import {
 } from '@nestjs/common';
 import {
   approveLoanApplicationSchema,
+  applicationReviewChecklistSchema,
+  createLoanApplicationDraftSchema,
   listLoanApplicationsQuerySchema,
   rejectLoanApplicationSchema,
-  submitLoanApplicationSchema,
+  requestApplicationDocumentUploadSchema,
   UserRole,
 } from '@lms/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -19,22 +22,27 @@ import type { AccessTokenPayload } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { BorrowerGuard, LenderGuard } from '../common/guards/account-type.guard';
+import { PlanGuard } from '../common/guards/plan.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { ApplicationDocumentsService } from './application-documents.service';
 import { LoanApplicationsService } from './loan-applications.service';
 
 @Controller('borrower/applications')
 @UseGuards(JwtAuthGuard, BorrowerGuard)
 export class BorrowerApplicationsController {
-  constructor(private readonly applicationsService: LoanApplicationsService) {}
+  constructor(
+    private readonly applicationsService: LoanApplicationsService,
+    private readonly applicationDocuments: ApplicationDocumentsService,
+  ) {}
 
   @Post()
-  submit(
+  createDraft(
     @CurrentUser() user: AccessTokenPayload,
-    @Body(new ZodValidationPipe(submitLoanApplicationSchema))
-    body: Parameters<LoanApplicationsService['submit']>[1],
+    @Body(new ZodValidationPipe(createLoanApplicationDraftSchema))
+    body: Parameters<LoanApplicationsService['createDraft']>[1],
   ) {
-    return this.applicationsService.submit(user.sub, body);
+    return this.applicationsService.createDraft(user.sub, body);
   }
 
   @Get()
@@ -51,16 +59,61 @@ export class BorrowerApplicationsController {
     return this.applicationsService.getForBorrower(user.sub, id);
   }
 
+  @Post(':id/submit')
+  submit(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.applicationsService.finalizeSubmit(user.sub, id);
+  }
+
   @Post(':id/withdraw')
   withdraw(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.applicationsService.withdraw(user.sub, id);
   }
+
+  @Get(':id/documents')
+  listDocuments(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.applicationDocuments.listForBorrower(user.sub, id);
+  }
+
+  @Post(':id/documents/upload-url')
+  requestUploadUrl(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(requestApplicationDocumentUploadSchema))
+    body: Parameters<ApplicationDocumentsService['requestUploadUrlForBorrower']>[2],
+  ) {
+    return this.applicationDocuments.requestUploadUrlForBorrower(user.sub, id, body);
+  }
+
+  @Get(':id/documents/:documentId/download-url')
+  getDownloadUrl(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Param('documentId') documentId: string,
+  ) {
+    return this.applicationDocuments.getDownloadUrlForBorrower(
+      user.sub,
+      id,
+      documentId,
+    );
+  }
+
+  @Delete(':id/documents/:documentId')
+  deleteDocument(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Param('documentId') documentId: string,
+  ) {
+    return this.applicationDocuments.deleteForBorrower(user.sub, id, documentId);
+  }
 }
 
 @Controller('applications')
-@UseGuards(JwtAuthGuard, LenderGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, LenderGuard, PlanGuard, RolesGuard)
 export class LenderApplicationsController {
-  constructor(private readonly applicationsService: LoanApplicationsService) {}
+  constructor(
+    private readonly applicationsService: LoanApplicationsService,
+    private readonly applicationDocuments: ApplicationDocumentsService,
+  ) {}
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
@@ -76,6 +129,43 @@ export class LenderApplicationsController {
   @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
   getById(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.applicationsService.getForLender(user.orgId!, user.sub, id);
+  }
+
+  @Get(':id/documents')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
+  listDocuments(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.applicationDocuments.listForLender(user.orgId!, user.sub, id);
+  }
+
+  @Get(':id/documents/:documentId/download-url')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
+  getDownloadUrl(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Param('documentId') documentId: string,
+  ) {
+    return this.applicationDocuments.getDownloadUrlForLender(
+      user.orgId!,
+      user.sub,
+      id,
+      documentId,
+    );
+  }
+
+  @Post(':id/review-checklist')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
+  saveReviewChecklist(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(applicationReviewChecklistSchema))
+    body: Parameters<LoanApplicationsService['saveReviewChecklist']>[3],
+  ) {
+    return this.applicationsService.saveReviewChecklist(
+      user.orgId!,
+      user.sub,
+      id,
+      body,
+    );
   }
 
   @Post(':id/approve')

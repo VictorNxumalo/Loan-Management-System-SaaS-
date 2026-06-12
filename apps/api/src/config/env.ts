@@ -29,6 +29,12 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   SUPABASE_STORAGE_BUCKET: z.string().default('lms-documents'),
   DOCUMENT_URL_EXPIRY_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_STARTER: z.string().optional(),
+  STRIPE_PRICE_PRO: z.string().optional(),
+  STRIPE_PRICE_BUSINESS: z.string().optional(),
+  TRIAL_DAYS: z.coerce.number().int().min(1).max(90).default(14),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -86,4 +92,18 @@ export function isSupabaseStorageConfigured(): boolean {
 
 export function getDocumentUrlExpirySeconds(): number {
   return getEnv().DOCUMENT_URL_EXPIRY_SECONDS;
+}
+
+export function isStripeConfigured(): boolean {
+  const env = getEnv();
+  return Boolean(
+    env.STRIPE_SECRET_KEY &&
+      env.STRIPE_PRICE_STARTER &&
+      env.STRIPE_PRICE_PRO &&
+      env.STRIPE_PRICE_BUSINESS,
+  );
+}
+
+export function getTrialDays(): number {
+  return getEnv().TRIAL_DAYS;
 }

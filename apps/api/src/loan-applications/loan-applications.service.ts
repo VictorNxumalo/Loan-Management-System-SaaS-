@@ -6,19 +6,33 @@ import {
 import type {
   ApproveLoanApplicationInput,
   ApproveLoanApplicationResultDto,
+  ApplicationBankDetailsDto,
+  ApplicationDocumentsSummaryDto,
+  ApplicationReviewChecklist,
+  CreateLoanApplicationDraftInput,
   ListLoanApplicationsQuery,
   LoanApplicationDetailDto,
   LoanApplicationListItemDto,
   PaginatedLoanApplicationsDto,
   RejectLoanApplicationInput,
-  SubmitLoanApplicationInput,
 } from '@lms/types';
-import { LoanApplicationStatus, LoanStatus } from '@lms/types';
+import {
+  applicationReviewChecklistSchema,
+  isApplicationReviewChecklistComplete,
+  LoanApplicationStatus,
+  LoanStatus,
+} from '@lms/types';
 import { AuditService } from '../audit/audit.service';
 import { formatCents } from '../common/money';
+import { BorrowerLendingConstraintsService } from '../borrower-portal/borrower-lending-constraints.service';
 import { PrismaService, PrismaTx } from '../prisma/prisma.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
 import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
+import { ApplicationDocumentsService } from './application-documents.service';
+import {
+  buildApplicationReviewChecklistStatus,
+  parseApplicationReviewChecklist,
+} from './application-review.util';
 
 type ApplicationDbRow = {
   id: string;
@@ -33,7 +47,12 @@ type ApplicationDbRow = {
   startDate: Date;
   purpose: string | null;
   status: string;
+  bankAccountHolder: string | null;
+  bankName: string | null;
+  bankBranchCode: string | null;
+  bankAccountNumber: string | null;
   lenderNotes: string | null;
+  reviewChecklist?: unknown;
   reviewedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -50,12 +69,16 @@ export class LoanApplicationsService {
     private readonly scheduleService: LoansScheduleService,
     private readonly notificationDispatch: NotificationDispatchService,
     private readonly auditService: AuditService,
+    private readonly applicationDocuments: ApplicationDocumentsService,
+    private readonly lendingConstraints: BorrowerLendingConstraintsService,
   ) {}
 
-  async submit(
+  async createDraft(
     borrowerUserId: string,
-    input: SubmitLoanApplicationInput,
+    input: CreateLoanApplicationDraftInput,
   ): Promise<LoanApplicationDetailDto> {
+    await this.lendingConstraints.assertCanEngageWithLender(borrowerUserId, input.orgId);
+
     return this.prisma.withUserContext(borrowerUserId, null, async (tx) => {
       const link = await tx.borrowerLenderLink.findUnique({
         where: {
@@ -72,17 +95,19 @@ export class LoanApplicationsService {
         );
       }
 
-      const pending = await tx.loanApplication.findFirst({
+      const open = await tx.loanApplication.findFirst({
         where: {
           orgId: input.orgId,
           borrowerUserId,
-          status: LoanApplicationStatus.SUBMITTED,
+          status: { in: [LoanApplicationStatus.DRAFT, LoanApplicationStatus.SUBMITTED] },
         },
       });
 
-      if (pending) {
+      if (open) {
         throw new BadRequestException(
-          'You already have a pending application with this lender',
+          open.status === LoanApplicationStatus.DRAFT
+            ? 'You already have a draft application with this lender. Open it to continue.'
+            : 'You already have a pending application with this lender',
         );
       }
 
@@ -96,7 +121,11 @@ export class LoanApplicationsService {
           frequency: input.frequency,
           startDate: input.startDate,
           purpose: input.purpose?.trim() || null,
-          status: LoanApplicationStatus.SUBMITTED,
+          status: LoanApplicationStatus.DRAFT,
+          bankAccountHolder: input.bankDetails.accountHolder,
+          bankName: input.bankDetails.bankName,
+          bankBranchCode: input.bankDetails.branchCode,
+          bankAccountNumber: input.bankDetails.accountNumber,
         },
         include: {
           organisation: true,
@@ -104,17 +133,72 @@ export class LoanApplicationsService {
         },
       });
 
-      const detail = this.mapDetail(this.toApplicationRow(created));
-
-      void this.notificationDispatch.notifyApplicationSubmitted({
-        orgId: input.orgId,
-        applicationId: created.id,
-        borrowerName: detail.borrowerName,
-        principalCents: input.principalCents,
-      });
-
-      return detail;
+      return this.mapDetail(
+        this.toApplicationRow(created),
+        await this.applicationDocuments.summarizeForApplication(
+          created.orgId,
+          borrowerUserId,
+          created.id,
+        ),
+      );
     });
+  }
+
+  async finalizeSubmit(
+    borrowerUserId: string,
+    id: string,
+  ): Promise<LoanApplicationDetailDto> {
+    const application = await this.prisma.withUserContext(
+      borrowerUserId,
+      null,
+      async (tx) =>
+        tx.loanApplication.findFirst({
+          where: {
+            id,
+            borrowerUserId,
+            status: LoanApplicationStatus.DRAFT,
+          },
+          include: { organisation: true, borrowerUser: true },
+        }),
+    );
+
+    if (!application) {
+      throw new NotFoundException('Draft application not found');
+    }
+
+    await this.lendingConstraints.assertCanEngageWithLender(
+      borrowerUserId,
+      application.orgId,
+    );
+
+    const documents = await this.applicationDocuments.summarizeForApplication(
+      application.orgId,
+      borrowerUserId,
+      application.id,
+    );
+    this.applicationDocuments.assertDocumentsComplete(documents);
+
+    const updated = await this.prisma.withUserContext(
+      borrowerUserId,
+      application.orgId,
+      async (tx) =>
+        tx.loanApplication.update({
+          where: { id },
+          data: { status: LoanApplicationStatus.SUBMITTED },
+          include: { organisation: true, borrowerUser: true },
+        }),
+    );
+
+    const detail = this.mapDetail(this.toApplicationRow(updated), documents);
+
+    void this.notificationDispatch.notifyApplicationSubmitted({
+      orgId: application.orgId,
+      applicationId: application.id,
+      borrowerName: detail.borrowerName,
+      principalCents: application.principalCents,
+    });
+
+    return detail;
   }
 
   async listForBorrower(
@@ -158,19 +242,30 @@ export class LoanApplicationsService {
         throw new NotFoundException('Application not found');
       }
 
-      return this.mapDetail(this.toApplicationRow(row));
+      return this.mapDetail(
+        this.toApplicationRow(row),
+        await this.applicationDocuments.summarizeForApplication(
+          row.orgId,
+          borrowerUserId,
+          row.id,
+        ),
+      );
     });
   }
 
   async withdraw(borrowerUserId: string, id: string): Promise<LoanApplicationDetailDto> {
     return this.prisma.withUserContext(borrowerUserId, null, async (tx) => {
       const row = await tx.loanApplication.findFirst({
-        where: { id, borrowerUserId, status: LoanApplicationStatus.SUBMITTED },
+        where: {
+          id,
+          borrowerUserId,
+          status: { in: [LoanApplicationStatus.DRAFT, LoanApplicationStatus.SUBMITTED] },
+        },
         include: { organisation: true, borrowerUser: true },
       });
 
       if (!row) {
-        throw new NotFoundException('Pending application not found');
+        throw new NotFoundException('Open application not found');
       }
 
       const updated = await tx.loanApplication.update({
@@ -179,7 +274,14 @@ export class LoanApplicationsService {
         include: { organisation: true, borrowerUser: true },
       });
 
-      return this.mapDetail(this.toApplicationRow(updated));
+      return this.mapDetail(
+        this.toApplicationRow(updated),
+        await this.applicationDocuments.summarizeForApplication(
+          updated.orgId,
+          borrowerUserId,
+          updated.id,
+        ),
+      );
     });
   }
 
@@ -193,7 +295,9 @@ export class LoanApplicationsService {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const where = {
         orgId,
-        ...(query.status ? { status: query.status } : {}),
+        ...(query.status
+          ? { status: query.status }
+          : { status: { not: LoanApplicationStatus.DRAFT } }),
       };
 
       const [total, rows] = await Promise.all([
@@ -234,8 +338,56 @@ export class LoanApplicationsService {
         throw new NotFoundException('Application not found');
       }
 
+      if (row.status === LoanApplicationStatus.DRAFT) {
+        throw new NotFoundException('Application not found');
+      }
+
       const borrowerNames = await this.resolveBorrowerNames([row.borrowerUserId]);
-      return this.mapDetail(this.toApplicationRow(row, borrowerNames));
+      return this.mapDetail(
+        this.toApplicationRow(row, borrowerNames),
+        await this.applicationDocuments.summarizeForApplication(orgId, userId, row.id),
+      );
+    });
+  }
+
+  async saveReviewChecklist(
+    orgId: string,
+    userId: string,
+    id: string,
+    input: ApplicationReviewChecklist,
+  ): Promise<LoanApplicationDetailDto> {
+    const parsed = applicationReviewChecklistSchema.parse(input);
+
+    return this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const row = await tx.loanApplication.findFirst({
+        where: { id, orgId, status: LoanApplicationStatus.SUBMITTED },
+        include: { organisation: true },
+      });
+
+      if (!row) {
+        throw new NotFoundException('Pending application not found');
+      }
+
+      const updated = await tx.loanApplication.update({
+        where: { id },
+        data: { reviewChecklist: parsed },
+        include: { organisation: true },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'application.review_checklist_updated',
+        entityType: 'LOAN_APPLICATION',
+        entityId: id,
+        after: parsed,
+      });
+
+      const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);
+      return this.mapDetail(
+        this.toApplicationRow(updated, borrowerNames),
+        await this.applicationDocuments.summarizeForApplication(orgId, userId, id),
+      );
     });
   }
 
@@ -253,6 +405,13 @@ export class LoanApplicationsService {
 
       if (!row) {
         throw new NotFoundException('Pending application not found');
+      }
+
+      const checklist = parseApplicationReviewChecklist(row.reviewChecklist);
+      if (!isApplicationReviewChecklistComplete(checklist)) {
+        throw new BadRequestException(
+          'Complete the application review checklist before rejecting',
+        );
       }
 
       const updated = await tx.loanApplication.update({
@@ -280,7 +439,10 @@ export class LoanApplicationsService {
       });
 
       const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);
-      const detail = this.mapDetail(this.toApplicationRow(updated, borrowerNames));
+      const detail = this.mapDetail(
+        this.toApplicationRow(updated, borrowerNames),
+        await this.applicationDocuments.summarizeForApplication(orgId, userId, id),
+      );
 
       void this.notificationDispatch.notifyApplicationRejected({
         orgId,
@@ -311,6 +473,13 @@ export class LoanApplicationsService {
 
       if (!application) {
         throw new NotFoundException('Pending application not found');
+      }
+
+      const checklist = parseApplicationReviewChecklist(application.reviewChecklist);
+      if (!isApplicationReviewChecklistComplete(checklist)) {
+        throw new BadRequestException(
+          'Complete the application review checklist before approving',
+        );
       }
 
       const borrowerRecord = await this.ensureBorrowerRecord(
@@ -379,7 +548,10 @@ export class LoanApplicationsService {
       });
 
       const borrowerNames = await this.resolveBorrowerNames([updated.borrowerUserId]);
-      const detail = this.mapDetail(this.toApplicationRow(updated, borrowerNames));
+      const detail = this.mapDetail(
+        this.toApplicationRow(updated, borrowerNames),
+        await this.applicationDocuments.summarizeForApplication(orgId, userId, id),
+      );
 
       void this.notificationDispatch.notifyApplicationApproved({
         orgId,
@@ -516,12 +688,38 @@ export class LoanApplicationsService {
     };
   }
 
-  private mapDetail(row: ApplicationRow): LoanApplicationDetailDto {
+  private mapBankDetails(row: ApplicationRow): ApplicationBankDetailsDto | null {
+    if (
+      !row.bankAccountHolder ||
+      !row.bankName ||
+      !row.bankBranchCode ||
+      !row.bankAccountNumber
+    ) {
+      return null;
+    }
+
+    return {
+      accountHolder: row.bankAccountHolder,
+      bankName: row.bankName,
+      branchCode: row.bankBranchCode,
+      accountNumber: row.bankAccountNumber,
+    };
+  }
+
+  private mapDetail(
+    row: ApplicationRow,
+    documents: ApplicationDocumentsSummaryDto,
+  ): LoanApplicationDetailDto {
+    const checklist = parseApplicationReviewChecklist(row.reviewChecklist);
+
     return {
       ...this.mapListItem(row),
       lenderNotes: row.lenderNotes,
       borrowerId: row.borrowerId,
       updatedAt: row.updatedAt.toISOString(),
+      bankDetails: this.mapBankDetails(row),
+      documents,
+      reviewChecklist: buildApplicationReviewChecklistStatus(checklist),
     };
   }
 }

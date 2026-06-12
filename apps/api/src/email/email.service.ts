@@ -107,6 +107,19 @@ export class EmailService {
     await this.send(email, subject, body, 'loan-overdue');
   }
 
+  async sendPaymentSubmittedEmail(
+    email: string,
+    borrowerName: string,
+    amountFormatted: string,
+    paymentDate: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Borrower payment submitted — ${borrowerName}`;
+    const body = `${borrowerName} reported a payment of ${amountFormatted} on ${paymentDate}.\n\nReview and record it:\n${link}`;
+
+    await this.send(email, subject, body, 'payment-submitted');
+  }
+
   private async send(
     to: string,
     subject: string,

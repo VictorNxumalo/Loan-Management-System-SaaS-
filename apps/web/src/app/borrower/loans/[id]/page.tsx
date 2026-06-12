@@ -3,18 +3,33 @@
 import type { BorrowerLoanDetailDto } from '@lms/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import { LoanStatusBadge } from '@/components/loan-status-badge';
+import { PayLenderDialog } from '@/components/pay-lender-dialog';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 
 export default function BorrowerLoanDetailPage() {
   const params = useParams<{ id: string }>();
-  const { data: loan, error, loading } = useAuthenticatedQuery<BorrowerLoanDetailDto>(
+  const [payOpen, setPayOpen] = useState(false);
+  const { data: loan, error, loading, refetch } = useAuthenticatedQuery<BorrowerLoanDetailDto>(
     params.id ? `/borrower/loans/${params.id}` : null,
   );
 
-  if (loading) {
-    return <p className="text-muted-foreground">Loading loan…</p>;
+  if (loading && !loan) {
+    return (
+      <>
+        <p className="text-muted-foreground">Loading loan…</p>
+        <PayLenderDialog
+          loanId={params.id}
+          outstandingFormatted="—"
+          open={payOpen}
+          onClose={() => setPayOpen(false)}
+          onSubmitted={() => void refetch({ silent: true })}
+        />
+      </>
+    );
   }
 
   if (error || !loan) {
@@ -78,10 +93,28 @@ export default function BorrowerLoanDetailPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Repayment history</CardTitle>
+          {loan.canSubmitPayment && (
+            <Button size="sm" onClick={() => setPayOpen(true)}>
+              Pay lender
+            </Button>
+          )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {loan.pendingPayments.length > 0 && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+              <p className="font-medium text-amber-900">Pending payments</p>
+              <ul className="mt-2 space-y-1 text-amber-800">
+                {loan.pendingPayments.map((payment) => (
+                  <li key={payment.id}>
+                    {payment.amountFormatted} on {payment.paymentDate} — {payment.statusLabel}
+                    {payment.reviewNote ? ` (${payment.reviewNote})` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full min-w-[480px] text-sm">
               <thead className="bg-muted/50 text-left">
@@ -145,6 +178,14 @@ export default function BorrowerLoanDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <PayLenderDialog
+        loanId={loan.id}
+        outstandingFormatted={loan.outstandingBalanceFormatted}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+        onSubmitted={() => void refetch({ silent: true })}
+      />
     </div>
   );
 }

@@ -32,9 +32,48 @@ export const LOAN_DOCUMENT_LABELS: Record<LoanDocumentType, string> = {
   DISBURSEMENT_PROOF: 'Disbursement proof',
 };
 
+export const ApplicationDocumentType = {
+  ID_COPY: 'ID_COPY',
+  BANK_STATEMENT: 'BANK_STATEMENT',
+} as const;
+
+export type ApplicationDocumentType =
+  (typeof ApplicationDocumentType)[keyof typeof ApplicationDocumentType];
+
+export const APPLICATION_DOCUMENT_TYPES = Object.values(ApplicationDocumentType);
+
+export const APPLICATION_DOCUMENT_LABELS: Record<ApplicationDocumentType, string> = {
+  ID_COPY: 'SA ID document',
+  BANK_STATEMENT: 'Bank statement',
+};
+
+/** Minimum uploads required before an application can be submitted. */
+export const APPLICATION_DOCUMENT_REQUIREMENTS: Record<
+  ApplicationDocumentType,
+  { min: number; max: number; label: string }
+> = {
+  [ApplicationDocumentType.ID_COPY]: {
+    min: 1,
+    max: 1,
+    label: APPLICATION_DOCUMENT_LABELS.ID_COPY,
+  },
+  [ApplicationDocumentType.BANK_STATEMENT]: {
+    min: 1,
+    max: 3,
+    label: APPLICATION_DOCUMENT_LABELS.BANK_STATEMENT,
+  },
+};
+
+export const applicationDocumentTypeSchema = z.enum([
+  ApplicationDocumentType.ID_COPY,
+  ApplicationDocumentType.BANK_STATEMENT,
+]);
+
 export const documentEntityTypeSchema = z.enum([
   DocumentEntityType.BORROWER,
   DocumentEntityType.LOAN,
+  DocumentEntityType.LOAN_APPLICATION,
+  DocumentEntityType.PAYMENT_SUBMISSION,
 ]);
 
 export const borrowerDocumentTypeSchema = z.enum([

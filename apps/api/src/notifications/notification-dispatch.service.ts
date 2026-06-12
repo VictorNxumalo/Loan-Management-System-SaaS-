@@ -47,6 +47,9 @@ export class NotificationDispatchService implements OnModuleInit {
       case NotificationType.LOAN_OVERDUE:
         await this.processLoanOverdue(data);
         break;
+      case NotificationType.PAYMENT_SUBMITTED:
+        await this.processPaymentSubmitted(data);
+        break;
       default:
         this.logger.warn(`Unknown notification event: ${(data as NotificationJobData).eventType}`);
     }
@@ -125,6 +128,26 @@ export class NotificationDispatchService implements OnModuleInit {
       dueDate: input.dueDate,
       amountFormatted: formatCents(input.amountCents),
       periodNumber: input.periodNumber,
+    });
+  }
+
+  async notifyPaymentSubmitted(input: {
+    orgId: string;
+    paymentSubmissionId: string;
+    loanId: string;
+    borrowerName: string;
+    amountCents: number;
+    paymentDate: string;
+  }) {
+    await this.enqueue({
+      eventType: NotificationType.PAYMENT_SUBMITTED,
+      dedupKey: `payment-submitted:${input.paymentSubmissionId}`,
+      orgId: input.orgId,
+      paymentSubmissionId: input.paymentSubmissionId,
+      loanId: input.loanId,
+      borrowerName: input.borrowerName,
+      amountFormatted: formatCents(input.amountCents),
+      paymentDate: input.paymentDate,
     });
   }
 
@@ -342,6 +365,51 @@ export class NotificationDispatchService implements OnModuleInit {
         data.borrowerName,
         data.daysOverdue,
         data.outstandingFormatted,
+        link,
+      );
+    }
+  }
+
+  private async processPaymentSubmitted(
+    data: Extract<NotificationJobData, { eventType: typeof NotificationType.PAYMENT_SUBMITTED }>,
+  ) {
+    const recipients = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findMany({
+        where: {
+          orgId: data.orgId,
+          deletedAt: null,
+          isActive: true,
+          role: { in: [UserRole.ADMIN, UserRole.LOAN_OFFICER] },
+        },
+        select: { id: true, email: true },
+      }),
+    );
+
+    const link = this.notificationsService.appUrl(
+      `/dashboard/payment-submissions/${data.paymentSubmissionId}`,
+    );
+    const title = 'Borrower payment submitted';
+    const body = `${data.borrowerName} reported a payment of ${data.amountFormatted} on ${data.paymentDate}. Review proof and record it.`;
+
+    for (const recipient of recipients) {
+      const dedupKey = `${data.dedupKey}:user:${recipient.id}`;
+
+      await this.notificationsService.createInApp({
+        orgId: data.orgId,
+        userId: recipient.id,
+        type: NotificationType.PAYMENT_SUBMITTED,
+        title,
+        body,
+        dedupKey,
+        relatedEntityType: 'PAYMENT_SUBMISSION',
+        relatedEntityId: data.paymentSubmissionId,
+      });
+
+      await this.emailService.sendPaymentSubmittedEmail(
+        recipient.email,
+        data.borrowerName,
+        data.amountFormatted,
+        data.paymentDate,
         link,
       );
     }

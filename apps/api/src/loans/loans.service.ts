@@ -21,6 +21,7 @@ import type {
 import { LoanStatus } from '@lms/types';
 import { previewRepaymentSchedule } from '@lms/utils';
 import { AuditService } from '../audit/audit.service';
+import { BillingService } from '../billing/billing.service';
 import { formatCents } from '../common/money';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoanBalanceService } from './loan-balance.service';
@@ -33,6 +34,7 @@ export class LoansService {
     private readonly scheduleService: LoansScheduleService,
     private readonly loanBalanceService: LoanBalanceService,
     private readonly auditService: AuditService,
+    private readonly billingService: BillingService,
   ) {}
 
   previewSchedule(input: PreviewScheduleInputDto): SchedulePreviewResultDto {
@@ -282,6 +284,8 @@ export class LoansService {
   }
 
   async activate(orgId: string, userId: string, id: string): Promise<LoanDetailDto> {
+    await this.billingService.assertActiveLoanCapacity(orgId, userId);
+
     await this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loan = await tx.loan.findFirst({
         where: { id, orgId, deletedAt: null },

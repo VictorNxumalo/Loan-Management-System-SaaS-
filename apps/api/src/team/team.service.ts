@@ -7,6 +7,7 @@ import {
 import type { SendTeamInviteInput, TeamListDto } from '@lms/types';
 import { INVITABLE_ROLE_LABELS, UserRole } from '@lms/types';
 import { AuditService } from '../audit/audit.service';
+import { BillingService } from '../billing/billing.service';
 import { TokenService } from '../auth/token.service';
 import { EmailService } from '../email/email.service';
 import { getEnv } from '../config/env';
@@ -21,6 +22,7 @@ export class TeamService {
     private readonly tokenService: TokenService,
     private readonly emailService: EmailService,
     private readonly auditService: AuditService,
+    private readonly billingService: BillingService,
   ) {}
 
   async listTeam(orgId: string, userId: string): Promise<TeamListDto> {
@@ -69,6 +71,8 @@ export class TeamService {
     userId: string,
     input: SendTeamInviteInput,
   ): Promise<{ message: string }> {
+    await this.billingService.assertTeamMemberCapacity(orgId, userId);
+
     const email = input.email.toLowerCase();
 
     const existingUser = await this.prisma.withAuthLookup(async (tx) =>
