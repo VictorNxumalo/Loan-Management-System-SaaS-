@@ -75,7 +75,16 @@ You need **two parallel stacks**:
 | **Stripe** | Test keys | Live keys |
 | **Env template** | `.env.sandbox.example` | `.env.production.example` |
 
-Supabase free tier allows **2 projects** — use one for sandbox and one for production.
+Supabase free tier allows **2 projects per account**. Options for a separate sandbox database:
+
+| Option | When to use |
+|--------|-------------|
+| **Second Supabase account (recommended for you)** | New email → new org → `lms-sandbox` project. Does not affect warzone.gg or production `lms`. |
+| **Pause an unused project** on the same account | Free a slot, then create `lms-sandbox` in the original org. |
+| **Paid preview branch** on `lms` | ~$0.013/hr; schema-only copy, no production data. |
+| **Upgrade to Pro** | More projects on one org. |
+
+Step-by-step (new account + Vercel + Render): **[sandbox-setup-walkthrough.md](./sandbox-setup-walkthrough.md)**.
 
 ---
 
@@ -220,5 +229,6 @@ If production and sandbox **share one Supabase project or one API today**, split
 
 ## Related docs
 
-- [staging-deploy.md](./staging-deploy.md) — first-time hosted setup (historical name; use this doc for ongoing sandbox vs prod)
+- [sandbox-setup-walkthrough.md](./sandbox-setup-walkthrough.md) — **hands-on checklist** (new Supabase account, Vercel, Render)
+- [staging-deploy.md](./staging-deploy.md) — first-time hosted setup (historical name)
 - `.env.sandbox.example` / `.env.production.example` — env checklists
