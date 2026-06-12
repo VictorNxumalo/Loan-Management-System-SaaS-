@@ -3,8 +3,12 @@
 import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import {
+  ShellHeader,
+  ShellNotifications,
+  ShellUserMeta,
+} from '@/components/brand/shell-header';
 import { AccountTypeBadge, RoleBadge } from '@/components/role-badge';
-import { NotificationBell } from '@/components/notification-bell';
 import { Button } from '@/components/ui/button';
 import { canManageSettings } from '@/lib/permissions';
 
@@ -15,81 +19,67 @@ export function AppShell({ children }: { children: ReactNode }) {
   const planStatus = session?.organisation?.planStatus;
   const isReadOnly = planStatus === 'READ_ONLY' || planStatus === 'CANCELLED';
 
+  const navItems = [
+    { href: '/dashboard', label: 'Dashboard', match: 'exact' as const },
+    { href: '/dashboard/borrowers', label: 'People I lend to' },
+    { href: '/dashboard/loans', label: 'Loans' },
+    { href: '/dashboard/applications', label: 'Applications' },
+    ...(showSettings
+      ? [
+          { href: '/dashboard/billing', label: 'Billing' },
+          { href: '/dashboard/team', label: 'Team' },
+          { href: '/dashboard/audit-log', label: 'Audit log' },
+          { href: '/dashboard/settings', label: 'Settings' },
+        ]
+      : []),
+  ];
+
+  const banner = isReadOnly ? (
+    <div className="border-b border-amber-200/80 bg-amber-50 px-4 py-2.5 text-center text-sm text-amber-950 motion-safe:animate-slide-down">
+      This workspace is read-only.{' '}
+      {showSettings ? (
+        <Link href="/dashboard/billing" className="font-semibold text-brand-green hover:underline">
+          Subscribe on the Billing page
+        </Link>
+      ) : (
+        'Ask your admin to subscribe to a plan.'
+      )}{' '}
+      to continue making changes.
+    </div>
+  ) : null;
+
   return (
-    <div className="min-h-screen bg-muted/30">
-      {isReadOnly && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
-          This workspace is read-only.{' '}
-          {showSettings ? (
-            <Link href="/dashboard/billing" className="font-medium underline">
-              Subscribe on the Billing page
-            </Link>
-          ) : (
-            'Ask your admin to subscribe to a plan.'
-          )}{' '}
-          to continue making changes.
-        </div>
-      )}
-      <header className="border-b bg-background">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="font-semibold">
-              LMS
-            </Link>
-            <nav className="hidden gap-4 text-sm text-muted-foreground sm:flex">
-              <Link href="/dashboard" className="hover:text-foreground">
-                Dashboard
-              </Link>
-              <Link href="/dashboard/borrowers" className="hover:text-foreground">
-                People I lend to
-              </Link>
-              <Link href="/dashboard/loans" className="hover:text-foreground">
-                Loans
-              </Link>
-              <Link href="/dashboard/applications" className="hover:text-foreground">
-                Applications
-              </Link>
-              {showSettings && (
+    <div className="min-h-screen">
+      <ShellHeader
+        navItems={navItems}
+        banner={banner}
+        trailing={
+          <>
+            <ShellNotifications />
+            <ShellUserMeta
+              name={session?.user?.name}
+              subtitle={session?.organisation?.name}
+              badges={
                 <>
-                  <Link href="/dashboard/billing" className="hover:text-foreground">
-                    Billing
-                  </Link>
-                  <Link href="/dashboard/team" className="hover:text-foreground">
-                    Team
-                  </Link>
-                  <Link href="/dashboard/audit-log" className="hover:text-foreground">
-                    Audit log
-                  </Link>
-                  <Link href="/dashboard/settings" className="hover:text-foreground">
-                    Settings
-                  </Link>
+                  <AccountTypeBadge accountType={session?.user?.accountType} />
+                  <RoleBadge role={role} />
                 </>
-              )}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium">{session?.user?.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {session?.organisation?.name}
-              </p>
-              <div className="mt-1 flex justify-end gap-1">
-                <AccountTypeBadge accountType={session?.user?.accountType} />
-                <RoleBadge role={role} />
-              </div>
-            </div>
+              }
+            />
             <Button
               variant="outline"
               size="sm"
+              className="border-brand-navy/15 hover:border-brand-green/40 hover:bg-accent"
               onClick={() => signOut({ callbackUrl: '/auth/login' })}
             >
               Log out
             </Button>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl p-6">{children}</main>
+          </>
+        }
+      />
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 motion-safe:animate-fade-in">
+        {children}
+      </main>
     </div>
   );
 }

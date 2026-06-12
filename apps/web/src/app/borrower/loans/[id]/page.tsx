@@ -4,6 +4,7 @@ import type { BorrowerLoanDetailDto } from '@lms/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
+import { PageLoading } from '@/components/brand/loading';
 import { LoanStatusBadge } from '@/components/loan-status-badge';
 import { PayLenderDialog } from '@/components/pay-lender-dialog';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,7 @@ export default function BorrowerLoanDetailPage() {
   if (loading && !loan) {
     return (
       <>
-        <p className="text-muted-foreground">Loading loan…</p>
+        <PageLoading label="Loading loan…" />
         <PayLenderDialog
           loanId={params.id}
           outstandingFormatted="—"

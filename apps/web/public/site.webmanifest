@@ -1,0 +1,23 @@
+{
+  "name": "LMS — Loan Management System",
+  "short_name": "LMS",
+  "description": "Connect lenders and borrowers in one place.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F2F4F7",
+  "theme_color": "#0D1B2A",
+  "icons": [
+    {
+      "src": "/brand/lms-icon-colored.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/lms-icon-monochrome.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

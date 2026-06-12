@@ -8,6 +8,7 @@ import type {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { PageLoading } from '@/components/brand/loading';
 import { BorrowerSearch } from '@/components/borrower-search';
 import { SchedulePreview } from '@/components/schedule-preview';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ import { useApi } from '@/lib/use-api';
 
 export default function NewLoanPage() {
   return (
-    <Suspense fallback={<p className="text-muted-foreground">Loading loan form…</p>}>
+    <Suspense fallback={<PageLoading label="Loading loan form…" />}>
       <NewLoanPageContent />
     </Suspense>
   );

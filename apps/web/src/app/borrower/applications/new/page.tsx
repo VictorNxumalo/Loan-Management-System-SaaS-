@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { ApplicationDocumentsPanel } from '@/components/application-documents-panel';
+import { PageLoading } from '@/components/brand/loading';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -21,7 +22,7 @@ type Step = 'details' | 'documents';
 
 export default function NewApplicationPage() {
   return (
-    <Suspense fallback={<p className="text-muted-foreground">Loading form…</p>}>
+    <Suspense fallback={<PageLoading label="Loading form…" />}>
       <NewApplicationPageContent />
     </Suspense>
   );

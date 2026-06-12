@@ -7,6 +7,7 @@ import type {
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { PageLoading } from '@/components/brand/loading';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -82,7 +83,7 @@ export default function PaymentSubmissionReviewPage() {
   };
 
   if (loading) {
-    return <p className="text-muted-foreground">Loading payment…</p>;
+    return <PageLoading label="Loading payment…" />;
   }
 
   if (error || !submission) {

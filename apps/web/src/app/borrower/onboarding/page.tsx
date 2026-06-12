@@ -7,14 +7,10 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
+import { AuthShell } from '@/components/brand/auth-shell';
+import { PageLoading } from '@/components/brand/loading';
+import { LmsLoaderMark } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiFetch } from '@/lib/api';
@@ -53,43 +49,42 @@ export default function BorrowerOnboardingPage() {
   };
 
   if (status === 'loading') {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
-      </main>
-    );
+    return <PageLoading label="Loading your profile…" className="min-h-screen" />;
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle>Set up your borrower profile</CardTitle>
-          <CardDescription>
-            Tell lenders how to reach you. You can browse public lenders and accept invites
-            after this step.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone number</Label>
-              <Input id="phone" {...register('phone')} />
-              {errors.phone && (
-                <p className="text-sm text-destructive">{errors.phone.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="idNumber">ID / passport number (optional)</Label>
-              <Input id="idNumber" {...register('idNumber')} />
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : 'Continue'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+    <AuthShell
+      title="Set up your borrower profile"
+      description="Tell lenders how to reach you. You can browse public lenders and accept invites after this step."
+    >
+      {error && (
+        <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive motion-safe:animate-fade-in">
+          {error}
+        </p>
+      )}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone number</Label>
+          <Input id="phone" {...register('phone')} />
+          {errors.phone && (
+            <p className="text-sm text-destructive">{errors.phone.message}</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="idNumber">ID / passport number (optional)</Label>
+          <Input id="idNumber" {...register('idNumber')} />
+        </div>
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <span className="inline-flex items-center gap-2">
+              <LmsLoaderMark size="sm" />
+              Saving…
+            </span>
+          ) : (
+            'Continue'
+          )}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

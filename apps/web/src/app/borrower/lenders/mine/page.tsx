@@ -2,6 +2,7 @@
 
 import type { MarketplaceLenderDto } from '@lms/types';
 import Link from 'next/link';
+import { CardSkeleton } from '@/components/brand/skeleton';
 import { BorrowerLendingStatusBanner } from '@/components/borrower-lending-status-banner';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,12 @@ export default function MyLendersPage() {
         </div>
       )}
 
-      {loading && <p className="text-sm text-muted-foreground">Loading your lenders…</p>}
+      {loading && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
+        </div>
+      )}
 
       {!loading && lenders.length === 0 && !error && (
         <EmptyState

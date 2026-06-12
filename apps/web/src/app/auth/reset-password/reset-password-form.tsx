@@ -6,14 +6,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
+import { AuthShell } from '@/components/brand/auth-shell';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiFetch } from '@/lib/api';
@@ -61,66 +55,63 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{token ? 'Set new password' : 'Reset password'}</CardTitle>
-          <CardDescription>
-            {token
-              ? 'Enter your new password below'
-              : 'We will send you a reset link by email'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {message && (
-            <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{message}</p>
-          )}
-          {error && (
-            <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </p>
-          )}
+    <AuthShell
+      title={token ? 'Set new password' : 'Reset password'}
+      description={
+        token
+          ? 'Enter your new password below'
+          : 'We will send you a reset link by email'
+      }
+    >
+      {message && (
+        <p className="mb-4 rounded-md border border-brand-green/30 bg-brand-green/10 p-3 text-sm text-brand-green motion-safe:animate-fade-in">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive motion-safe:animate-fade-in">
+          {error}
+        </p>
+      )}
 
-          {token ? (
-            <form onSubmit={resetForm.handleSubmit(onReset)} className="space-y-4">
-              <input type="hidden" {...resetForm.register('token')} />
-              <div className="space-y-2">
-                <Label htmlFor="password">New password</Label>
-                <Input id="password" type="password" {...resetForm.register('password')} />
-                {resetForm.formState.errors.password && (
-                  <p className="text-sm text-destructive">
-                    {resetForm.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" className="w-full">
-                Reset password
-              </Button>
-            </form>
-          ) : (
-            <form onSubmit={forgotForm.handleSubmit(onForgot)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" {...forgotForm.register('email')} />
-                {forgotForm.formState.errors.email && (
-                  <p className="text-sm text-destructive">
-                    {forgotForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" className="w-full">
-                Send reset link
-              </Button>
-            </form>
-          )}
+      {token ? (
+        <form onSubmit={resetForm.handleSubmit(onReset)} className="space-y-4">
+          <input type="hidden" {...resetForm.register('token')} />
+          <div className="space-y-2">
+            <Label htmlFor="password">New password</Label>
+            <Input id="password" type="password" {...resetForm.register('password')} />
+            {resetForm.formState.errors.password && (
+              <p className="text-sm text-destructive">
+                {resetForm.formState.errors.password.message}
+              </p>
+            )}
+          </div>
+          <Button type="submit" className="w-full">
+            Reset password
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={forgotForm.handleSubmit(onForgot)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" {...forgotForm.register('email')} />
+            {forgotForm.formState.errors.email && (
+              <p className="text-sm text-destructive">
+                {forgotForm.formState.errors.email.message}
+              </p>
+            )}
+          </div>
+          <Button type="submit" className="w-full">
+            Send reset link
+          </Button>
+        </form>
+      )}
 
-          <p className="text-center text-sm">
-            <Link href="/auth/login" className="text-primary hover:underline">
-              Back to sign in
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </main>
+      <p className="mt-4 text-center text-sm">
+        <Link href="/auth/login" className="font-medium text-brand-green hover:underline">
+          Back to sign in
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

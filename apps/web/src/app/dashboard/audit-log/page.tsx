@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useCallback, useEffect, useState } from 'react';
 import type { PaginatedAuditLogsDto } from '@lms/types';
+import { TableSkeleton } from '@/components/brand/skeleton';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -101,12 +102,12 @@ export default function AuditLogPage() {
         <CardHeader>
           <CardTitle>Activity</CardTitle>
           <CardDescription>
-            {data ? `${data.total} recorded event(s)` : 'Loading…'}
+            {data ? `${data.total} recorded event(s)` : 'Fetching activity…'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <TableSkeleton rows={6} />
           ) : data && data.items.length > 0 ? (
             <div className="divide-y">
               {data.items.map((entry) => {

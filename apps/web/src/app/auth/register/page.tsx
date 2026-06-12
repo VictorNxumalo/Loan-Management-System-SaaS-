@@ -7,14 +7,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
+import { AuthShell } from '@/components/brand/auth-shell';
+import { LmsLoaderMark } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiFetch } from '@/lib/api';
@@ -70,19 +65,15 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>
-            {inviteToken ? 'Join your team' : 'Create your account'}
-          </CardTitle>
-          <CardDescription>
-            {inviteToken
-              ? 'You have been invited to join a lending workspace. Use the email the invite was sent to.'
-              : 'Choose whether you are setting up a lending workspace or a borrower profile.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <AuthShell
+      title={inviteToken ? 'Join your team' : 'Create your account'}
+      description={
+        inviteToken
+          ? 'You have been invited to join a lending workspace. Use the email the invite was sent to.'
+          : 'Choose whether you are setting up a lending workspace or a borrower profile.'
+      }
+    >
+      <div className="space-y-4">
           {!inviteToken && (
             <div className="grid grid-cols-2 gap-2">
               <Button
@@ -103,10 +94,12 @@ export default function RegisterPage() {
           )}
 
           {message && (
-            <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{message}</p>
+            <p className="rounded-md border border-brand-green/30 bg-brand-green/10 p-3 text-sm text-brand-green motion-safe:animate-fade-in">
+              {message}
+            </p>
           )}
           {error && (
-            <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive motion-safe:animate-fade-in">
               {error}
             </p>
           )}
@@ -138,21 +131,25 @@ export default function RegisterPage() {
               )}
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting
-                ? 'Creating account…'
-                : inviteToken
-                  ? 'Join team'
-                  : 'Create account'}
+              {isSubmitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <LmsLoaderMark size="sm" />
+                  Creating account…
+                </span>
+              ) : inviteToken ? (
+                'Join team'
+              ) : (
+                'Create account'
+              )}
             </Button>
           </form>
           <p className="text-center text-sm">
             Already have an account?{' '}
-            <Link href="/auth/login" className="text-primary hover:underline">
+            <Link href="/auth/login" className="font-medium text-brand-green hover:underline">
               Sign in
             </Link>
           </p>
-        </CardContent>
-      </Card>
-    </main>
+      </div>
+    </AuthShell>
   );
 }

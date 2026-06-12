@@ -4,6 +4,7 @@ import type { LoanApplicationDetailDto } from '@lms/types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { PageLoading } from '@/components/brand/loading';
 import { ApplicationDocumentsPanel } from '@/components/application-documents-panel';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,7 @@ export default function BorrowerApplicationDetailPage() {
   };
 
   if (!application && !error) {
-    return <p className="text-muted-foreground">Loading application…</p>;
+    return <PageLoading label="Loading application…" />;
   }
 
   if (!application) {

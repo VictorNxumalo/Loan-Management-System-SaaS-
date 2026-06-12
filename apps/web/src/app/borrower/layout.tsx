@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
+import { PageLoading } from '@/components/brand/loading';
 import { BorrowerShell } from '@/components/borrower-shell';
 
 export default function BorrowerLayout({ children }: { children: ReactNode }) {
@@ -42,11 +43,7 @@ export default function BorrowerLayout({ children }: { children: ReactNode }) {
       !pathname.startsWith('/borrower/onboarding') &&
       !pathname.startsWith('/borrower/invites'))
   ) {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
-      </main>
-    );
+    return <PageLoading label="Loading your portal…" className="min-h-screen" />;
   }
 
   const minimalRoute =

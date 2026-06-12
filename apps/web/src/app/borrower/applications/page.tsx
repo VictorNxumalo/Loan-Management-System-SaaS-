@@ -3,6 +3,7 @@
 import type { LoanApplicationListItemDto, PaginatedLoanApplicationsDto } from '@lms/types';
 import Link from 'next/link';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
+import { TableSkeleton } from '@/components/brand/skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
@@ -29,7 +30,7 @@ export default function BorrowerApplicationsPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {loading && <p className="text-sm text-muted-foreground">Loading applications…</p>}
+      {loading && <TableSkeleton rows={5} />}
 
       {!loading && applications.length === 0 && !error && (
         <EmptyState

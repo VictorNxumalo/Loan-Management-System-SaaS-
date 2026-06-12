@@ -2,6 +2,7 @@
 
 import type { BorrowerLoanListItemDto, PaginatedBorrowerLoansDto } from '@lms/types';
 import Link from 'next/link';
+import { TableSkeleton } from '@/components/brand/skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { LoanStatusBadge } from '@/components/loan-status-badge';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ export default function BorrowerLoansPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {loading && <p className="text-sm text-muted-foreground">Loading loans…</p>}
+      {loading && <TableSkeleton rows={5} />}
 
       {!loading && loans.length === 0 && !error && (
         <EmptyState

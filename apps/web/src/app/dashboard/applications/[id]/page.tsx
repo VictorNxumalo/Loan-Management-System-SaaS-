@@ -9,6 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { ApplicationReviewChecklistPanel } from '@/components/application-review-checklist';
+import { PageLoading } from '@/components/brand/loading';
 import { LenderApplicationDocumentsPanel } from '@/components/lender-application-documents-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,7 +84,7 @@ export default function LenderApplicationDetailPage() {
   };
 
   if (loading) {
-    return <p className="text-muted-foreground">Loading application…</p>;
+    return <PageLoading label="Loading application…" />;
   }
 
   if (error || !application) {

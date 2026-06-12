@@ -4,9 +4,11 @@ import type { NotificationDto, PaginatedNotificationsDto } from '@lms/types';
 import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { InlineLoading } from '@/components/brand/loading';
 import { Button } from '@/components/ui/button';
 import { useApi } from '@/lib/use-api';
 import { useSession } from 'next-auth/react';
+import { cn } from '@/lib/utils';
 
 function notificationHref(notification: NotificationDto, accountType?: string) {
   if (notification.relatedEntityType === 'LOAN_APPLICATION') {
@@ -123,31 +125,44 @@ export function NotificationBell() {
     return null;
   }
 
+  const hasUnread = unreadCount > 0;
+
   return (
     <div className="relative" ref={panelRef}>
       <Button
         variant="outline"
         size="sm"
-        className="relative px-2"
-        aria-label="Notifications"
+        className={cn(
+          'relative px-2.5 transition-colors',
+          hasUnread && 'border-brand-green/40 bg-brand-green/5',
+        )}
+        aria-label={hasUnread ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         onClick={() => setOpen((value) => !value)}
       >
-        <Bell className="h-4 w-4" />
-        {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
+        <Bell
+          className={cn('h-4 w-4', hasUnread && 'text-brand-green motion-safe:animate-pulse-dot')}
+        />
+        {hasUnread && (
+          <>
+            <span
+              className="absolute -right-0.5 -top-0.5 h-3 w-3 motion-safe:animate-pulse-ring rounded-full bg-brand-green/40"
+              aria-hidden="true"
+            />
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-green px-1 text-[10px] font-bold text-white shadow-sm motion-safe:animate-pulse-dot">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          </>
         )}
       </Button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 rounded-lg border bg-background shadow-lg">
-          <div className="flex items-center justify-between border-b px-3 py-2">
-            <p className="text-sm font-semibold">Notifications</p>
-            {unreadCount > 0 && (
+        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-border/80 bg-background/95 shadow-xl backdrop-blur-md motion-safe:animate-scale-in">
+          <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2.5">
+            <p className="text-sm font-semibold text-brand-navy">Notifications</p>
+            {hasUnread && (
               <button
                 type="button"
-                className="text-xs text-primary hover:underline"
+                className="text-xs font-medium text-brand-green hover:underline"
                 onClick={() => void markAllRead()}
               >
                 Mark all read
@@ -155,19 +170,21 @@ export function NotificationBell() {
             )}
           </div>
           <div className="max-h-80 overflow-y-auto">
-            {loading && (
-              <p className="px-3 py-4 text-sm text-muted-foreground">Loading…</p>
-            )}
+            {loading && <InlineLoading label="Loading notifications…" />}
             {!loading && notifications.length === 0 && (
-              <p className="px-3 py-4 text-sm text-muted-foreground">No notifications yet</p>
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                No notifications yet
+              </p>
             )}
             {notifications.map((notification) => (
               <Link
                 key={notification.id}
                 href={notificationHref(notification, session?.user?.accountType)}
-                className={`block border-b px-3 py-3 text-sm hover:bg-muted/50 ${
-                  notification.readAt ? 'opacity-70' : ''
-                }`}
+                className={cn(
+                  'block border-b px-3 py-3 text-sm transition-colors hover:bg-accent/60',
+                  !notification.readAt && 'border-l-2 border-l-brand-green bg-brand-green/5',
+                  notification.readAt && 'opacity-75',
+                )}
                 onClick={() => {
                   if (!notification.readAt) {
                     void markRead(notification.id);
@@ -175,8 +192,8 @@ export function NotificationBell() {
                   setOpen(false);
                 }}
               >
-                <p className="font-medium">{notification.title}</p>
-                <p className="mt-1 text-muted-foreground line-clamp-2">{notification.body}</p>
+                <p className="font-medium text-brand-navy">{notification.title}</p>
+                <p className="mt-1 line-clamp-2 text-muted-foreground">{notification.body}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {new Date(notification.createdAt).toLocaleString()}
                 </p>

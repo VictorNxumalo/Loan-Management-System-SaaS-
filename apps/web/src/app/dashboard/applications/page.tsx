@@ -4,6 +4,7 @@ import type { LoanApplicationListItemDto, PaginatedLoanApplicationsDto } from '@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
+import { TableSkeleton } from '@/components/brand/skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
@@ -46,7 +47,7 @@ export default function LenderApplicationsPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {loading && <p className="text-sm text-muted-foreground">Loading applications…</p>}
+      {loading && <TableSkeleton rows={6} />}
 
       {!canReview && (
         <p className="text-sm text-muted-foreground">

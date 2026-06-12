@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { CardSkeleton } from '@/components/brand/skeleton';
 import { DocumentUploadPanel } from '@/components/document-upload-panel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,7 +48,12 @@ export default function BorrowerDetailPage() {
   }
 
   if (!borrower) {
-    return <p className="text-muted-foreground">Loading borrower…</p>;
+    return (
+      <div className="space-y-6">
+        <CardSkeleton rows={4} />
+        <CardSkeleton rows={3} />
+      </div>
+    );
   }
 
   return (

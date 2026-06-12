@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import { AppShell } from '@/components/app-shell';
+import { PageLoading } from '@/components/brand/loading';
 import { apiFetch } from '@/lib/api';
 import { getPostAuthRouteFromMe } from '@/lib/routes';
 
@@ -51,11 +52,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [status, session, router]);
 
   if (status === 'loading') {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
-      </main>
-    );
+    return <PageLoading label="Loading workspace…" className="min-h-screen" />;
   }
 
   return <AppShell>{children}</AppShell>;

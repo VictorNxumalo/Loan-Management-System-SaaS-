@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import type { BillingStatusDto } from '@lms/types';
 import { OrganisationPlan } from '@lms/types';
+import { CardSkeleton } from '@/components/brand/skeleton';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -124,7 +125,10 @@ export default function BillingPage() {
       {message && <p className="text-sm text-green-700">{message}</p>}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={5} />
+        </div>
       ) : status ? (
         <>
           {status.isReadOnly && (

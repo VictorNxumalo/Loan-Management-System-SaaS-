@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { ReportsExportPanel } from '@/components/reports-export-panel';
+import { KpiSkeletonGrid } from '@/components/brand/skeleton';
+import { Reveal } from '@/components/brand/reveal';
 import {
   Card,
   CardContent,
@@ -28,18 +30,22 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, {session?.user?.name}.
+      <Reveal>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {session?.user?.name}.
+          </p>
+        </div>
+      </Reveal>
+
+      {error && (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
         </p>
-      </div>
-
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      {!data && !error && (
-        <p className="text-muted-foreground">Loading dashboard…</p>
       )}
+
+      {!data && !error && <KpiSkeletonGrid />}
 
       {data && (
         <>
@@ -124,13 +130,13 @@ function KpiCard({
   value: string;
 }) {
   return (
-    <Card>
+    <Card className="lms-surface-interactive overflow-hidden">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="text-base text-brand-navy">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-2xl font-semibold">{value}</p>
+        <p className="text-2xl font-bold tracking-tight text-brand-green">{value}</p>
       </CardContent>
     </Card>
   );

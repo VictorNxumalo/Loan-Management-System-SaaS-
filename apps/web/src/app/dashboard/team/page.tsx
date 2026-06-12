@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useCallback, useEffect, useState } from 'react';
 import type { TeamListDto } from '@lms/types';
 import { INVITABLE_ROLE_LABELS, UserRole } from '@lms/types';
+import { TableSkeleton } from '@/components/brand/skeleton';
 import { RoleBadge } from '@/components/role-badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -169,7 +170,7 @@ export default function TeamPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <TableSkeleton rows={4} />
           ) : (
             <div className="divide-y">
               {team?.members.map((member) => (
