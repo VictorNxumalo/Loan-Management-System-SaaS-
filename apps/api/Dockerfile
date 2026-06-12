@@ -32,9 +32,9 @@ COPY apps/api/package.json apps/api/
 COPY packages/types/package.json packages/types/
 COPY packages/utils/package.json packages/utils/
 COPY packages/config/package.json packages/config/
-RUN pnpm install --frozen-lockfile --prod \
-  && pnpm add -w prisma@^6.8.2 @prisma/client@^6.8.2 \
-  && pnpm exec prisma generate --schema=./prisma/schema.prisma
+
+# Reuse install + generated Prisma client from build (pnpm layout differs from npm)
+COPY --from=build /app/node_modules ./node_modules
 
 COPY --from=build /app/packages/types/dist ./packages/types/dist
 COPY --from=build /app/packages/utils/dist ./packages/utils/dist
