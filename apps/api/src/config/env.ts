@@ -1,11 +1,22 @@
 import { z } from 'zod';
 
+/** Render/other hosts sometimes set blank env vars; treat as unset for optional fields. */
+const optionalString = z.preprocess(
+  (val) => (val === '' || val === undefined ? undefined : val),
+  z.string().optional(),
+);
+
+const optionalUrl = z.preprocess(
+  (val) => (val === '' || val === undefined ? undefined : val),
+  z.string().url().optional(),
+);
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
   DATABASE_URL: z.string().min(1),
-  REDIS_URL: z.string().min(1).optional(),
+  REDIS_URL: optionalString,
   JWT_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
   /** Hosting platforms (Render, Railway) set PORT; API_PORT is the local fallback. */
@@ -29,8 +40,8 @@ const envSchema = z.object({
   TWILIO_FROM_NUMBER: z.string().optional(),
   AFRICASTALKING_API_KEY: z.string().optional(),
   AFRICASTALKING_USERNAME: z.string().optional(),
-  SUPABASE_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  SUPABASE_URL: optionalUrl,
+  SUPABASE_SERVICE_ROLE_KEY: optionalString,
   SUPABASE_STORAGE_BUCKET: z.string().default('lms-documents'),
   DOCUMENT_URL_EXPIRY_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
   STRIPE_SECRET_KEY: z.string().optional(),
