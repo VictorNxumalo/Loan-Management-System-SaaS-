@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm db:generate && pnpm --filter @lms/types build && pnpm --filter @lms/utils build && pnpm --filter @lms/web build"
+  "installCommand": "cd ../.. && NODE_ENV=development pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @lms/types build && pnpm --filter @lms/utils build && pnpm --filter @lms/web build"
 }
