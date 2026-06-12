@@ -30,6 +30,8 @@ services:
         value: "true"
       - key: CRON_REMINDER_ENABLED
         value: "true"
+      - key: STAGING_ALLOW_VERCEL_CORS
+        value: "true"
       - key: REDIS_URL
         fromService:
           type: redis

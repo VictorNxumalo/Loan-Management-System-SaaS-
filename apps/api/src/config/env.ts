@@ -25,6 +25,10 @@ const envSchema = z.object({
     z.coerce.number().default(3001),
   ),
   NEXTAUTH_URL: z.string().url().default('http://localhost:3000'),
+  /** Comma-separated extra browser origins allowed by CORS (staging preview URLs, etc.) */
+  CORS_ORIGINS: optionalString,
+  /** Staging only: allow any https://*.vercel.app origin (preview deploys) */
+  STAGING_ALLOW_VERCEL_CORS: z.coerce.boolean().default(false),
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().email().optional(),
   /** When true, new accounts are auto-verified and can sign in immediately (no SendGrid). */

@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { getEnv, isEmailVerificationSkipped } from './config/env';
+import { getCorsOptions } from './config/cors';
 
 // Local dev only — hosted staging/production inject env vars via the platform (Render, etc.)
 if (process.env.NODE_ENV !== 'production') {
@@ -12,20 +13,15 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 async function bootstrap() {
-  getEnv();
+  const env = getEnv();
 
   const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('v1');
   app.use(helmet());
   app.use(cookieParser());
-  const env = getEnv();
-  app.enableCors({
-    // Allow any origin in dev (localhost, 127.0.0.1, LAN IP browsers)
-    origin: env.NODE_ENV === 'development' ? true : env.NEXTAUTH_URL,
-    credentials: true,
-  });
+  app.enableCors(getCorsOptions());
 
-  const port = getEnv().API_PORT;
+  const port = env.API_PORT;
   await app.listen(port, '0.0.0.0');
   const hostHint =
     env.NODE_ENV === 'production'
