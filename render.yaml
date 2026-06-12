@@ -1,0 +1,51 @@
+# Staging blueprint: API + Redis on Render. Deploy the web app on Vercel (see docs/staging-deploy.md).
+#
+# Usage: Render Dashboard → New → Blueprint → connect repo → apply this file.
+# Set secret env vars (DATABASE_URL, DIRECT_URL, JWT_*, SUPABASE_*, NEXTAUTH_URL) in the dashboard.
+
+services:
+  - type: redis
+    name: lms-staging-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  - type: web
+    name: lms-staging-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SKIP_EMAIL_VERIFICATION
+        value: "true"
+      - key: SUPABASE_STORAGE_BUCKET
+        value: lms-documents
+      - key: TRIAL_DAYS
+        value: "14"
+      - key: CRON_OVERDUE_ENABLED
+        value: "true"
+      - key: CRON_REMINDER_ENABLED
+        value: "true"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: lms-staging-redis
+          property: connectionString
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

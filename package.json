@@ -5,13 +5,17 @@
   "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "node scripts/kill-dev-ports.mjs && pnpm --filter @lms/types build && pnpm --filter @lms/utils build && pnpm --parallel --filter @lms/api --filter @lms/web dev",
+    "dev:mobile": "node scripts/dev-mobile.mjs",
+    "tunnel:web": "node scripts/tunnel-web.mjs",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "type-check": "pnpm --filter @lms/types build && pnpm -r type-check",
     "test": "pnpm --filter @lms/types build && pnpm --filter @lms/utils build && pnpm -r test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push"
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "staging:smoke": "node scripts/staging-smoke-test.mjs"
   },
   "devDependencies": {
     "prisma": "^6.8.2",

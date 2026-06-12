@@ -8,7 +8,11 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
-  API_PORT: z.coerce.number().default(3001),
+  /** Hosting platforms (Render, Railway) set PORT; API_PORT is the local fallback. */
+  API_PORT: z.preprocess(
+    (val) => (val === undefined || val === '' ? process.env.PORT : val),
+    z.coerce.number().default(3001),
+  ),
   NEXTAUTH_URL: z.string().url().default('http://localhost:3000'),
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().email().optional(),

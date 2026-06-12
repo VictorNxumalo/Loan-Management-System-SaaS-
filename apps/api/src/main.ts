@@ -24,8 +24,12 @@ async function bootstrap() {
   });
 
   const port = getEnv().API_PORT;
-  await app.listen(port);
-  console.warn(`LMS API running on http://localhost:${port}/v1`);
+  await app.listen(port, '0.0.0.0');
+  const hostHint =
+    env.NODE_ENV === 'production'
+      ? `LMS API listening on port ${port} (/v1)`
+      : `LMS API running on http://localhost:${port}/v1 (LAN: use your PC IP on port ${port})`;
+  console.warn(hostHint);
   console.warn(
     `Email verification: ${isEmailVerificationSkipped() ? 'SKIPPED (dev mode)' : 'REQUIRED'}`,
   );
