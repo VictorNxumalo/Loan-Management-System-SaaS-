@@ -134,6 +134,48 @@
       animation: shimmer 1.8s ease-in-out infinite;
     }
   }
+
+  .legal-prose {
+    @apply space-y-10 text-sm leading-relaxed text-foreground sm:text-[0.9375rem];
+  }
+
+  .legal-prose h2 {
+    @apply mb-4 text-lg font-semibold tracking-tight text-brand-navy sm:text-xl;
+  }
+
+  .legal-prose h3 {
+    @apply mb-2 mt-5 text-base font-semibold text-brand-navy;
+  }
+
+  .legal-prose p {
+    @apply mb-3 text-muted-foreground;
+  }
+
+  .legal-prose ul,
+  .legal-prose ol {
+    @apply mb-4 ml-5 list-outside space-y-2 text-muted-foreground;
+  }
+
+  .legal-prose ul {
+    @apply list-disc;
+  }
+
+  .legal-prose ol {
+    @apply list-decimal;
+  }
+
+  .legal-prose li > ul,
+  .legal-prose li > ol {
+    @apply mb-0 mt-2;
+  }
+
+  .legal-prose a {
+    @apply font-medium text-brand-green underline-offset-2 hover:underline;
+  }
+
+  .legal-prose strong {
+    @apply font-semibold text-foreground;
+  }
 }
 
 @layer utilities {

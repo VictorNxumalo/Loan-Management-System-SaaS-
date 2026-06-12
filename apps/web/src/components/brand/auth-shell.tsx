@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { LmsLogo } from '@/components/brand/logo';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +31,14 @@ export function AuthShell({
           </ul>
         </div>
         <p className="relative z-10 text-xs text-white/50">
-          Loan Management System · Built for South African lending workflows
+          Loan Management System · Built for South African lending workflows ·{' '}
+          <Link href="/legal/terms" className="underline underline-offset-2 hover:text-white/70">
+            Terms
+          </Link>
+          {' · '}
+          <Link href="/legal/privacy" className="underline underline-offset-2 hover:text-white/70">
+            Privacy
+          </Link>
         </p>
       </div>
 

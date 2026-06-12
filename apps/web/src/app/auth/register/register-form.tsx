@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { AuthShell } from '@/components/brand/auth-shell';
 import { LmsLoaderMark } from '@/components/brand/logo';
+import { LegalConsentNotice } from '@/components/legal/legal-consent-notice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -142,6 +143,7 @@ export function RegisterForm() {
               'Create account'
             )}
           </Button>
+          <LegalConsentNotice />
         </form>
         <p className="text-center text-sm">
           Already have an account?{' '}

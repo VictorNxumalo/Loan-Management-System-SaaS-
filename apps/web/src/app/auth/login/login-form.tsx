@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { AuthShell } from '@/components/brand/auth-shell';
 import { LmsLoaderMark } from '@/components/brand/logo';
+import { LegalFooterLinks } from '@/components/legal/legal-consent-notice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -130,6 +131,9 @@ export function LoginForm({ verified }: { verified: boolean }) {
         <Link href="/auth/reset-password" className="text-muted-foreground hover:text-foreground hover:underline">
           Forgot password?
         </Link>
+      </div>
+      <div className="mt-4">
+        <LegalFooterLinks />
       </div>
     </AuthShell>
   );

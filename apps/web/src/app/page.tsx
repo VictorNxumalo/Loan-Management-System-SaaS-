@@ -137,7 +137,17 @@ export default function HomePage() {
       </section>
 
       <footer className="border-t border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} LMS · Loan Management System</p>
+        <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <span>© {new Date().getFullYear()} LMS · Loan Management System</span>
+          <span aria-hidden="true">·</span>
+          <Link href="/legal/terms" className="hover:text-foreground hover:underline">
+            Terms
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/legal/privacy" className="hover:text-foreground hover:underline">
+            Privacy
+          </Link>
+        </p>
       </footer>
     </MarketingShell>
   );
@@ -160,8 +170,8 @@ function ImageHero() {
           {['Applications', 'Loans', 'Repayments', 'Marketplace'].map((label, index) => (
             <div
               key={label}
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-5 text-center text-sm font-medium backdrop-blur-sm motion-safe:animate-fade-up"
-              style={{ animationDelay: `${index * 100}ms`, opacity: 0 }}
+              className="rounded-lg border border-white/10 bg-white/5 px-4 py-5 text-center text-sm font-medium backdrop-blur-sm motion-safe:animate-fade-up motion-reduce:opacity-100"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
               {label}
             </div>
