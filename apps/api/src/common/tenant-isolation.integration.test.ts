@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoanBalanceService } from '../loans/loan-balance.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
 import { LoansService } from '../loans/loans.service';
+import { LoanAgreementService } from '../loans/loan-agreement.service';
 import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { StitchLoanDisbursementService } from '../stitch/stitch-loan-disbursement.service';
@@ -34,6 +35,19 @@ describe.runIf(runIntegration)('Tenant isolation integration', () => {
     notifyLoanActivated: async () => {},
     notifyLoanDisbursed: async () => {},
   } as unknown as NotificationDispatchService;
+  const loanAgreementService = {
+    assertDisbursementAllowed: async () => {},
+    buildSummaryForLender: () => ({
+      status: 'NOT_SENT',
+      sentAt: null,
+      signedAt: null,
+      signerName: null,
+      canSend: true,
+      canDisburse: false,
+      requiresBorrowerSignature: false,
+      canSign: false,
+    }),
+  } as unknown as LoanAgreementService;
   const loansService = new LoansService(
     prisma,
     scheduleService,
@@ -43,6 +57,7 @@ describe.runIf(runIntegration)('Tenant isolation integration', () => {
     walletsService,
     stitchLoanDisbursementMock,
     notificationDispatch,
+    loanAgreementService,
   );
   const borrowersService = new BorrowersService(prisma, balanceService, auditService);
 

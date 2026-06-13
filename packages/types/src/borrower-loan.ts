@@ -74,6 +74,7 @@ export interface BorrowerLoanDetailDto {
   canReportExternalPayment: boolean;
   /** @deprecated Use canReportExternalPayment */
   canSubmitPayment: boolean;
+  agreement: import('./loan-agreement').LoanAgreementSummaryDto;
   createdAt: string;
   updatedAt: string;
 }

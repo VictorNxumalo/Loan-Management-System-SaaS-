@@ -18,19 +18,19 @@ import type {
   SchedulePreviewResultDto,
   UpdateLoanInput,
 } from '@lms/types';
-import { LoanStatus, DisbursementStatus, InterestType } from '@lms/types';
-import { buildLoanAgreementHtml, previewRepaymentSchedule } from '@lms/utils';
+import { LoanStatus, DisbursementStatus } from '@lms/types';
+import { previewRepaymentSchedule } from '@lms/utils';
 import { AuditService } from '../audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { formatCents } from '../common/money';
 import { assertAnnualRateWithinNcaCap } from '../common/nca-rate.util';
 import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
-import { getNcrRepoRatePercent } from '../config/env';
 import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 import { LoanBalanceService } from './loan-balance.service';
 import { LoansScheduleService } from './loans-schedule.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { StitchLoanDisbursementService } from '../stitch/stitch-loan-disbursement.service';
+import { LoanAgreementService } from './loan-agreement.service';
 
 @Injectable()
 export class LoansService {
@@ -43,6 +43,7 @@ export class LoansService {
     private readonly walletsService: WalletsService,
     private readonly stitchLoanDisbursement: StitchLoanDisbursementService,
     private readonly notificationDispatch: NotificationDispatchService,
+    private readonly loanAgreementService: LoanAgreementService,
   ) {}
 
   previewSchedule(input: PreviewScheduleInputDto): SchedulePreviewResultDto {
@@ -163,14 +164,17 @@ export class LoansService {
 
   async getById(orgId: string, userId: string, id: string): Promise<LoanDetailDto> {
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const loanInclude = {
+        borrower: true,
+        repaymentSchedules: { orderBy: { periodNumber: 'asc' as const } },
+        repayments: true,
+        stitchDisbursement: true,
+        loanAgreement: { include: { signedBy: { select: { name: true } } } },
+      };
+
       const loan = await tx.loan.findFirst({
         where: { id, orgId, deletedAt: null },
-        include: {
-          borrower: true,
-          repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
-          repayments: true,
-          stitchDisbursement: true,
-        },
+        include: loanInclude,
       });
 
       if (!loan) {
@@ -181,11 +185,7 @@ export class LoansService {
         await this.loanBalanceService.syncLoanStatus(tx, orgId, loan.id, loan.status);
         const refreshed = await tx.loan.findFirstOrThrow({
           where: { id, orgId },
-          include: {
-            borrower: true,
-            repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
-            repayments: true,
-          },
+          include: loanInclude,
         });
         return this.mapDetail(refreshed);
       }
@@ -365,11 +365,16 @@ export class LoansService {
    */
   async disburse(orgId: string, userId: string, id: string): Promise<LoanDetailDto> {
     if (this.stitchLoanDisbursement.isEnabled()) {
+      await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+        await this.loanAgreementService.assertDisbursementAllowed(tx, id);
+      });
       await this.stitchLoanDisbursement.initiateLoanDisbursement(orgId, userId, id);
       return this.getById(orgId, userId, id);
     }
 
     const disburseContext = await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      await this.loanAgreementService.assertDisbursementAllowed(tx, id);
+
       const loan = await tx.loan.findFirst({
         where: { id, orgId, deletedAt: null },
         include: {
@@ -447,50 +452,6 @@ export class LoansService {
     });
 
     return this.getById(orgId, userId, id);
-  }
-
-  async generateLoanAgreementHtml(
-    orgId: string,
-    userId: string,
-    id: string,
-  ): Promise<string> {
-    return this.prisma.withOrgContext(orgId, userId, async (tx) => {
-      const loan = await tx.loan.findFirst({
-        where: { id, orgId, deletedAt: null },
-        include: {
-          borrower: true,
-          organisation: true,
-        },
-      });
-
-      if (!loan) {
-        throw new NotFoundException('Loan not found');
-      }
-
-      const interestLabels: Record<string, string> = {
-        [InterestType.FLAT]: 'Flat rate',
-        [InterestType.REDUCING]: 'Reducing balance',
-      };
-      const frequencyLabels: Record<string, string> = {
-        MONTHLY: 'monthly',
-        WEEKLY: 'weekly',
-        FORTNIGHTLY: 'fortnightly',
-      };
-
-      return buildLoanAgreementHtml({
-        organisationName: loan.organisation.name,
-        borrowerName: loan.borrower.fullName,
-        principalFormatted: formatCents(loan.principalCents),
-        annualRatePercent: Number(loan.interestRate),
-        interestTypeLabel: interestLabels[loan.interestType] ?? loan.interestType,
-        termPeriods: loan.termPeriods,
-        frequencyLabel:
-          frequencyLabels[loan.frequency] ?? loan.frequency.toLowerCase(),
-        startDate: loan.startDate.toISOString().slice(0, 10),
-        generatedAt: new Date().toISOString().slice(0, 10),
-        repoRatePercent: getNcrRepoRatePercent(),
-      });
-    });
   }
 
   async listRepayments(
@@ -693,6 +654,12 @@ export class LoansService {
       updatedAt: Date;
       lastWebhookAt: Date | null;
     } | null;
+    loanAgreement?: {
+      status: import('@prisma/client').LoanAgreementStatus;
+      generatedAt: Date;
+      signedAt: Date | null;
+      signedBy?: { name: string } | null;
+    } | null;
   }): LoanDetailDto {
     const snapshot = this.loanBalanceService.computeFromData(
       row.repaymentSchedules,
@@ -730,6 +697,11 @@ export class LoansService {
       stitchDisbursement: row.stitchDisbursement
         ? this.stitchLoanDisbursement.mapDto(row.stitchDisbursement)
         : null,
+      agreement: this.loanAgreementService.buildSummaryForLender({
+        status: row.status,
+        disbursementStatus: row.disbursementStatus,
+        loanAgreement: row.loanAgreement,
+      }),
     };
   }
 

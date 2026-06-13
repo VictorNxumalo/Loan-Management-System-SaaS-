@@ -10,11 +10,8 @@ import { useState } from 'react';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { ApplicationReviewChecklistPanel } from '@/components/application-review-checklist';
 import { PageLoading } from '@/components/brand/loading';
-import {
-  GenerateLoanAgreementButton,
-  LoanAgreementNcaNotice,
-  NcaRateHint,
-} from '@/components/loan-agreement-panel';
+import { LoanAgreementNcaNotice, NcaRateHint } from '@/components/loan-agreement-panel';
+import { LenderApplicationAgreementWorkflow } from '@/components/loan-agreement-actions';
 import { LenderApplicationDocumentsPanel } from '@/components/lender-application-documents-panel';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -184,8 +181,8 @@ export default function LenderApplicationDetailPage() {
 
         {application.status === 'APPROVED' && application.loanId && (
           <div className="flex flex-wrap gap-3">
-            <Button asChild>
-              <Link href={`/dashboard/loans/${application.loanId}`}>Open draft loan</Link>
+            <Button variant="outline" asChild>
+              <Link href={`/dashboard/loans/${application.loanId}`}>Open loan record</Link>
             </Button>
             {application.borrowerId && (
               <Button variant="outline" asChild>
@@ -197,6 +194,13 @@ export default function LenderApplicationDetailPage() {
           </div>
         )}
       </div>
+
+      {application.status === 'APPROVED' && application.loanId && canReview && (
+        <LenderApplicationAgreementWorkflow
+          loanId={application.loanId}
+          onUpdated={() => void refetch({ silent: true })}
+        />
+      )}
 
       <div className="rounded-lg border bg-background p-6 space-y-3">
         <h2 className="font-semibold">Supporting documents</h2>
@@ -239,10 +243,11 @@ export default function LenderApplicationDetailPage() {
               />
               <NcaRateHint annualRate={parsedRate} />
             </div>
-            <GenerateLoanAgreementButton
-              agreementPath={`/applications/${params.id}/loan-agreement?annualRate=${encodeURIComponent(annualRate)}`}
-              disabled={!rateWithinNcaCap || Number.isNaN(parsedRate)}
-            />
+            <p className="text-xs text-muted-foreground">
+              After approval, use <strong>Generate loan agreement</strong> on this page to send
+              the agreement to the borrower for signing. Disbursement unlocks only after they
+              sign.
+            </p>
             <div className="space-y-2">
               <Label htmlFor="approveNotes">Notes (optional)</Label>
               <Input

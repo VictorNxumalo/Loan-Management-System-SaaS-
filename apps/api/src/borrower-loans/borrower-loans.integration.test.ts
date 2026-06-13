@@ -6,6 +6,7 @@ import { BorrowerLoansService } from '../borrower-loans/borrower-loans.service';
 import { LoanBalanceService } from '../loans/loan-balance.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
 import { LoansService } from '../loans/loans.service';
+import { LoanAgreementService } from '../loans/loan-agreement.service';
 import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { StitchLoanDisbursementService } from '../stitch/stitch-loan-disbursement.service';
@@ -33,6 +34,29 @@ describe.runIf(runIntegration)('Borrower loans integration', () => {
     notifyLoanActivated: async () => {},
     notifyLoanDisbursed: async () => {},
   } as unknown as NotificationDispatchService;
+  const loanAgreementService = {
+    assertDisbursementAllowed: async () => {},
+    buildSummaryForLender: () => ({
+      status: 'NOT_SENT',
+      sentAt: null,
+      signedAt: null,
+      signerName: null,
+      canSend: true,
+      canDisburse: false,
+      requiresBorrowerSignature: false,
+      canSign: false,
+    }),
+    buildSummaryForBorrower: () => ({
+      status: 'NOT_SENT',
+      sentAt: null,
+      signedAt: null,
+      signerName: null,
+      canSend: false,
+      canDisburse: false,
+      requiresBorrowerSignature: false,
+      canSign: false,
+    }),
+  } as unknown as LoanAgreementService;
   const loansService = new LoansService(
     prisma,
     scheduleService,
@@ -42,12 +66,14 @@ describe.runIf(runIntegration)('Borrower loans integration', () => {
     walletsService,
     stitchLoanDisbursementMock,
     notificationDispatch,
+    loanAgreementService,
   );
   const borrowerLoansService = new BorrowerLoansService(
     prisma,
     balanceService,
     loansService,
     walletsService,
+    loanAgreementService,
   );
 
   let orgId = '';

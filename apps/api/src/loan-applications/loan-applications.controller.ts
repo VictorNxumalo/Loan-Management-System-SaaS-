@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  Header,
   Param,
   Post,
   Query,
@@ -27,7 +26,6 @@ import { PlanGuard } from '../common/guards/plan.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { ApplicationDocumentsService } from './application-documents.service';
-import { LoanAgreementService } from './loan-agreement.service';
 import { LoanApplicationsService } from './loan-applications.service';
 
 @Controller('borrower/applications')
@@ -115,7 +113,6 @@ export class LenderApplicationsController {
   constructor(
     private readonly applicationsService: LoanApplicationsService,
     private readonly applicationDocuments: ApplicationDocumentsService,
-    private readonly loanAgreementService: LoanAgreementService,
   ) {}
 
   @Get()
@@ -169,18 +166,6 @@ export class LenderApplicationsController {
       id,
       body,
     );
-  }
-
-  @Get(':id/loan-agreement')
-  @Header('Content-Type', 'text/html; charset=utf-8')
-  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
-  async loanAgreement(
-    @CurrentUser() user: AccessTokenPayload,
-    @Param('id') id: string,
-    @Query('annualRate') annualRate: string,
-  ) {
-    const rate = Number(annualRate);
-    return this.loanAgreementService.generateForApplication(user.orgId!, user.sub, id, rate);
   }
 
   @Post(':id/approve')

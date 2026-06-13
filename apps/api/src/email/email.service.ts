@@ -183,6 +183,30 @@ export class EmailService {
     await this.send(email, subject, body, 'loan-disbursed-borrower');
   }
 
+  async sendLoanAgreementSentEmail(
+    email: string,
+    organisationName: string,
+    principalFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Sign your loan agreement — ${organisationName}`;
+    const body = `${organisationName} sent you a loan agreement for ${principalFormatted}.\n\nReview and sign here:\n${link}`;
+
+    await this.send(email, subject, body, 'loan-agreement-sent');
+  }
+
+  async sendLoanAgreementSignedEmail(
+    email: string,
+    borrowerName: string,
+    principalFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Loan agreement signed — ${borrowerName}`;
+    const body = `${borrowerName} signed the loan agreement for ${principalFormatted}.\n\nYou can disburse funds here:\n${link}`;
+
+    await this.send(email, subject, body, 'loan-agreement-signed');
+  }
+
   private async send(
     to: string,
     subject: string,

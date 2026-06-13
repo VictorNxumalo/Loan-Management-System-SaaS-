@@ -60,6 +60,12 @@ export class NotificationDispatchService implements OnModuleInit {
       case NotificationType.LOAN_DISBURSED:
         await this.processLoanDisbursed(data);
         break;
+      case NotificationType.LOAN_AGREEMENT_SENT:
+        await this.processLoanAgreementSent(data);
+        break;
+      case NotificationType.LOAN_AGREEMENT_SIGNED:
+        await this.processLoanAgreementSigned(data);
+        break;
       default:
         this.logger.warn(`Unknown notification event: ${(data as NotificationJobData).eventType}`);
     }
@@ -260,6 +266,44 @@ export class NotificationDispatchService implements OnModuleInit {
       borrowerName: input.borrowerName,
       organisationName: input.organisationName,
       amountFormatted: formatCents(input.amountCents),
+    });
+  }
+
+  async notifyLoanAgreementSent(input: {
+    orgId: string;
+    loanId: string;
+    borrowerUserId: string;
+    organisationName: string;
+    principalCents: number;
+  }) {
+    await this.enqueue({
+      eventType: NotificationType.LOAN_AGREEMENT_SENT,
+      dedupKey: `loan-agreement-sent:${input.loanId}`,
+      orgId: input.orgId,
+      loanId: input.loanId,
+      borrowerUserId: input.borrowerUserId,
+      organisationName: input.organisationName,
+      principalFormatted: formatCents(input.principalCents),
+    });
+  }
+
+  async notifyLoanAgreementSigned(input: {
+    orgId: string;
+    loanId: string;
+    borrowerUserId: string;
+    borrowerName: string;
+    organisationName: string;
+    principalCents: number;
+  }) {
+    await this.enqueue({
+      eventType: NotificationType.LOAN_AGREEMENT_SIGNED,
+      dedupKey: `loan-agreement-signed:${input.loanId}`,
+      orgId: input.orgId,
+      loanId: input.loanId,
+      borrowerUserId: input.borrowerUserId,
+      borrowerName: input.borrowerName,
+      organisationName: input.organisationName,
+      principalFormatted: formatCents(input.principalCents),
     });
   }
 
@@ -702,6 +746,100 @@ export class NotificationDispatchService implements OnModuleInit {
         phone,
         `${data.organisationName} disbursed ${data.amountFormatted} to your LMS wallet/account.`,
         NotificationType.LOAN_DISBURSED,
+      );
+    }
+  }
+
+  private async processLoanAgreementSent(
+    data: Extract<
+      NotificationJobData,
+      { eventType: typeof NotificationType.LOAN_AGREEMENT_SENT }
+    >,
+  ) {
+    const borrower = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findUnique({
+        where: { id: data.borrowerUserId },
+        include: { borrowerAccount: true },
+      }),
+    );
+
+    if (!borrower) {
+      return;
+    }
+
+    const link = this.notificationsService.appUrl(`/borrower/loans/${data.loanId}`);
+    const title = 'Loan agreement ready to sign';
+    const body = `${data.organisationName} sent you a loan agreement for ${data.principalFormatted}. Review and sign it in LMS before funds can be disbursed.`;
+
+    await this.notificationsService.createInApp({
+      orgId: data.orgId,
+      userId: data.borrowerUserId,
+      type: NotificationType.LOAN_AGREEMENT_SENT,
+      title,
+      body,
+      dedupKey: data.dedupKey,
+      relatedEntityType: 'LOAN',
+      relatedEntityId: data.loanId,
+    });
+
+    await this.emailService.sendLoanAgreementSentEmail(
+      borrower.email,
+      data.organisationName,
+      data.principalFormatted,
+      link,
+    );
+
+    const phone = borrower.borrowerAccount?.phone;
+    if (phone) {
+      await this.smsService.send(
+        phone,
+        `${data.organisationName} sent your LMS loan agreement for ${data.principalFormatted}. Sign in to review and sign.`,
+        NotificationType.LOAN_AGREEMENT_SENT,
+      );
+    }
+  }
+
+  private async processLoanAgreementSigned(
+    data: Extract<
+      NotificationJobData,
+      { eventType: typeof NotificationType.LOAN_AGREEMENT_SIGNED }
+    >,
+  ) {
+    const recipients = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findMany({
+        where: {
+          orgId: data.orgId,
+          deletedAt: null,
+          isActive: true,
+          role: { in: [UserRole.ADMIN, UserRole.LOAN_OFFICER] },
+        },
+        select: { id: true, email: true },
+      }),
+    );
+
+    const link = this.notificationsService.appUrl(`/dashboard/loans/${data.loanId}`);
+    const title = 'Loan agreement signed';
+    const body = `${data.borrowerName} signed the loan agreement for ${data.principalFormatted}. You can disburse funds when ready.`;
+
+    for (const recipient of recipients) {
+      const dedupKey = `${data.dedupKey}:user:${recipient.id}`;
+
+      await this.notificationsService.createInApp({
+        orgId: data.orgId,
+        userId: recipient.id,
+        type: NotificationType.LOAN_AGREEMENT_SIGNED,
+        title,
+        body,
+        dedupKey,
+        relatedEntityType: 'LOAN',
+        relatedEntityId: data.loanId,
+      });
+
+      await this.emailService.sendLoanAgreementSignedEmail(
+        recipient.email,
+        data.borrowerName,
+        data.principalFormatted,
+        link,
       );
     }
   }

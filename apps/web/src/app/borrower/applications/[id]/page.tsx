@@ -1,6 +1,11 @@
 'use client';
 
-import type { BorrowerLendingStatusDto, LoanApplicationDetailDto } from '@lms/types';
+import { BorrowerLoanAgreementPanel } from '@/components/borrower-loan-agreement-panel';
+import type {
+  BorrowerLendingStatusDto,
+  BorrowerLoanDetailDto,
+  LoanApplicationDetailDto,
+} from '@lms/types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -27,6 +32,9 @@ export default function BorrowerApplicationDetailPage() {
   const [loading, setLoading] = useState(false);
   const { data: lendingStatus } = useAuthenticatedQuery<BorrowerLendingStatusDto>(
     '/borrower/lending-status',
+  );
+  const { data: linkedLoan, refetch: refetchLoan } = useAuthenticatedQuery<BorrowerLoanDetailDto>(
+    application?.loanId ? `/borrower/loans/${application.loanId}` : null,
   );
   const canSubmitDraft = lendingStatus?.canSubmitDraftApplication !== false;
 
@@ -171,11 +179,30 @@ export default function BorrowerApplicationDetailPage() {
 
         {application.status === 'APPROVED' && application.loanId && (
           <p className="text-sm text-green-700">
-            Your application was approved. The lender will activate your loan from their
-            dashboard.
+            Your application was approved. Review and sign the loan agreement below when the
+            lender sends it — funds are disbursed only after you sign.
           </p>
         )}
       </div>
+
+      {application.status === 'APPROVED' &&
+        application.loanId &&
+        linkedLoan &&
+        (linkedLoan.agreement.requiresBorrowerSignature ||
+          linkedLoan.agreement.status === 'SIGNED') && (
+          <BorrowerLoanAgreementPanel
+            loanId={application.loanId}
+            organisationName={application.organisationName}
+            agreement={linkedLoan.agreement}
+            onSigned={() => void refetchLoan({ silent: true })}
+          />
+        )}
+
+      {application.status === 'APPROVED' && application.loanId && (
+        <Button variant="outline" asChild>
+          <Link href={`/borrower/loans/${application.loanId}`}>Open loan details</Link>
+        </Button>
+      )}
 
       {isDraft && (
         <Card>

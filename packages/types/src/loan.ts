@@ -105,6 +105,7 @@ export interface LoanDetailDto {
   createdAt: string;
   updatedAt: string;
   stitchDisbursement: LoanStitchDisbursementDto | null;
+  agreement: import('./loan-agreement').LoanAgreementSummaryDto;
 }
 
 export interface PaginatedLoansDto {

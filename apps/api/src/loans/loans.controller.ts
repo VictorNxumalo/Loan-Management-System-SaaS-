@@ -25,12 +25,16 @@ import { PlanGuard } from '../common/guards/plan.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { LoanAgreementService } from './loan-agreement.service';
 import { LoansService } from './loans.service';
 
 @Controller('loans')
 @UseGuards(JwtAuthGuard, LenderGuard, PlanGuard, RolesGuard)
 export class LoansController {
-  constructor(private readonly loansService: LoansService) {}
+  constructor(
+    private readonly loansService: LoansService,
+    private readonly loanAgreementService: LoanAgreementService,
+  ) {}
 
   @Post('preview-schedule')
   @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
@@ -68,10 +72,16 @@ export class LoansController {
     return this.loansService.getById(user.orgId!, user.sub, id);
   }
 
-  @Get(':id/loan-agreement')
+  @Get(':id/loan-agreement/html')
   @Header('Content-Type', 'text/html; charset=utf-8')
-  loanAgreement(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
-    return this.loansService.generateLoanAgreementHtml(user.orgId!, user.sub, id);
+  loanAgreementHtml(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.loanAgreementService.getHtmlForLender(user.orgId!, user.sub, id);
+  }
+
+  @Post(':id/loan-agreement/send')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
+  sendLoanAgreement(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.loanAgreementService.sendToBorrower(user.orgId!, user.sub, id);
   }
 
   @Patch(':id')

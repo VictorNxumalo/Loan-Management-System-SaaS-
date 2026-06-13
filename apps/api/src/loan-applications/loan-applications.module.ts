@@ -3,7 +3,6 @@ import { BorrowerPortalModule } from '../borrower-portal/borrower-portal.module'
 import { LoansModule } from '../loans/loans.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ApplicationDocumentsService } from './application-documents.service';
-import { LoanAgreementService } from './loan-agreement.service';
 import {
   BorrowerApplicationsController,
   LenderApplicationsController,
@@ -13,6 +12,6 @@ import { LoanApplicationsService } from './loan-applications.service';
 @Module({
   imports: [LoansModule, NotificationsModule, BorrowerPortalModule],
   controllers: [BorrowerApplicationsController, LenderApplicationsController],
-  providers: [LoanApplicationsService, ApplicationDocumentsService, LoanAgreementService],
+  providers: [LoanApplicationsService, ApplicationDocumentsService],
 })
 export class LoanApplicationsModule {}

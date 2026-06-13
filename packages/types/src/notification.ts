@@ -7,6 +7,8 @@ export const NotificationType = {
   APPLICATION_REJECTED: 'APPLICATION_REJECTED',
   LOAN_ACTIVATED: 'LOAN_ACTIVATED',
   LOAN_DISBURSED: 'LOAN_DISBURSED',
+  LOAN_AGREEMENT_SENT: 'LOAN_AGREEMENT_SENT',
+  LOAN_AGREEMENT_SIGNED: 'LOAN_AGREEMENT_SIGNED',
   REPAYMENT_REMINDER: 'REPAYMENT_REMINDER',
   LOAN_OVERDUE: 'LOAN_OVERDUE',
   PAYMENT_SUBMITTED: 'PAYMENT_SUBMITTED',
@@ -140,6 +142,27 @@ export interface LoanDisbursedJobData {
   amountFormatted: string;
 }
 
+export interface LoanAgreementSentJobData {
+  eventType: typeof NotificationType.LOAN_AGREEMENT_SENT;
+  dedupKey: string;
+  orgId: string;
+  loanId: string;
+  borrowerUserId: string;
+  organisationName: string;
+  principalFormatted: string;
+}
+
+export interface LoanAgreementSignedJobData {
+  eventType: typeof NotificationType.LOAN_AGREEMENT_SIGNED;
+  dedupKey: string;
+  orgId: string;
+  loanId: string;
+  borrowerName: string;
+  borrowerUserId: string;
+  organisationName: string;
+  principalFormatted: string;
+}
+
 export type NotificationJobData =
   | ApplicationSubmittedJobData
   | ApplicationDecisionJobData
@@ -148,4 +171,6 @@ export type NotificationJobData =
   | PaymentSubmittedJobData
   | PaymentDecisionJobData
   | LoanActivatedJobData
-  | LoanDisbursedJobData;
+  | LoanDisbursedJobData
+  | LoanAgreementSentJobData
+  | LoanAgreementSignedJobData;

@@ -82,6 +82,36 @@ export function buildLoanAgreementHtml(input: LoanAgreementTemplateInput): strin
 </html>`;
 }
 
+export interface LoanAgreementSignatureInput {
+  signerName: string;
+  signerEmail: string;
+  idNumber: string;
+  organisationName: string;
+  signedAt: string;
+}
+
+export function appendLoanAgreementSignature(
+  html: string,
+  signature: LoanAgreementSignatureInput,
+): string {
+  const acknowledgment = `I, ${signature.signerName}, acknowledge and accept the terms of this loan agreement with ${signature.organisationName}. I confirm that the interest rate shown complies with the NCA cap enforced by LMS and authorise disbursement upon lender action after this signature.`;
+
+  const block = `
+  <section class="notice" style="margin-top:2rem;border-color:#2d6a4f;background:#edf7f1;">
+    <h2>Digital signature — borrower acknowledgment</h2>
+    <p style="margin:0.75rem 0">${escapeHtml(acknowledgment)}</p>
+    <table style="margin-top:1rem">
+      <tr><td>Signed by</td><td>${escapeHtml(signature.signerName)}</td></tr>
+      <tr><td>Email</td><td>${escapeHtml(signature.signerEmail)}</td></tr>
+      <tr><td>SA ID number</td><td>${escapeHtml(signature.idNumber)}</td></tr>
+      <tr><td>Signed at</td><td>${escapeHtml(signature.signedAt)} (UTC)</td></tr>
+      <tr><td>Platform</td><td>Loan Management System (LMS) — electronic signature</td></tr>
+    </table>
+  </section>`;
+
+  return html.replace('</body>', `${block}\n</body>`);
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

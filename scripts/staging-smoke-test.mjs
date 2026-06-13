@@ -191,8 +191,14 @@ async function main() {
   });
   const loanId = approval.loanId;
   await api(`/loans/${loanId}/activate`, { method: 'POST', token: lt });
+  await api(`/loans/${loanId}/loan-agreement/send`, { method: 'POST', token: lt });
+  await api(`/borrower/loans/${loanId}/loan-agreement/sign`, {
+    method: 'POST',
+    token: bt,
+    body: { acknowledged: true },
+  });
   await api(`/loans/${loanId}/disburse`, { method: 'POST', token: lt });
-  console.log(`✓ Lender approved, activated, and disbursed loan ${loanId}`);
+  console.log(`✓ Lender approved, activated, agreement signed, and disbursed loan ${loanId}`);
 
   // ── Borrower: pay lender from wallet ───────────────────────────
   await api(`/borrower/loans/${loanId}/pay-from-wallet`, {

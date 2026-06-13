@@ -8,9 +8,14 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { CardSkeleton } from '@/components/brand/skeleton';
 import {
-  GenerateLoanAgreementButton,
   LoanAgreementNcaNotice,
+  NcaRateHint,
 } from '@/components/loan-agreement-panel';
+import {
+  GenerateLoanAgreementButton,
+  LoanAgreementStatusBanner,
+  ViewLoanAgreementButton,
+} from '@/components/loan-agreement-actions';
 import { MoneyInput } from '@/components/money-input';
 import { DocumentUploadPanel } from '@/components/document-upload-panel';
 import { PageHeader } from '@/components/page-header';
@@ -150,7 +155,8 @@ export default function LoanDetailPage() {
             {(loan.status === 'ACTIVE' || loan.status === 'IN_ARREARS') &&
             canManage &&
             loan.disbursementStatus !== 'COMPLETED' &&
-            loan.disbursementStatus !== 'PENDING' ? (
+            loan.disbursementStatus !== 'PENDING' &&
+            loan.agreement.canDisburse ? (
               <Button
                 variant="secondary"
                 onClick={() => void handleDisburse()}
@@ -203,15 +209,24 @@ export default function LoanDetailPage() {
         </div>
       ) : null}
 
-      {canManage && loan.status === 'DRAFT' ? (
+      {canManage &&
+      loan.disbursementStatus !== 'COMPLETED' &&
+      (loan.agreement.canSend || loan.agreement.status !== 'NOT_SENT') ? (
         <div className="rounded-lg border bg-background p-4 space-y-3">
           <h2 className="font-semibold">Loan agreement</h2>
           <LoanAgreementNcaNotice />
-          <GenerateLoanAgreementButton agreementPath={`/loans/${loan.id}/loan-agreement`} />
-          <p className="text-xs text-muted-foreground">
-            Use the generated LMS template instead of uploading a separate signed agreement.
-            Optional disbursement proof can still be attached below.
-          </p>
+          <LoanAgreementStatusBanner agreement={loan.agreement} />
+          <div className="flex flex-wrap gap-2">
+            <GenerateLoanAgreementButton
+              loanId={loan.id}
+              loanStatus={loan.status}
+              agreement={loan.agreement}
+              onComplete={() => void load()}
+            />
+            {loan.agreement.status !== 'NOT_SENT' ? (
+              <ViewLoanAgreementButton loanId={loan.id} />
+            ) : null}
+          </div>
         </div>
       ) : null}
 

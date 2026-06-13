@@ -6,11 +6,6 @@ import {
   getNcaMaxAnnualRatePercent,
   isAnnualRateWithinNcaCap,
 } from '@lms/utils';
-import { FileText } from 'lucide-react';
-import { useSession } from 'next-auth/react';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { openLoanAgreementHtml } from '@/lib/open-loan-agreement';
 
 const MAX_RATE = getNcaMaxAnnualRatePercent(DEFAULT_NCR_REPO_RATE_PERCENT);
 const NCA_HINT = formatNcaRateCapMessage(DEFAULT_NCR_REPO_RATE_PERCENT);
@@ -23,49 +18,6 @@ export function NcaRateHint({ annualRate }: { annualRate: number }) {
         ? NCA_HINT
         : `Rate exceeds the NCA maximum of ${MAX_RATE}%. Approval will be blocked.`}
     </p>
-  );
-}
-
-export function GenerateLoanAgreementButton({
-  agreementPath,
-  disabled,
-  label = 'Generate loan agreement',
-}: {
-  agreementPath: string;
-  disabled?: boolean;
-  label?: string;
-}) {
-  const { data: session } = useSession();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const generate = async () => {
-    if (!session?.accessToken) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await openLoanAgreementHtml(agreementPath, session.accessToken);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not generate agreement');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <Button
-        type="button"
-        variant="outline"
-        disabled={disabled || loading || !session?.accessToken}
-        onClick={() => void generate()}
-        className="w-full sm:w-auto"
-      >
-        <FileText className="h-4 w-4" aria-hidden="true" />
-        {loading ? 'Generating…' : label}
-      </Button>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-    </div>
   );
 }
 

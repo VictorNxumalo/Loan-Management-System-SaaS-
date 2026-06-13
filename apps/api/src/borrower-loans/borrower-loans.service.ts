@@ -22,6 +22,7 @@ import { computeDaysOverdue } from '@lms/utils';
 import { randomUUID } from 'crypto';
 import { formatCents } from '../common/money';
 import { LoanBalanceService } from '../loans/loan-balance.service';
+import { LoanAgreementService } from '../loans/loan-agreement.service';
 import { LoansService } from '../loans/loans.service';
 import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
@@ -38,6 +39,7 @@ export class BorrowerLoansService {
     private readonly loanBalanceService: LoanBalanceService,
     private readonly loansService: LoansService,
     private readonly walletsService: WalletsService,
+    private readonly loanAgreementService: LoanAgreementService,
   ) {}
 
   async list(
@@ -107,6 +109,7 @@ export class BorrowerLoansService {
         include: {
           repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
           repayments: { orderBy: { paymentDate: 'desc' } },
+          loanAgreement: { include: { signedBy: { select: { name: true } } } },
         },
       });
 
@@ -137,6 +140,10 @@ export class BorrowerLoansService {
         loan,
         org?.name ?? 'Unknown lender',
         pendingPayments,
+        this.loanAgreementService.buildSummaryForBorrower({
+          disbursementStatus: loan.disbursementStatus,
+          loanAgreement: loan.loanAgreement,
+        }),
       );
     });
   }
@@ -339,6 +346,7 @@ export class BorrowerLoansService {
       submittedAt: Date | null;
       reviewNote: string | null;
     }[] = [],
+    agreement: import('@lms/types').LoanAgreementSummaryDto,
   ): BorrowerLoanDetailDto {
     const snapshot = this.loanBalanceService.computeFromData(
       row.repaymentSchedules,
@@ -409,6 +417,7 @@ export class BorrowerLoansService {
       canPayFromWallet: canRepay,
       canReportExternalPayment: canRepay,
       canSubmitPayment: canRepay,
+      agreement,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

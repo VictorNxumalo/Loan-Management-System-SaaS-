@@ -166,6 +166,7 @@ model Organisation {
   wallet            Wallet?
   loanStitchDisbursements LoanStitchDisbursement[]
   stitchLinkPay     OrganisationStitchLinkPay?
+  loanAgreements    LoanAgreement[]
 
   @@map("organisations")
 }
@@ -206,6 +207,8 @@ model User {
   paymentSubmissionsReviewed  PaymentSubmission[]  @relation("PaymentSubmissionReviewedBy")
   wallet                      Wallet?
   kycDocuments                UserKycDocument[]
+  loanAgreementsGenerated     LoanAgreement[] @relation("LoanAgreementGeneratedBy")
+  loanAgreementsSigned        LoanAgreement[] @relation("LoanAgreementSignedBy")
 
   @@index([orgId])
   @@index([email])
@@ -407,6 +410,7 @@ model Loan {
   loanApplication    LoanApplication?
   paymentSubmissions PaymentSubmission[]
   stitchDisbursement LoanStitchDisbursement?
+  loanAgreement      LoanAgreement?
 
   @@index([orgId])
   @@index([orgId, status])
@@ -485,6 +489,37 @@ model PaymentSubmission {
   @@index([loanId])
   @@index([submittedByUserId])
   @@map("payment_submissions")
+}
+
+enum LoanAgreementStatus {
+  PENDING_SIGNATURE
+  SIGNED
+}
+
+model LoanAgreement {
+  id                String              @id @default(uuid()) @db.Uuid
+  loanId            String              @unique @map("loan_id") @db.Uuid
+  orgId             String              @map("org_id") @db.Uuid
+  status            LoanAgreementStatus @default(PENDING_SIGNATURE)
+  annualRatePercent Decimal             @map("annual_rate_percent") @db.Decimal(8, 4)
+  generatedHtml     String              @map("generated_html") @db.Text
+  signedHtml        String?             @map("signed_html") @db.Text
+  signature         Json?
+  generatedByUserId String              @map("generated_by_user_id") @db.Uuid
+  generatedAt       DateTime            @default(now()) @map("generated_at")
+  signedByUserId    String?             @map("signed_by_user_id") @db.Uuid
+  signedAt          DateTime?           @map("signed_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  loan         Loan         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  generatedBy  User         @relation("LoanAgreementGeneratedBy", fields: [generatedByUserId], references: [id])
+  signedBy     User?        @relation("LoanAgreementSignedBy", fields: [signedByUserId], references: [id])
+
+  @@index([orgId])
+  @@index([status])
+  @@map("loan_agreements")
 }
 
 model Document {

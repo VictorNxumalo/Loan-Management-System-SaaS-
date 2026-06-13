@@ -4,6 +4,7 @@ import type { BorrowerLoanDetailDto } from '@lms/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
+import { BorrowerLoanAgreementPanel } from '@/components/borrower-loan-agreement-panel';
 import { PageLoading } from '@/components/brand/loading';
 import { LoanStatusBadge } from '@/components/loan-status-badge';
 import { PayFromWalletDialog } from '@/components/pay-from-wallet-dialog';
@@ -84,6 +85,13 @@ export default function BorrowerLoanDetailPage() {
           Please contact {loan.organisationName} to arrange payment.
         </div>
       )}
+
+      <BorrowerLoanAgreementPanel
+        loanId={loan.id}
+        organisationName={loan.organisationName}
+        agreement={loan.agreement}
+        onSigned={() => void refetch({ silent: true })}
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryCard title="Total scheduled" value={loan.totalScheduledFormatted} />
