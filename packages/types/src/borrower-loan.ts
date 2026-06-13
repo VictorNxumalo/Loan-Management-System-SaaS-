@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { LoanStatus } from './enums';
 import type { LoanSchedulePeriodDto } from './loan';
 import type { BorrowerPendingPaymentDto } from './payment-submission';
+import type { RecordRepaymentResultDto } from './repayment';
 import { paginationQuerySchema } from './schemas';
-
 export const BORROWER_VISIBLE_LOAN_STATUSES = [
   LoanStatus.DRAFT,
   LoanStatus.ACTIVE,
@@ -36,6 +36,7 @@ export interface BorrowerLoanListItemDto {
   statusLabel: string;
   startDate: string;
   outstandingBalanceFormatted: string;
+  outstandingBalanceCents: number;
   createdAt: string;
 }
 
@@ -67,9 +68,26 @@ export interface BorrowerLoanDetailDto {
   schedule: LoanSchedulePeriodDto[];
   repayments: BorrowerLoanRepaymentDto[];
   pendingPayments: BorrowerPendingPaymentDto[];
+  /** Pay instantly from the LMS wallet (primary repayment path) */
+  canPayFromWallet: boolean;
+  /** Report a bank payment made outside the app (fallback) */
+  canReportExternalPayment: boolean;
+  /** @deprecated Use canReportExternalPayment */
   canSubmitPayment: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export const payFromWalletSchema = z.object({
+  amountCents: z.number().int().positive(),
+  paymentDate: z.coerce.date().optional(),
+  note: z.string().max(500).optional(),
+});
+
+export type PayFromWalletInput = z.infer<typeof payFromWalletSchema>;
+
+export interface PayFromWalletResultDto extends RecordRepaymentResultDto {
+  walletAvailableBalanceFormatted: string;
 }
 
 export interface PaginatedBorrowerLoansDto {

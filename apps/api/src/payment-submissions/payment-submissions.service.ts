@@ -247,7 +247,7 @@ export class PaymentSubmissionsService {
       {
         amountCents: submission.amountCents,
         paymentDate: submission.paymentDate,
-        note: noteParts.join(' ‚Äî '),
+        note: noteParts.join(' ù '),
       },
     );
 
@@ -273,6 +273,20 @@ export class PaymentSubmissionsService {
           amountCents: submission.amountCents,
         },
       });
+    });
+
+    const org = await this.prisma.withAuthLookup(async (tx) =>
+      tx.organisation.findFirst({ where: { id: orgId }, select: { name: true } }),
+    );
+
+    void this.notificationDispatch.notifyPaymentConfirmed({
+      orgId,
+      paymentSubmissionId: submissionId,
+      loanId: submission.loanId,
+      borrowerUserId: submission.submittedByUserId,
+      organisationName: org?.name ?? 'Your lender',
+      amountCents: submission.amountCents,
+      paymentDate: submission.paymentDate.toISOString().slice(0, 10),
     });
 
     const detail = await this.getDetailForLender(orgId, userId, submissionId);
@@ -314,6 +328,21 @@ export class PaymentSubmissionsService {
         entityId: submissionId,
         after: { reviewNote: input.reviewNote.trim() },
       });
+    });
+
+    const org = await this.prisma.withAuthLookup(async (tx) =>
+      tx.organisation.findFirst({ where: { id: orgId }, select: { name: true } }),
+    );
+
+    void this.notificationDispatch.notifyPaymentRejected({
+      orgId,
+      paymentSubmissionId: submissionId,
+      loanId: submission.loanId,
+      borrowerUserId: submission.submittedByUserId,
+      organisationName: org?.name ?? 'Your lender',
+      amountCents: submission.amountCents,
+      paymentDate: submission.paymentDate.toISOString().slice(0, 10),
+      reviewNote: input.reviewNote.trim(),
     });
 
     return this.getDetailForLender(orgId, userId, submissionId);
@@ -427,7 +456,7 @@ export class PaymentSubmissionsService {
             loan.status,
           ).outstandingCents,
         )
-      : '‚Äî';
+      : 'ù';
 
     return {
       id: row.id,
@@ -441,7 +470,7 @@ export class PaymentSubmissionsService {
       createdAt: row.createdAt.toISOString(),
       borrowerName: borrower?.name ?? 'Borrower',
       organisationName: org?.name ?? 'Lender',
-      loanPrincipalFormatted: loan ? formatCents(loan.principalCents) : '‚Äî',
+      loanPrincipalFormatted: loan ? formatCents(loan.principalCents) : 'ù',
       loanOutstandingFormatted: outstanding,
       provider: row.provider,
       externalReference: row.externalReference,

@@ -8,8 +8,10 @@ import type {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { MoneyInput } from '@/components/money-input';
 import { PageLoading } from '@/components/brand/loading';
 import { BorrowerSearch } from '@/components/borrower-search';
+import { PageHeader } from '@/components/page-header';
 import { SchedulePreview } from '@/components/schedule-preview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +32,7 @@ function NewLoanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [borrower, setBorrower] = useState<BorrowerSearchResultDto | null>(null);
-  const [principalCents, setPrincipalCents] = useState('1000000');
+  const [principalCents, setPrincipalCents] = useState<number | null>(1_000_000);
   const [annualRate, setAnnualRate] = useState('12');
   const [interestType, setInterestType] = useState<'FLAT' | 'REDUCING'>('REDUCING');
   const [termPeriods, setTermPeriods] = useState('12');
@@ -57,7 +59,7 @@ function NewLoanPageContent() {
   }, [api, searchParams]);
 
   const buildPayload = () => ({
-    principalCents: Number(principalCents),
+    principalCents: principalCents ?? 0,
     annualRate: Number(annualRate),
     interestType,
     termPeriods: Number(termPeriods),
@@ -88,6 +90,10 @@ function NewLoanPageContent() {
       setError('Please select a borrower');
       return;
     }
+    if (!principalCents || principalCents <= 0) {
+      setError('Enter a valid principal amount');
+      return;
+    }
 
     setError(null);
     setLoading(true);
@@ -109,12 +115,12 @@ function NewLoanPageContent() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">New loan</h1>
-        <p className="text-muted-foreground">
-          Preview the repayment schedule before saving the loan
-        </p>
-      </div>
+      <PageHeader
+        backHref="/dashboard/loans"
+        backLabel="Back to loans"
+        title="New loan"
+        description="Preview the repayment schedule before saving the loan"
+      />
 
       <Card>
         <CardHeader>
@@ -126,15 +132,13 @@ function NewLoanPageContent() {
             onChange={setBorrower}
             error={!borrower && preview ? 'Borrower is required' : undefined}
           />
-          <div className="space-y-2">
-            <Label htmlFor="principalCents">Principal (cents)</Label>
-            <Input
-              id="principalCents"
-              type="number"
-              value={principalCents}
-              onChange={(e) => setPrincipalCents(e.target.value)}
-            />
-          </div>
+          <MoneyInput
+            id="principal"
+            label="Principal amount"
+            valueCents={principalCents}
+            onChangeCents={setPrincipalCents}
+            required
+          />
           <div className="space-y-2">
             <Label htmlFor="annualRate">Annual rate (%)</Label>
             <Input
@@ -196,7 +200,7 @@ function NewLoanPageContent() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex flex-wrap gap-3">
-        <Button type="button" onClick={() => void handlePreview()} disabled={loading}>
+        <Button type="button" onClick={() => void handlePreview()} disabled={loading || !principalCents}>
           {loading ? 'Working…' : 'Preview schedule'}
         </Button>
         {preview && (

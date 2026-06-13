@@ -15,14 +15,14 @@ import {
   forgotPasswordSchema,
   googleAuthSchema,
   loginSchema,
+  organisationLogoUploadSchema,
   onboardingSchema,
-  borrowerOnboardingSchema,
   registerSchema,
   resetPasswordSchema,
 } from '@lms/types';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { BorrowerGuard, LenderGuard } from '../common/guards/account-type.guard';
+import { LenderGuard } from '../common/guards/account-type.guard';
 import { AuthService } from './auth.service';
 import { REFRESH_TOKEN_COOKIE } from './auth.constants';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -121,24 +121,14 @@ export class AuthController {
     return this.authService.resetPassword(body);
   }
 
-  @Patch('onboarding')
+  @Post('onboarding/logo/upload-url')
   @UseGuards(JwtAuthGuard, LenderGuard)
-  completeOnboarding(
+  requestOnboardingLogoUploadUrl(
     @CurrentUser() user: AccessTokenPayload,
-    @Body(new ZodValidationPipe(onboardingSchema))
-    body: Parameters<AuthService['completeOnboarding']>[2],
+    @Body(new ZodValidationPipe(organisationLogoUploadSchema))
+    body: Parameters<AuthService['requestOnboardingLogoUploadUrl']>[2],
   ) {
-    return this.authService.completeOnboarding(user.sub, user.orgId!, body);
-  }
-
-  @Patch('borrower-onboarding')
-  @UseGuards(JwtAuthGuard, BorrowerGuard)
-  completeBorrowerOnboarding(
-    @CurrentUser() user: AccessTokenPayload,
-    @Body(new ZodValidationPipe(borrowerOnboardingSchema))
-    body: Parameters<AuthService['completeBorrowerOnboarding']>[1],
-  ) {
-    return this.authService.completeBorrowerOnboarding(user.sub, body);
+    return this.authService.requestOnboardingLogoUploadUrl(user.orgId!, user.sub, body);
   }
 
   private setRefreshCookie(res: Response, token: string) {

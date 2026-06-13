@@ -8,6 +8,9 @@ import {
 } from '@lms/types';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { MoneyInput } from '@/components/money-input';
+import { OrganisationLogoUpload } from '@/components/organisation-logo-upload';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -29,8 +32,10 @@ export default function SettingsPage() {
   const [verificationStatus, setVerificationStatus] = useState<string>(
     LenderVerificationStatus.UNVERIFIED,
   );
-  const [typicalLoanMinCents, setTypicalLoanMinCents] = useState('');
-  const [typicalLoanMaxCents, setTypicalLoanMaxCents] = useState('');
+  const [typicalLoanMinCents, setTypicalLoanMinCents] = useState<number | null>(null);
+  const [typicalLoanMaxCents, setTypicalLoanMaxCents] = useState<number | null>(null);
+  const [logoStoragePath, setLogoStoragePath] = useState<string | null>(null);
+  const [pendingLogoPath, setPendingLogoPath] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +59,16 @@ export default function SettingsPage() {
       setVerificationStatus(profile.verificationStatus);
     }
     if (typeof profile.typicalLoanMinCents === 'number') {
-      setTypicalLoanMinCents(String(profile.typicalLoanMinCents));
+      setTypicalLoanMinCents(profile.typicalLoanMinCents);
     }
     if (typeof profile.typicalLoanMaxCents === 'number') {
-      setTypicalLoanMaxCents(String(profile.typicalLoanMaxCents));
+      setTypicalLoanMaxCents(profile.typicalLoanMaxCents);
     }
+
+    const storedLogo =
+      typeof settings.logoStoragePath === 'string' ? settings.logoStoragePath : null;
+    setLogoStoragePath(storedLogo);
+    setPendingLogoPath(storedLogo);
   }, [session]);
 
   const saveListing = async () => {
@@ -73,16 +83,16 @@ export default function SettingsPage() {
             category,
             description: description.trim() || undefined,
             verificationStatus,
-            typicalLoanMinCents: typicalLoanMinCents
-              ? Number(typicalLoanMinCents)
-              : undefined,
-            typicalLoanMaxCents: typicalLoanMaxCents
-              ? Number(typicalLoanMaxCents)
-              : undefined,
+            typicalLoanMinCents: typicalLoanMinCents ?? undefined,
+            typicalLoanMaxCents: typicalLoanMaxCents ?? undefined,
           },
+          ...(pendingLogoPath !== logoStoragePath
+            ? { logoStoragePath: pendingLogoPath ?? '' }
+            : {}),
         }),
       });
       await update();
+      setLogoStoragePath(pendingLogoPath);
       setMessage('Organisation settings saved.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save settings');
@@ -106,15 +116,32 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage how borrowers discover and connect with {session?.organisation?.name}.
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description={`Manage how borrowers discover and connect with ${session?.organisation?.name}.`}
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {message && <p className="text-sm text-green-700">{message}</p>}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Branding</CardTitle>
+          <CardDescription>Your logo appears when borrowers browse lenders.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OrganisationLogoUpload
+            storagePath={pendingLogoPath}
+            onStoragePathChange={setPendingLogoPath}
+            requestUploadUrl={(body) =>
+              api('/settings/organisation/logo/upload-url', {
+                method: 'POST',
+                body: JSON.stringify(body),
+              })
+            }
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -187,27 +214,19 @@ export default function SettingsPage() {
             </select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="typicalLoanMinCents">Typical minimum (cents)</Label>
-            <Input
-              id="typicalLoanMinCents"
-              type="number"
-              min={0}
-              value={typicalLoanMinCents}
-              onChange={(event) => setTypicalLoanMinCents(event.target.value)}
-            />
-          </div>
+          <MoneyInput
+            id="typicalLoanMin"
+            label="Typical minimum"
+            valueCents={typicalLoanMinCents}
+            onChangeCents={setTypicalLoanMinCents}
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor="typicalLoanMaxCents">Typical maximum (cents)</Label>
-            <Input
-              id="typicalLoanMaxCents"
-              type="number"
-              min={1}
-              value={typicalLoanMaxCents}
-              onChange={(event) => setTypicalLoanMaxCents(event.target.value)}
-            />
-          </div>
+          <MoneyInput
+            id="typicalLoanMax"
+            label="Typical maximum"
+            valueCents={typicalLoanMaxCents}
+            onChangeCents={setTypicalLoanMaxCents}
+          />
 
           <div className="md:col-span-2">
             <Button onClick={() => void saveListing()}>Save settings</Button>

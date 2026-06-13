@@ -3,44 +3,44 @@
 import { signOut, useSession } from 'next-auth/react';
 import type { ReactNode } from 'react';
 import {
+  ShellDrawerUser,
   ShellHeader,
-  ShellNotifications,
+  ShellLogoutButton,
   ShellUserMeta,
 } from '@/components/brand/shell-header';
 import { AccountTypeBadge } from '@/components/role-badge';
-import { Button } from '@/components/ui/button';
 
 export function BorrowerShell({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
 
   const navItems = [
-    { href: '/borrower', label: 'Home', match: 'exact' as const },
-    { href: '/borrower/lenders/browse', label: 'Browse lenders' },
-    { href: '/borrower/lenders/mine', label: 'My lenders' },
-    { href: '/borrower/applications', label: 'Applications' },
-    { href: '/borrower/loans', label: 'My loans' },
+    { href: '/borrower', label: 'Overview', shortLabel: 'Overview', match: 'exact' as const },
+    { href: '/borrower/lenders/mine', label: 'My lenders', shortLabel: 'Lenders' },
+    { href: '/borrower/applications', label: 'Applications', shortLabel: 'Apps' },
+    { href: '/borrower/loans', label: 'My loans', shortLabel: 'Loans' },
+    { href: '/borrower/wallet', label: 'Wallet' },
+    {
+      href: '/borrower/lenders/browse',
+      label: 'Browse lenders',
+      shortLabel: 'Browse',
+      secondary: true,
+    },
+    { href: '/borrower/profile', label: 'Profile', secondary: true },
   ];
 
   return (
     <div className="min-h-screen">
       <ShellHeader
         navItems={navItems}
-        trailing={
-          <>
-            <ShellNotifications />
-            <ShellUserMeta
-              name={session?.user?.name}
-              badges={<AccountTypeBadge accountType="BORROWER" />}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-brand-navy/15 hover:border-brand-green/40 hover:bg-accent"
-              onClick={() => signOut({ callbackUrl: '/auth/login' })}
-            >
-              Log out
-            </Button>
-          </>
+        userMeta={<ShellUserMeta name={session?.user?.name} />}
+        drawerUserMeta={
+          <ShellDrawerUser
+            name={session?.user?.name}
+            badges={<AccountTypeBadge accountType="BORROWER" />}
+          />
+        }
+        actions={
+          <ShellLogoutButton onClick={() => signOut({ callbackUrl: '/auth/login' })} />
         }
       />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 motion-safe:animate-fade-in">

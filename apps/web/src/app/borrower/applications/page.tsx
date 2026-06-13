@@ -1,10 +1,12 @@
 'use client';
 
-import type { LoanApplicationListItemDto, PaginatedLoanApplicationsDto } from '@lms/types';
+import type { BorrowerLendingStatusDto, LoanApplicationListItemDto, PaginatedLoanApplicationsDto } from '@lms/types';
 import Link from 'next/link';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { TableSkeleton } from '@/components/brand/skeleton';
+import { BorrowerLendingStatusBanner } from '@/components/borrower-lending-status-banner';
 import { EmptyState } from '@/components/empty-state';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 
@@ -12,22 +14,28 @@ export default function BorrowerApplicationsPage() {
   const { data, error, loading } = useAuthenticatedQuery<PaginatedLoanApplicationsDto>(
     '/borrower/applications?limit=50',
   );
+  const { data: lendingStatus } = useAuthenticatedQuery<BorrowerLendingStatusDto>(
+    '/borrower/lending-status',
+  );
 
   const applications = data?.items ?? [];
+  const canStartNewApplication = lendingStatus?.canStartNewApplication !== false;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">My applications</h1>
-          <p className="text-muted-foreground">
-            Track loan requests you have submitted to connected lenders.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/borrower/lenders/mine">Apply to a lender</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="My applications"
+        description="Track loan requests you have submitted to connected lenders."
+        actions={
+          canStartNewApplication ? (
+            <Button asChild>
+              <Link href="/borrower/lenders/mine">Apply to a lender</Link>
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <BorrowerLendingStatusBanner />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {loading && <TableSkeleton rows={5} />}

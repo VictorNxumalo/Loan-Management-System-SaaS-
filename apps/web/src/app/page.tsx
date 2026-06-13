@@ -5,6 +5,7 @@ import {
   Handshake,
   ShieldCheck,
   Sparkles,
+  Wallet,
 } from 'lucide-react';
 import { LmsIcon, LmsLogo } from '@/components/brand/logo';
 import { MarketingShell } from '@/components/brand/auth-shell';
@@ -14,18 +15,23 @@ import { Button } from '@/components/ui/button';
 const VALUE_PROPS = [
   {
     icon: ShieldCheck,
-    title: 'Trust & security',
-    text: 'Tenant isolation, audit trails, and structured review workflows.',
+    title: 'Trust & KYC',
+    text: 'Verified profiles, ID documents, bank linking, and audit trails for every relationship.',
   },
   {
-    icon: Handshake,
-    title: 'Connection',
-    text: 'Borrowers and lenders meet in an ordered, transparent marketplace.',
+    icon: Wallet,
+    title: 'Wallets & funds',
+    text: 'Track available funds, disbursements, and repayments in one ledger — for lenders and borrowers.',
   },
   {
     icon: BarChart3,
-    title: 'Growth',
-    text: 'Portfolio dashboards, schedules, repayments, and arrears visibility.',
+    title: 'Live overview',
+    text: 'Interactive dashboards with receivables, outstanding balances, applications, and arrears at a glance.',
+  },
+  {
+    icon: Handshake,
+    title: 'Marketplace',
+    text: 'Borrowers and lenders connect in an ordered, transparent directory with structured applications.',
   },
 ];
 
@@ -62,8 +68,8 @@ export default function HomePage() {
                 <span className="lms-gradient-text">in one place</span>
               </h1>
               <p className="mt-5 text-lg text-muted-foreground sm:text-xl">
-                A modern platform for evidence-based applications, structured reviews,
-                repayment tracking, and an orderly lending marketplace.
+                A modern loan management platform — wallets, KYC onboarding, interactive
+                overviews, structured applications, and repayment tracking in one place.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
                 <Button size="lg" asChild className="shadow-lg shadow-brand-green/25">
@@ -100,7 +106,7 @@ export default function HomePage() {
           </Reveal>
 
           <StaggerGroup
-            className="grid gap-6 md:grid-cols-3"
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
             staggerMs={120}
           >
             {VALUE_PROPS.map(({ icon: Icon, title, text }) => (
@@ -121,14 +127,14 @@ export default function HomePage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <AudienceCard
               title="I lend money"
-              description="Run a lending workspace: manage borrowers, review applications with checklists, create loans, track repayments, and monitor your portfolio."
+              description="Run a lending workspace: KYC-verified borrowers, wallet-funded disbursements, application review, interactive portfolio overview, and arrears monitoring."
               cta="Create lender account"
               href="/auth/register?type=lender"
               primary
             />
             <AudienceCard
               title="I want to borrow"
-              description="Browse categorised lenders, connect with organisations, submit documented applications, and track your loans in one portal."
+              description="Browse categorised lenders, complete one-time KYC, manage your wallet, submit documented applications, and track outstanding loans from your overview."
               cta="Create borrower account"
               href="/auth/register?type=borrower"
             />
@@ -167,7 +173,7 @@ function ImageHero() {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {['Applications', 'Loans', 'Repayments', 'Marketplace'].map((label, index) => (
+          {['Wallet', 'Applications', 'Loans', 'Overview'].map((label, index) => (
             <div
               key={label}
               className="rounded-lg border border-white/10 bg-white/5 px-4 py-5 text-center text-sm font-medium backdrop-blur-sm motion-safe:animate-fade-up motion-reduce:opacity-100"

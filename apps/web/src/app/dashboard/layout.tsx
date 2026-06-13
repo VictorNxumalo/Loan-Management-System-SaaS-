@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (!me.user.onboardingCompleted) {
+        if (!me.user.profileComplete) {
           router.replace('/onboarding');
         }
       } catch {

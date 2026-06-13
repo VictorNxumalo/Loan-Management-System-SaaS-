@@ -93,6 +93,10 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateY(-8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'slide-in-right': {
+          '0%': { opacity: '0', transform: 'translateX(100%)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-6px)' },
@@ -107,6 +111,7 @@ module.exports = {
         'pulse-ring': 'pulse-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'pulse-dot': 'pulse-dot 2s ease-in-out infinite',
         'slide-down': 'slide-down 0.25s ease-out forwards',
+        'slide-in-right': 'slide-in-right 0.25s ease-out forwards',
         float: 'float 4s ease-in-out infinite',
       },
     },

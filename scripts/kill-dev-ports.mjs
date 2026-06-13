@@ -21,8 +21,12 @@ function killPortWindows(port) {
     }
 
     for (const pid of pids) {
-      execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
-      console.log(`Stopped process ${pid} on port ${port}`);
+      try {
+        execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
+        console.log(`Stopped process ${pid} on port ${port}`);
+      } catch {
+        // Process may have already exited.
+      }
     }
   } catch {
     // No listener on this port.

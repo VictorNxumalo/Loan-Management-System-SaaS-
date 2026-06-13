@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { PageLoading } from '@/components/brand/loading';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,15 +100,12 @@ export default function PaymentSubmissionReviewPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/dashboard/loans/${submission.loanId}`}>← Back to loan</Link>
-        </Button>
-        <h1 className="mt-4 text-2xl font-bold tracking-tight">Borrower payment review</h1>
-        <p className="text-muted-foreground">
-          {submission.borrowerName} reported a payment to {submission.organisationName}.
-        </p>
-      </div>
+      <PageHeader
+        backHref={`/dashboard/loans/${submission.loanId}`}
+        backLabel="Back to loan"
+        title="Borrower payment review"
+        description={`${submission.borrowerName} reported a payment to ${submission.organisationName}.`}
+      />
 
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 

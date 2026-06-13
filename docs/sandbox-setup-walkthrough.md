@@ -134,7 +134,7 @@ Use your **existing** Render service or create from `render.sandbox.yaml`.
    | `SKIP_EMAIL_VERIFICATION` | `true` |
 
 5. **Deploy**.
-6. **Settings → Git → Production Branch:** change to **`staging`**.
+6. **Settings → Environments → Production** → under **Branch Tracking**, set the branch to **`staging`** → **Save**.
 7. Redeploy. Note the URL (e.g. `https://lms-sandbox-xxx.vercel.app`).
 
 8. Update Render sandbox `NEXTAUTH_URL` to this URL → redeploy API.
@@ -145,7 +145,7 @@ You should see an **amber “Sandbox environment”** banner on the site.
 
 The project is building the **API** instead of **web**. Logs show `Branch: main` and `@lms/api@0.1.0 build`.
 
-**Fix:** **Settings → General → Root Directory** = `apps/web`, enable include-outside-root, **Settings → Git → Production Branch** = `staging`, then **Redeploy**.
+**Fix:** **Settings → General → Root Directory** = `apps/web`, enable include-outside-root, **Settings → Environments → Production → Branch Tracking** = `staging`, then **Redeploy**.
 
 ---
 
@@ -153,7 +153,7 @@ The project is building the **API** instead of **web**. Logs show `Branch: main`
 
 Open your **existing** production Vercel project (`loan-management-system-saa-s-web-kr`):
 
-1. **Settings → Git → Production Branch:** `main` only.
+1. **Settings → Environments → Production → Branch Tracking:** `main` only.
 2. Add or confirm:
 
    | Variable | Value |

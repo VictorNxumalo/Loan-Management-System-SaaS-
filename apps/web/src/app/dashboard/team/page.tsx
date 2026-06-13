@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { TeamListDto } from '@lms/types';
 import { INVITABLE_ROLE_LABELS, UserRole } from '@lms/types';
 import { TableSkeleton } from '@/components/brand/skeleton';
+import { PageHeader } from '@/components/page-header';
 import { RoleBadge } from '@/components/role-badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,12 +110,10 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Team</h1>
-        <p className="text-muted-foreground">
-          Invite staff to {session?.organisation?.name} and manage their access.
-        </p>
-      </div>
+      <PageHeader
+        title="Team"
+        description={`Invite staff to ${session?.organisation?.name} and manage their access.`}
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {message && <p className="text-sm text-green-700">{message}</p>}

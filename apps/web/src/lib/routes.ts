@@ -2,84 +2,37 @@ import type { AuthMeResponse } from '@lms/types';
 
 import type { Session } from 'next-auth';
 
-
-
 export function getPostAuthRouteFromMe(me: AuthMeResponse): string {
+  const needsProfile = !me.user.profileComplete;
 
   if (me.user.accountType === 'BORROWER') {
-
-    return me.user.onboardingCompleted ? '/borrower' : '/borrower/onboarding';
-
+    return needsProfile ? '/borrower/onboarding' : '/borrower';
   }
 
-
-
-  if (me.user.onboardingCompleted === false) {
-
-    return '/onboarding';
-
-  }
-
-
-
-  return '/dashboard';
-
+  return needsProfile ? '/onboarding' : '/dashboard';
 }
-
-
 
 export function getPostAuthRoute(session?: Session | null): string {
-
   const accountType = session?.user?.accountType;
+  const profileComplete = session?.user?.profileComplete;
 
-  const onboardingCompleted = session?.user?.onboardingCompleted;
-
-
+  const needsProfile = profileComplete !== true;
 
   if (accountType === 'BORROWER') {
-
-    return onboardingCompleted ? '/borrower' : '/borrower/onboarding';
-
+    return needsProfile ? '/borrower/onboarding' : '/borrower';
   }
-
-
-
-  // Borrowers have no organisation; lenders always do after registration.
 
   if (!session?.organisation && accountType !== 'LENDER') {
-
-    return onboardingCompleted ? '/borrower' : '/borrower/onboarding';
-
+    return needsProfile ? '/borrower/onboarding' : '/borrower';
   }
 
-
-
-  if (accountType === 'LENDER' && onboardingCompleted === false) {
-
+  if (accountType === 'LENDER' && needsProfile) {
     return '/onboarding';
-
   }
 
-
-
-  if (onboardingCompleted === false) {
-
-    return '/onboarding';
-
-  }
-
-
-
-  return '/dashboard';
-
+  return needsProfile ? '/onboarding' : '/dashboard';
 }
-
-
 
 export function isLenderAccount(me: AuthMeResponse): boolean {
-
   return me.user.accountType === 'LENDER';
-
 }
-
-

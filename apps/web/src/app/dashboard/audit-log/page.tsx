@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useCallback, useEffect, useState } from 'react';
 import type { PaginatedAuditLogsDto } from '@lms/types';
 import { TableSkeleton } from '@/components/brand/skeleton';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -89,12 +90,10 @@ export default function AuditLogPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Audit log</h1>
-        <p className="text-muted-foreground">
-          Immutable record of every important change in your workspace.
-        </p>
-      </div>
+      <PageHeader
+        title="Audit log"
+        description="Immutable record of every important change in your workspace."
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -146,7 +145,7 @@ export default function AuditLogPage() {
           )}
 
           {data && data.totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Button
                 variant="outline"
                 size="sm"

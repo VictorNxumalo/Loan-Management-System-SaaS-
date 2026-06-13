@@ -1,11 +1,16 @@
 'use client';
 
-import type { LoanApplicationDetailDto } from '@lms/types';
+import type { BorrowerLendingStatusDto, UserProfileDto } from '@lms/types';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
-import { ApplicationDocumentsPanel } from '@/components/application-documents-panel';
 import { PageLoading } from '@/components/brand/loading';
+import { BorrowerLendingStatusBanner } from '@/components/borrower-lending-status-banner';
+import { MoneyInput } from '@/components/money-input';
+import {
+  ProfileBankAccountMissing,
+  ProfileBankAccountSummary,
+} from '@/components/profile-bank-account-summary';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -17,8 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useApi } from '@/lib/use-api';
-
-type Step = 'details' | 'documents';
+import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 
 export default function NewApplicationPage() {
   return (
@@ -35,88 +39,81 @@ function NewApplicationPageContent() {
   const orgId = searchParams.get('orgId');
   const lenderName = searchParams.get('lenderName') ?? 'this lender';
 
-  const [step, setStep] = useState<Step>('details');
-  const [application, setApplication] = useState<LoanApplicationDetailDto | null>(null);
+  const profileQuery = useAuthenticatedQuery<UserProfileDto>('/auth/profile');
+  const lendingStatusQuery = useAuthenticatedQuery<BorrowerLendingStatusDto>(
+    '/borrower/lending-status',
+  );
 
-  const [principalCents, setPrincipalCents] = useState('1000000');
+  const [principalCents, setPrincipalCents] = useState<number | null>(1_000_000);
   const [interestType, setInterestType] = useState<'FLAT' | 'REDUCING'>('REDUCING');
   const [termPeriods, setTermPeriods] = useState('12');
   const [frequency, setFrequency] = useState<'MONTHLY' | 'WEEKLY' | 'BI_WEEKLY'>('MONTHLY');
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [purpose, setPurpose] = useState('');
-  const [accountHolder, setAccountHolder] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [branchCode, setBranchCode] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const profile = profileQuery.data;
+  const lendingStatus = lendingStatusQuery.data;
+  const hasProfileBank = Boolean(profile?.bankAccount);
+  const hasProfileId = Boolean(profile?.idDocument);
+  const canStartNewApplication = lendingStatus?.canStartNewApplication !== false;
+  const canSubmit =
+    hasProfileBank && hasProfileId && canStartNewApplication;
+  const profileLoading = profileQuery.loading || lendingStatusQuery.loading;
 
   if (!orgId) {
     return <EmptyOrgMessage />;
   }
 
-  const saveDraft = async (event: React.FormEvent) => {
+  const submitApplication = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!principalCents || principalCents <= 0) {
+      setError('Enter a valid loan amount');
+      return;
+    }
+
+    if (!canStartNewApplication) {
+      setError(
+        lendingStatus?.message ??
+          'You cannot start a new application while you have an open loan or application.',
+      );
+      return;
+    }
+
+    if (!hasProfileBank) {
+      setError('Link a bank account in your profile before applying');
+      return;
+    }
+
+    if (!hasProfileId) {
+      setError('Upload your SA ID in profile settings before applying');
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
     try {
-      const result = await api<LoanApplicationDetailDto>('/borrower/applications', {
+      const draft = await api<{ id: string }>('/borrower/applications', {
         method: 'POST',
         body: JSON.stringify({
           orgId,
-          principalCents: Number(principalCents),
+          principalCents,
           interestType,
           termPeriods: Number(termPeriods),
           frequency,
           startDate,
           purpose: purpose.trim() || undefined,
-          bankDetails: {
-            accountHolder: accountHolder.trim(),
-            bankName: bankName.trim(),
-            branchCode: branchCode.trim(),
-            accountNumber: accountNumber.trim(),
-          },
         }),
       });
-      setApplication(result);
-      setStep('documents');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save application');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const submitApplication = async () => {
-    if (!application) {
-      return;
-    }
-
-    setError(null);
-    setLoading(true);
-
-    try {
-      await api<LoanApplicationDetailDto>(
-        `/borrower/applications/${application.id}/submit`,
-        { method: 'POST' },
-      );
-      router.push(`/borrower/applications/${application.id}`);
+      await api(`/borrower/applications/${draft.id}/submit`, { method: 'POST' });
+      router.push(`/borrower/applications/${draft.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not submit application');
     } finally {
       setLoading(false);
     }
-  };
-
-  const refreshApplication = async () => {
-    if (!application) {
-      return;
-    }
-    const updated = await api<LoanApplicationDetailDto>(
-      `/borrower/applications/${application.id}`,
-    );
-    setApplication(updated);
   };
 
   return (
@@ -128,44 +125,55 @@ function NewApplicationPageContent() {
         <h1 className="mt-4 text-2xl font-bold tracking-tight">Apply for a loan</h1>
         <p className="text-muted-foreground">
           Request a loan from{' '}
-          <span className="font-medium text-foreground">{lenderName}</span>. You will need
-          your ID document, bank details, and at least one recent bank statement.
+          <span className="font-medium text-foreground">{lenderName}</span>. Your bank
+          account and SA ID from your profile are included automatically — no extra uploads
+          needed here.
         </p>
       </div>
 
-      <div className="flex gap-2 text-sm">
-        <StepBadge active={step === 'details'} done={step === 'documents'} label="1. Details" />
-        <StepBadge active={step === 'documents'} done={false} label="2. Documents & submit" />
-      </div>
-
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {profileQuery.error && (
+        <p className="text-sm text-destructive">{profileQuery.error}</p>
+      )}
 
-      {step === 'details' ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Loan & bank details</CardTitle>
-            <CardDescription>
-              The lender sets the final interest rate if they approve your request.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={(e) => void saveDraft(e)} className="space-y-6">
+      <BorrowerLendingStatusBanner />
+
+      {!canStartNewApplication && lendingStatus?.message && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p>{lendingStatus.message}</p>
+          <p className="mt-2">
+            <Link href="/borrower/applications" className="font-medium underline">
+              View my applications
+            </Link>
+            {' · '}
+            <Link href="/borrower/loans" className="font-medium underline">
+              View my loans
+            </Link>
+          </p>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Loan application</CardTitle>
+          <CardDescription>
+            The lender sets the final interest rate if they approve your request.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {profileLoading ? (
+            <PageLoading label="Loading your profile…" />
+          ) : (
+            <form onSubmit={(e) => void submitApplication(e)} className="space-y-6">
               <section className="space-y-4">
                 <h2 className="text-sm font-semibold">Loan request</h2>
-                <div className="space-y-2">
-                  <Label htmlFor="principalCents">Amount (cents)</Label>
-                  <Input
-                    id="principalCents"
-                    type="number"
-                    min={1}
-                    required
-                    value={principalCents}
-                    onChange={(e) => setPrincipalCents(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Example: 1000000 = R 10,000.00
-                  </p>
-                </div>
+                <MoneyInput
+                  id="principal"
+                  label="Loan amount"
+                  valueCents={principalCents}
+                  onChangeCents={setPrincipalCents}
+                  required
+                />
 
                 <div className="space-y-2">
                   <Label htmlFor="interestType">Preferred interest method</Label>
@@ -232,125 +240,55 @@ function NewApplicationPageContent() {
               </section>
 
               <section className="space-y-4 border-t pt-4">
-                <h2 className="text-sm font-semibold">Bank account for disbursement</h2>
+                <h2 className="text-sm font-semibold">From your profile</h2>
+                <p className="text-sm text-muted-foreground">
+                  These details are sent to the lender with your application.
+                </p>
+
                 <div className="space-y-2">
-                  <Label htmlFor="accountHolder">Account holder name</Label>
-                  <Input
-                    id="accountHolder"
-                    required
-                    value={accountHolder}
-                    onChange={(e) => setAccountHolder(e.target.value)}
-                  />
+                  <p className="text-sm font-medium">Bank account for disbursement</p>
+                  {profile?.bankAccount ? (
+                    <ProfileBankAccountSummary bankAccount={profile.bankAccount} />
+                  ) : (
+                    <ProfileBankAccountMissing />
+                  )}
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="bankName">Bank name</Label>
-                  <Input
-                    id="bankName"
-                    required
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    placeholder="e.g. FNB, Standard Bank"
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="branchCode">Branch code</Label>
-                    <Input
-                      id="branchCode"
-                      required
-                      inputMode="numeric"
-                      pattern="\d{6}"
-                      maxLength={6}
-                      value={branchCode}
-                      onChange={(e) => setBranchCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="6 digits"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="accountNumber">Account number</Label>
-                    <Input
-                      id="accountNumber"
-                      required
-                      inputMode="numeric"
-                      value={accountNumber}
-                      onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
-                    />
-                  </div>
+                  <p className="text-sm font-medium">SA ID document</p>
+                  {profile?.idDocument ? (
+                    <p className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
+                      On file: {profile.idDocument.originalFilename}
+                    </p>
+                  ) : (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      No ID on file.{' '}
+                      <Link
+                        href="/borrower/profile"
+                        className="font-medium underline-offset-4 hover:underline"
+                      >
+                        Upload in profile settings
+                      </Link>{' '}
+                      before applying.
+                    </div>
+                  )}
                 </div>
               </section>
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Saving…' : 'Continue to documents'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      ) : application ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Supporting documents</CardTitle>
-            <CardDescription>
-              Upload your SA ID and at least one bank statement before submitting. You can
-              add up to three statements if you have them.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <ApplicationDocumentsPanel
-              applicationId={application.id}
-              requirements={application.documents.requirements}
-              canManage
-              onChange={() => void refreshApplication()}
-            />
-
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setStep('details')}
-                disabled={loading}
-              >
-                Back
-              </Button>
-              <Button
-                disabled={loading || !application.documents.isComplete}
-                onClick={() => void submitApplication()}
-              >
+              <Button type="submit" className="w-full" disabled={loading || !canSubmit}>
                 {loading ? 'Submitting…' : 'Submit application to lender'}
               </Button>
-            </div>
-
-            {!application.documents.isComplete && (
-              <p className="text-sm text-amber-700">
-                Upload all required documents before you can submit.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
+              {!canStartNewApplication && (
+                <p className="text-sm text-muted-foreground">
+                  You cannot start a new application until your current loan or open
+                  application is resolved.
+                </p>
+              )}
+            </form>
+          )}
+        </CardContent>
+      </Card>
     </div>
-  );
-}
-
-function StepBadge({
-  active,
-  done,
-  label,
-}: {
-  active: boolean;
-  done: boolean;
-  label: string;
-}) {
-  return (
-    <span
-      className={`rounded-full px-3 py-1 ${
-        active
-          ? 'bg-primary text-primary-foreground'
-          : done
-            ? 'bg-green-100 text-green-900'
-            : 'bg-muted text-muted-foreground'
-      }`}
-    >
-      {label}
-    </span>
   );
 }
 

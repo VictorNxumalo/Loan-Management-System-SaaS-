@@ -125,11 +125,10 @@ STAGING_API_URL=https://<your-api>.onrender.com/v1 pnpm staging:smoke
 
 This script (idempotent per run — unique emails each time):
 
-1. Register lender → onboard → enable public listing  
-2. Register borrower → onboard → connect → apply (R5 000 loan)  
-3. Lender approves → activates loan  
-4. Borrower pays R500 with fake PDF proof → submits  
-5. Lender confirms payment  
+1. Register lender → onboard → fund wallet → enable public listing  
+2. Register borrower → onboard (profile + ID) → connect → apply (R5 000 loan)  
+3. Lender approves → activates → disburses loan  
+4. Borrower pays R500 **from wallet** (instant repayment)  
 
 Credentials are printed at the end for manual UI testing on the Vercel URL.
 
@@ -139,8 +138,9 @@ Credentials are printed at the end for manual UI testing on the Vercel URL.
 
 - [ ] Register as lender at `/auth/register` → complete onboarding  
 - [ ] Dashboard → create/approve flows match smoke test  
-- [ ] Register as borrower → browse lenders → apply  
-- [ ] Borrower loan → Pay lender → lender confirms in dashboard  
+- [ ] Register as borrower → complete profile → browse lenders → apply (profile data auto-attached)  
+- [ ] Borrower loan → **Pay from wallet** after disbursement; lender **Available funds** increases  
+- [ ] Optional: **Report bank payment** → lender confirms in dashboard  
 - [ ] Notification bell shows payment events (needs Redis for queue)  
 
 Use **Stripe test mode** only if you exercise billing; otherwise leave Stripe vars unset.

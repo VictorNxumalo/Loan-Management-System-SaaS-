@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoanBalanceService } from '../loans/loan-balance.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
 import { LoansService } from '../loans/loans.service';
+import { WalletsService } from '../wallets/wallets.service';
 
 const runIntegration = Boolean(process.env.DATABASE_URL);
 
@@ -18,12 +19,16 @@ describe.runIf(runIntegration)('Tenant isolation integration', () => {
   const billingService = {
     assertActiveLoanCapacity: async () => {},
   } as unknown as BillingService;
+  const walletsService = {
+    recordDisbursement: async () => {},
+  } as unknown as WalletsService;
   const loansService = new LoansService(
     prisma,
     scheduleService,
     balanceService,
     auditService,
     billingService,
+    walletsService,
   );
   const borrowersService = new BorrowersService(prisma, balanceService, auditService);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import type { NotificationDto, PaginatedNotificationsDto } from '@lms/types';
-import { Bell } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineLoading } from '@/components/brand/loading';
@@ -22,7 +22,9 @@ function notificationHref(notification: NotificationDto, accountType?: string) {
       : `/dashboard/loans/${notification.relatedEntityId}`;
   }
   if (notification.relatedEntityType === 'PAYMENT_SUBMISSION') {
-    return `/dashboard/payment-submissions/${notification.relatedEntityId}`;
+    return accountType === 'BORROWER'
+      ? '/borrower/loans'
+      : `/dashboard/payment-submissions/${notification.relatedEntityId}`;
   }
   return accountType === 'BORROWER' ? '/borrower' : '/dashboard';
 }
@@ -84,15 +86,45 @@ export function NotificationBell() {
   }, [open, fetchNotifications]);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     const handleClickOutside = (event: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     };
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      document.body.style.overflow = '';
+      return;
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    if (isMobile) {
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [open]);
 
   const markRead = async (id: string) => {
@@ -136,6 +168,8 @@ export function NotificationBell() {
           'relative px-2.5 transition-colors',
           hasUnread && 'border-brand-green/40 bg-brand-green/5',
         )}
+        aria-expanded={open}
+        aria-haspopup="dialog"
         aria-label={hasUnread ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         onClick={() => setOpen((value) => !value)}
       >
@@ -156,51 +190,81 @@ export function NotificationBell() {
       </Button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-border/80 bg-background/95 shadow-xl backdrop-blur-md motion-safe:animate-scale-in">
-          <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2.5">
-            <p className="text-sm font-semibold text-brand-navy">Notifications</p>
-            {hasUnread && (
-              <button
-                type="button"
-                className="text-xs font-medium text-brand-green hover:underline"
-                onClick={() => void markAllRead()}
-              >
-                Mark all read
-              </button>
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/30 sm:hidden"
+            aria-label="Close notifications"
+            onClick={() => setOpen(false)}
+          />
+
+          <div
+            role="dialog"
+            aria-label="Notifications"
+            className={cn(
+              'z-50 flex flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-xl',
+              'max-sm:fixed max-sm:inset-x-3 max-sm:top-[4.25rem] max-sm:max-h-[min(75vh,28rem)]',
+              'sm:absolute sm:right-0 sm:mt-2 sm:w-[min(20rem,calc(100vw-2rem))] sm:max-h-96 sm:bg-background/95 sm:backdrop-blur-md sm:motion-safe:animate-scale-in',
             )}
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            {loading && <InlineLoading label="Loading notifications…" />}
-            {!loading && notifications.length === 0 && (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                No notifications yet
-              </p>
-            )}
-            {notifications.map((notification) => (
-              <Link
-                key={notification.id}
-                href={notificationHref(notification, session?.user?.accountType)}
-                className={cn(
-                  'block border-b px-3 py-3 text-sm transition-colors hover:bg-accent/60',
-                  !notification.readAt && 'border-l-2 border-l-brand-green bg-brand-green/5',
-                  notification.readAt && 'opacity-75',
+          >
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2.5 sm:px-4">
+              <p className="text-sm font-semibold text-brand-navy">Notifications</p>
+              <div className="flex items-center gap-2">
+                {hasUnread && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-brand-green hover:underline"
+                    onClick={() => void markAllRead()}
+                  >
+                    Mark all read
+                  </button>
                 )}
-                onClick={() => {
-                  if (!notification.readAt) {
-                    void markRead(notification.id);
-                  }
-                  setOpen(false);
-                }}
-              >
-                <p className="font-medium text-brand-navy">{notification.title}</p>
-                <p className="mt-1 line-clamp-2 text-muted-foreground">{notification.body}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {new Date(notification.createdAt).toLocaleString()}
+                <button
+                  type="button"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground sm:hidden"
+                  aria-label="Close notifications"
+                  onClick={() => setOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              {loading && <InlineLoading label="Loading notifications…" />}
+              {!loading && notifications.length === 0 && (
+                <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  No notifications yet
                 </p>
-              </Link>
-            ))}
+              )}
+              {notifications.map((notification) => (
+                <Link
+                  key={notification.id}
+                  href={notificationHref(notification, session?.user?.accountType)}
+                  className={cn(
+                    'block border-b px-3 py-3 text-sm transition-colors hover:bg-accent/60 sm:px-4',
+                    !notification.readAt && 'border-l-2 border-l-brand-green bg-brand-green/5',
+                    notification.readAt && 'opacity-80',
+                  )}
+                  onClick={() => {
+                    if (!notification.readAt) {
+                      void markRead(notification.id);
+                    }
+                    setOpen(false);
+                  }}
+                >
+                  <p className="font-medium leading-snug text-brand-navy">{notification.title}</p>
+                  <p className="mt-1 break-words text-sm leading-relaxed text-muted-foreground">
+                    {notification.body}
+                  </p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {new Date(notification.createdAt).toLocaleString()}
+                  </p>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

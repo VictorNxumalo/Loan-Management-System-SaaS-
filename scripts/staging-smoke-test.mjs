@@ -58,27 +58,24 @@ function isoDaysFromNow(days) {
   return d.toISOString().slice(0, 10);
 }
 
-async function uploadApplicationDocument(token, applicationId, documentType, filename, bytes) {
-  const uploadMeta = await api(
-    `/borrower/applications/${applicationId}/documents/upload-url`,
-    {
-      method: 'POST',
-      token,
-      body: {
-        documentType,
-        filename,
-        contentType: 'application/pdf',
-        sizeBytes: bytes.length,
-      },
+async function uploadProfileIdDocument(token, filename, bytes) {
+  const uploadMeta = await api('/auth/profile/id-document/upload-url', {
+    method: 'POST',
+    token,
+    body: {
+      documentType: 'ID_COPY',
+      filename,
+      contentType: 'application/pdf',
+      sizeBytes: bytes.length,
     },
-  );
+  });
   const uploadRes = await fetch(uploadMeta.uploadUrl, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/pdf' },
     body: bytes,
   });
   if (!uploadRes.ok) {
-    throw new Error(`${documentType} upload failed: ${uploadRes.status}`);
+    throw new Error(`Profile ID upload failed: ${uploadRes.status}`);
   }
 }
 
@@ -124,13 +121,26 @@ async function main() {
   });
   console.log('✓ Lender registered and onboarded');
 
+  await api('/wallets/me/top-up', {
+    method: 'POST',
+    token: lt,
+    body: { amountCents: 2_000_000, description: 'Staging seed capital' },
+  });
+  console.log('✓ Lender wallet funded');
+
   // ── Borrower: register → onboard → connect → apply ─────────────
   let { accessToken: bt } = await registerAndLogin('Staging Borrower', borrowerEmail, 'BORROWER');
   await api('/auth/borrower-onboarding', {
     method: 'PATCH',
     token: bt,
-    body: { phone: '+27821234567', idNumber: '9001015800087' },
+    body: {
+      phone: '+27821234567',
+      idNumber: '9001015800087',
+      address: '123 Test Street, Johannesburg',
+      bankDetails: STAGING_TEST_BANK_DETAILS,
+    },
   });
+  await uploadProfileIdDocument(bt, 'staging-id.pdf', proofBytes);
   ({ accessToken: bt } = await api('/auth/login', {
     method: 'POST',
     body: { email: borrowerEmail, password: PASSWORD },
@@ -147,17 +157,8 @@ async function main() {
       frequency: 'MONTHLY',
       startDate: isoDaysFromNow(7),
       purpose: 'Staging smoke test — small loan.',
-      bankDetails: STAGING_TEST_BANK_DETAILS,
     },
   });
-  await uploadApplicationDocument(bt, application.id, 'ID_COPY', 'staging-id.pdf', proofBytes);
-  await uploadApplicationDocument(
-    bt,
-    application.id,
-    'BANK_STATEMENT',
-    'staging-statement.pdf',
-    proofBytes,
-  );
   await api(`/borrower/applications/${application.id}/submit`, { method: 'POST', token: bt });
   console.log('✓ Borrower applied for loan');
 
@@ -168,7 +169,6 @@ async function main() {
     body: {
       idVerified: true,
       bankDetailsVerified: true,
-      statementsVerified: true,
       affordabilityReviewed: true,
       purposePlausible: true,
     },
@@ -180,53 +180,23 @@ async function main() {
   });
   const loanId = approval.loanId;
   await api(`/loans/${loanId}/activate`, { method: 'POST', token: lt });
-  console.log(`✓ Lender approved and activated loan ${loanId}`);
+  await api(`/loans/${loanId}/disburse`, { method: 'POST', token: lt });
+  console.log(`✓ Lender approved, activated, and disbursed loan ${loanId}`);
 
-  // ── Borrower: pay lender (proof upload + submit) ────────────────
-  const submission = await api(`/borrower/loans/${loanId}/payment-submissions`, {
+  // ── Borrower: pay lender from wallet ───────────────────────────
+  await api(`/borrower/loans/${loanId}/pay-from-wallet`, {
     method: 'POST',
     token: bt,
     body: {
       amountCents: 50000,
       paymentDate: isoDaysFromNow(0),
-      referenceNote: `Staging EFT ${runId}`,
+      note: `Staging wallet payment ${runId}`,
     },
   });
-  const uploadMeta = await api(
-    `/borrower/loans/${loanId}/payment-submissions/${submission.id}/proof/upload-url`,
-    {
-      method: 'POST',
-      token: bt,
-      body: {
-        filename: 'staging-proof.pdf',
-        contentType: 'application/pdf',
-        sizeBytes: proofBytes.length,
-      },
-    },
-  );
-  const uploadRes = await fetch(uploadMeta.uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/pdf' },
-    body: proofBytes,
-  });
-  if (!uploadRes.ok) {
-    throw new Error(`Proof upload failed: ${uploadRes.status}`);
-  }
-  await api(`/borrower/loans/${loanId}/payment-submissions/${submission.id}/submit`, {
-    method: 'POST',
-    token: bt,
-  });
-  console.log('✓ Borrower submitted payment with proof');
-
-  // ── Lender: confirm payment ─────────────────────────────────────
-  const confirmed = await api(`/payment-submissions/${submission.id}/confirm`, {
-    method: 'POST',
-    token: lt,
-  });
-  console.log(`✓ Lender confirmed payment → repayment ${confirmed.repaymentId}`);
+  console.log('✓ Borrower paid lender from wallet');
 
   console.log('\nStaging smoke test PASSED');
-  console.log(JSON.stringify({ orgId, loanId, submissionId: submission.id, lenderEmail, borrowerEmail }, null, 2));
+  console.log(JSON.stringify({ orgId, loanId, lenderEmail, borrowerEmail }, null, 2));
 }
 
 main().catch((e) => {

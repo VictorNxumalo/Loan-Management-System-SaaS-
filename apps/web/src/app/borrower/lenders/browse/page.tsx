@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { CardSkeleton } from '@/components/brand/skeleton';
 import { BorrowerLendingStatusBanner } from '@/components/borrower-lending-status-banner';
 import { EmptyState } from '@/components/empty-state';
+import { LenderAvatar } from '@/components/lender-avatar';
 import { Button } from '@/components/ui/button';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 
@@ -143,29 +144,34 @@ export default function BrowseLendersPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {lenders.map((lender) => (
           <div key={lender.id} className="rounded-lg border bg-background p-4 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <h2 className="font-semibold">{lender.name}</h2>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                {lender.profile.categoryLabel}
-              </span>
-            </div>
-
-            {lender.profile.description && (
-              <p className="text-sm text-muted-foreground">{lender.profile.description}</p>
-            )}
-
-            <dl className="grid gap-1 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Verification</dt>
-                <dd>{lender.profile.verificationLabel}</dd>
-              </div>
-              {lender.profile.typicalLoanRangeFormatted && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Typical loans</dt>
-                  <dd>{lender.profile.typicalLoanRangeFormatted}</dd>
+            <div className="flex gap-3">
+              <LenderAvatar name={lender.name} logoUrl={lender.logoUrl} />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h2 className="font-semibold">{lender.name}</h2>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                    {lender.profile.categoryLabel}
+                  </span>
                 </div>
-              )}
-            </dl>
+
+                {lender.profile.description && (
+                  <p className="text-sm text-muted-foreground">{lender.profile.description}</p>
+                )}
+
+                <dl className="grid gap-1 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Verification</dt>
+                    <dd>{lender.profile.verificationLabel}</dd>
+                  </div>
+                  {lender.profile.typicalLoanRangeFormatted && (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Typical loans</dt>
+                      <dd>{lender.profile.typicalLoanRangeFormatted}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            </div>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {lender.isConnected ? (
@@ -185,7 +191,7 @@ export default function BrowseLendersPage() {
                 </Button>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Finish your current loan before connecting here.
+                  Finish your current loan or pending application before connecting here.
                 </p>
               )}
             </div>

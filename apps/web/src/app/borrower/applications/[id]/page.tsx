@@ -1,6 +1,6 @@
 'use client';
 
-import type { LoanApplicationDetailDto } from '@lms/types';
+import type { BorrowerLendingStatusDto, LoanApplicationDetailDto } from '@lms/types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useApi } from '@/lib/use-api';
+import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 
 export default function BorrowerApplicationDetailPage() {
   const api = useApi();
@@ -24,6 +25,10 @@ export default function BorrowerApplicationDetailPage() {
   const [application, setApplication] = useState<LoanApplicationDetailDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { data: lendingStatus } = useAuthenticatedQuery<BorrowerLendingStatusDto>(
+    '/borrower/lending-status',
+  );
+  const canSubmitDraft = lendingStatus?.canSubmitDraftApplication !== false;
 
   const load = useCallback(async () => {
     const result = await api<LoanApplicationDetailDto>(
@@ -92,7 +97,7 @@ export default function BorrowerApplicationDetailPage() {
             </h1>
             <p className="mt-1 text-muted-foreground">
               {isDraft
-                ? 'Draft — complete documents and submit when ready'
+                ? 'Draft — review and submit when ready'
                 : `Submitted ${new Date(application.submittedAt).toLocaleDateString()}`}
             </p>
           </div>
@@ -177,25 +182,26 @@ export default function BorrowerApplicationDetailPage() {
           <CardHeader>
             <CardTitle>Supporting documents</CardTitle>
             <CardDescription>
-              Upload your SA ID and at least one bank statement, then submit to the lender.
+              Your profile SA ID is linked to this application automatically.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ApplicationDocumentsPanel
               applicationId={application.id}
               requirements={application.documents.requirements}
-              canManage
-              onChange={() => void load()}
             />
             <Button
-              disabled={loading || !application.documents.isComplete}
+              disabled={loading || !application.documents.isComplete || !canSubmitDraft}
               onClick={() => void submit()}
             >
               {loading ? 'Submitting…' : 'Submit application to lender'}
             </Button>
-            {!application.documents.isComplete && (
+            {!canSubmitDraft && lendingStatus?.message && (
+              <p className="text-sm text-amber-700">{lendingStatus.message}</p>
+            )}
+            {canSubmitDraft && !application.documents.isComplete && (
               <p className="text-sm text-amber-700">
-                Upload all required documents before submitting.
+                Upload your SA ID in profile settings before submitting.
               </p>
             )}
           </CardContent>

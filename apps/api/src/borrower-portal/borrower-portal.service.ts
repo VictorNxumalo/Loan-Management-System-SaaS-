@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { MarketplaceLenderDto, OrganisationSettingsInput } from '@lms/types';
+import type {
+  MarketplaceLenderDto,
+  OrganisationLogoUploadInput,
+  OrganisationLogoUploadUrlDto,
+  OrganisationSettingsInput,
+} from '@lms/types';
 import { AccountType, BorrowerLinkSource } from '@lms/types';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -8,7 +13,14 @@ import {
   mergeMarketplaceProfile,
   parseMarketplaceProfile,
 } from '../common/organisation-settings';
+import {
+  assertLogoPathForOrg,
+  assertValidLogoUpload,
+  buildOrganisationLogoPath,
+  getOrganisationLogoStoragePath,
+} from '../common/organisation-logo.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { SupabaseStorageService } from '../storage/supabase-storage.service';
 import { TokenService } from '../auth/token.service';
 import { EmailService } from '../email/email.service';
 import { BorrowerLendingConstraintsService } from './borrower-lending-constraints.service';
@@ -19,6 +31,7 @@ export class BorrowerPortalService {
     private readonly prisma: PrismaService,
     private readonly tokenService: TokenService,
     private readonly lendingConstraints: BorrowerLendingConstraintsService,
+    private readonly storage: SupabaseStorageService,
   ) {}
 
   async listMyLenders(userId: string): Promise<MarketplaceLenderDto[]> {
@@ -48,12 +61,23 @@ export class BorrowerPortalService {
           continue;
         }
 
+        const logoStoragePath = getOrganisationLogoStoragePath(org.settings);
+        let logoUrl: string | null = null;
+        if (logoStoragePath) {
+          try {
+            logoUrl = await this.storage.createSignedDownloadUrl(logoStoragePath);
+          } catch {
+            logoUrl = null;
+          }
+        }
+
         results.push({
           id: org.id,
           name: org.name,
           plan: org.plan,
           isPublic: isPublicListingEnabled(org.settings),
           isConnected: true,
+          logoUrl,
           profile: parseMarketplaceProfile(org.settings),
         });
       }
@@ -148,7 +172,28 @@ export class LenderSettingsService {
     private readonly tokenService: TokenService,
     private readonly emailService: EmailService,
     private readonly auditService: AuditService,
+    private readonly storage: SupabaseStorageService,
   ) {}
+
+  async requestLogoUploadUrl(
+    orgId: string,
+    userId: string,
+    input: OrganisationLogoUploadInput,
+  ): Promise<OrganisationLogoUploadUrlDto> {
+    assertValidLogoUpload(input.contentType, input.sizeBytes);
+
+    await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      await tx.organisation.findFirstOrThrow({ where: { id: orgId } });
+    });
+
+    const storagePath = buildOrganisationLogoPath(orgId, input.filename, input.contentType);
+    const signed = await this.storage.createSignedUploadUrl(storagePath);
+
+    return {
+      uploadUrl: signed.signedUrl,
+      storagePath,
+    };
+  }
 
   async updateOrganisationSettings(
     orgId: string,
@@ -167,6 +212,23 @@ export class LenderSettingsService {
 
       if (input.marketplaceProfile) {
         nextSettings = mergeMarketplaceProfile(nextSettings, input.marketplaceProfile);
+      }
+
+      if (input.logoStoragePath !== undefined) {
+        if (input.logoStoragePath === '') {
+          const previousLogo = getOrganisationLogoStoragePath(current);
+          delete nextSettings.logoStoragePath;
+          if (previousLogo) {
+            void this.storage.removeObject(previousLogo);
+          }
+        } else {
+          assertLogoPathForOrg(orgId, input.logoStoragePath);
+          const previousLogo = getOrganisationLogoStoragePath(current);
+          nextSettings.logoStoragePath = input.logoStoragePath;
+          if (previousLogo && previousLogo !== input.logoStoragePath) {
+            void this.storage.removeObject(previousLogo);
+          }
+        }
       }
 
       const updated = await tx.organisation.update({

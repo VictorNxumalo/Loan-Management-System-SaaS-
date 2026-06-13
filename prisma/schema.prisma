@@ -97,6 +97,34 @@ enum SubscriptionStatus {
   UNPAID
 }
 
+enum WalletOwnerType {
+  ORGANISATION
+  BORROWER_USER
+}
+
+enum WalletTransactionType {
+  TOP_UP
+  WITHDRAWAL
+  DISBURSEMENT
+  REPAYMENT
+  ADJUSTMENT
+  REVERSAL
+}
+
+enum WalletTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum DisbursementStatus {
+  NOT_STARTED
+  PENDING
+  COMPLETED
+  FAILED
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model Organisation {
@@ -124,6 +152,7 @@ model Organisation {
   loanApplications  LoanApplication[]
   paymentSubmissions PaymentSubmission[]
   teamInvites       TeamInvite[]
+  wallet            Wallet?
 
   @@map("organisations")
 }
@@ -135,6 +164,8 @@ model User {
   email                 String      @unique
   name                  String
   role                  UserRole?   @default(LOAN_OFFICER)
+  idNumber              String?     @map("id_number")
+  address               String?
   passwordHash          String?     @map("password_hash")
   googleId              String?     @unique @map("google_id")
   emailVerifiedAt       DateTime?   @map("email_verified_at")
@@ -160,6 +191,8 @@ model User {
   teamInvitesSent         TeamInvite[]             @relation("TeamInviteInvitedBy")
   paymentSubmissionsSubmitted PaymentSubmission[]  @relation("PaymentSubmissionSubmittedBy")
   paymentSubmissionsReviewed  PaymentSubmission[]  @relation("PaymentSubmissionReviewedBy")
+  wallet                      Wallet?
+  kycDocuments                UserKycDocument[]
 
   @@index([orgId])
   @@index([email])
@@ -345,9 +378,11 @@ model Loan {
   termPeriods     Int                @map("term_periods")
   frequency       RepaymentFrequency
   startDate       DateTime           @map("start_date") @db.Date
-  status          LoanStatus         @default(DRAFT)
-  writeOffReason  String?            @map("write_off_reason")
-  createdAt       DateTime           @default(now()) @map("created_at")
+  status             LoanStatus         @default(DRAFT)
+  disbursementStatus DisbursementStatus @default(NOT_STARTED) @map("disbursement_status")
+  disbursedAt        DateTime?          @map("disbursed_at")
+  writeOffReason     String?            @map("write_off_reason")
+  createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
   deletedAt       DateTime?          @map("deleted_at")
 
@@ -517,4 +552,79 @@ model Subscription {
 
   @@index([orgId])
   @@map("subscriptions")
+}
+
+model Wallet {
+  id                    String          @id @default(uuid()) @db.Uuid
+  ownerType             WalletOwnerType @map("owner_type")
+  ownerOrgId            String?         @unique @map("owner_org_id") @db.Uuid
+  ownerUserId           String?         @unique @map("owner_user_id") @db.Uuid
+  availableBalanceCents Int             @default(0) @map("available_balance_cents")
+  currency              String          @default("ZAR")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  ownerOrg     Organisation?      @relation(fields: [ownerOrgId], references: [id], onDelete: Cascade)
+  ownerUser    User?              @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  bankAccount  WalletBankAccount?
+  transactions WalletTransaction[]
+
+  @@index([ownerType])
+  @@map("wallets")
+}
+
+model WalletBankAccount {
+  id            String    @id @default(uuid()) @db.Uuid
+  walletId      String    @unique @map("wallet_id") @db.Uuid
+  accountHolder String    @map("account_holder")
+  bankName      String    @map("bank_name")
+  branchCode    String    @map("branch_code")
+  accountNumber String    @map("account_number")
+  verifiedAt    DateTime? @map("verified_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@map("wallet_bank_accounts")
+}
+
+model WalletTransaction {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  walletId            String                  @map("wallet_id") @db.Uuid
+  orgId               String?                 @map("org_id") @db.Uuid
+  type                WalletTransactionType
+  status              WalletTransactionStatus
+  amountCents         Int                     @map("amount_cents")
+  balanceAfterCents   Int?                    @map("balance_after_cents")
+  loanId              String?                 @map("loan_id") @db.Uuid
+  paymentSubmissionId String?                 @map("payment_submission_id") @db.Uuid
+  description         String?
+  idempotencyKey      String?                 @unique @map("idempotency_key")
+  createdByUserId     String?                 @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime                @default(now()) @map("created_at")
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@index([orgId])
+  @@index([loanId])
+  @@map("wallet_transactions")
+}
+
+model UserKycDocument {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  documentType     String   @map("document_type")
+  storagePath      String   @map("storage_path")
+  originalFilename String   @map("original_filename")
+  contentType      String   @map("content_type")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentType])
+  @@index([userId])
+  @@map("user_kyc_documents")
 }

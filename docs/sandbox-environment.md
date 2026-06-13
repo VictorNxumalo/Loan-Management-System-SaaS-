@@ -109,7 +109,7 @@ Create a **second Vercel project** (do not reuse the production project):
 
 1. Vercel → **Add New Project** → same GitHub repo.
 2. **Root Directory:** `apps/web`.
-3. **Settings → Git → Production Branch:** `staging` (not `main`).
+3. **Settings → Environments → Production → Branch Tracking:** `staging` (not `main`).
 4. **Environment Variables** (Production scope for this project — means “deploy branch `staging`”):
 
    Copy from `.env.sandbox.example`. Minimum:
@@ -148,7 +148,7 @@ Health check: `https://<sandbox-api>.onrender.com/v1/health`
 
 Your current production project should:
 
-1. **Production Branch:** `main` only.
+1. **Settings → Environments → Production → Branch Tracking:** `main` only.
 2. Env vars from `.env.production.example`.
 3. `NEXT_PUBLIC_APP_ENV=production` (or omit — no banner).
 4. **Do not** set `STAGING_ALLOW_VERCEL_CORS` on production API.

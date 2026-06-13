@@ -34,7 +34,6 @@ export const LOAN_DOCUMENT_LABELS: Record<LoanDocumentType, string> = {
 
 export const ApplicationDocumentType = {
   ID_COPY: 'ID_COPY',
-  BANK_STATEMENT: 'BANK_STATEMENT',
 } as const;
 
 export type ApplicationDocumentType =
@@ -43,11 +42,10 @@ export type ApplicationDocumentType =
 export const APPLICATION_DOCUMENT_TYPES = Object.values(ApplicationDocumentType);
 
 export const APPLICATION_DOCUMENT_LABELS: Record<ApplicationDocumentType, string> = {
-  ID_COPY: 'SA ID document',
-  BANK_STATEMENT: 'Bank statement',
+  ID_COPY: 'SA ID document (from profile)',
 };
 
-/** Minimum uploads required before an application can be submitted. */
+/** Linked automatically from the borrower's KYC profile — not uploaded per application. */
 export const APPLICATION_DOCUMENT_REQUIREMENTS: Record<
   ApplicationDocumentType,
   { min: number; max: number; label: string }
@@ -57,17 +55,9 @@ export const APPLICATION_DOCUMENT_REQUIREMENTS: Record<
     max: 1,
     label: APPLICATION_DOCUMENT_LABELS.ID_COPY,
   },
-  [ApplicationDocumentType.BANK_STATEMENT]: {
-    min: 1,
-    max: 3,
-    label: APPLICATION_DOCUMENT_LABELS.BANK_STATEMENT,
-  },
 };
 
-export const applicationDocumentTypeSchema = z.enum([
-  ApplicationDocumentType.ID_COPY,
-  ApplicationDocumentType.BANK_STATEMENT,
-]);
+export const applicationDocumentTypeSchema = z.enum([ApplicationDocumentType.ID_COPY]);
 
 export const documentEntityTypeSchema = z.enum([
   DocumentEntityType.BORROWER,

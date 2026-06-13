@@ -1,10 +1,12 @@
 'use client';
 
-import type { MarketplaceLenderDto } from '@lms/types';
+import type { MarketplaceLenderDto, PaginatedLoanApplicationsDto } from '@lms/types';
 import Link from 'next/link';
 import { CardSkeleton } from '@/components/brand/skeleton';
 import { BorrowerLendingStatusBanner } from '@/components/borrower-lending-status-banner';
 import { EmptyState } from '@/components/empty-state';
+import { LenderAvatar } from '@/components/lender-avatar';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 
@@ -13,32 +15,34 @@ export default function MyLendersPage() {
     '/borrower/lenders',
   );
   const { data: lendingStatus } = useAuthenticatedQuery<{
-    canApplyWithOtherLenders: boolean;
+    canStartNewApplication: boolean;
     committedOrgId: string | null;
+    message: string | null;
   }>('/borrower/lending-status');
+  const { data: applicationsData } = useAuthenticatedQuery<PaginatedLoanApplicationsDto>(
+    '/borrower/applications?limit=50',
+  );
 
   const lenders = data ?? [];
+  const draftByOrgId = new Map(
+    (applicationsData?.items ?? [])
+      .filter((item) => item.status === 'DRAFT')
+      .map((item) => [item.orgId, item.id] as const),
+  );
 
-  const canApplyWith = (lender: MarketplaceLenderDto) => {
-    if (lendingStatus?.canApplyWithOtherLenders === false) {
-      return lender.id === lendingStatus.committedOrgId;
-    }
-    return true;
-  };
+  const canStartNewApplication = lendingStatus?.canStartNewApplication !== false;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">My lenders</h1>
-          <p className="text-muted-foreground">
-            Organisations you are connected with via invite or public listing.
-          </p>
-        </div>
-        <Button variant="outline" asChild>
-          <Link href="/borrower/lenders/browse">Browse more</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="My lenders"
+        description="Organisations you are connected with via invite or public listing."
+        actions={
+          <Button variant="outline" asChild>
+            <Link href="/borrower/lenders/browse">Browse more</Link>
+          </Button>
+        }
+      />
 
       <BorrowerLendingStatusBanner />
 
@@ -70,18 +74,29 @@ export default function MyLendersPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {lenders.map((lender) => (
           <div key={lender.id} className="rounded-lg border bg-background p-4 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <h2 className="font-semibold">{lender.name}</h2>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                {lender.profile.categoryLabel}
-              </span>
+            <div className="flex gap-3">
+              <LenderAvatar name={lender.name} logoUrl={lender.logoUrl} />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h2 className="font-semibold">{lender.name}</h2>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                    {lender.profile.categoryLabel}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {lender.isPublic ? 'Public listing' : 'Private connection'} ·{' '}
+                  {lender.profile.verificationLabel}
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {lender.isPublic ? 'Public listing' : 'Private connection'} ·{' '}
-              {lender.profile.verificationLabel}
-            </p>
             <div className="flex flex-wrap gap-2">
-              {canApplyWith(lender) ? (
+              {draftByOrgId.get(lender.id) ? (
+                <Button size="sm" asChild>
+                  <Link href={`/borrower/applications/${draftByOrgId.get(lender.id)}`}>
+                    Continue draft application
+                  </Link>
+                </Button>
+              ) : canStartNewApplication ? (
                 <Button size="sm" asChild>
                   <Link
                     href={`/borrower/applications/new?orgId=${lender.id}&lenderName=${encodeURIComponent(lender.name)}`}
@@ -91,7 +106,8 @@ export default function MyLendersPage() {
                 </Button>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Finish your current loan before applying elsewhere.
+                  {lendingStatus?.message ??
+                    'Finish your current loan or open application before applying again.'}
                 </p>
               )}
             </div>

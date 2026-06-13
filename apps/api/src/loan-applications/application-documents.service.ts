@@ -17,6 +17,7 @@ import {
   ApplicationDocumentType,
   DocumentEntityType,
   LoanApplicationStatus,
+  UserKycDocumentType,
 } from '@lms/types';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -53,84 +54,23 @@ export class ApplicationDocumentsService {
   async requestUploadUrlForBorrower(
     borrowerUserId: string,
     applicationId: string,
-    input: RequestApplicationDocumentUploadInput,
+    _input: RequestApplicationDocumentUploadInput,
   ): Promise<DocumentUploadUrlDto> {
-    const application = await this.loadBorrowerApplication(
-      borrowerUserId,
-      applicationId,
-    );
-
-    if (application.status !== LoanApplicationStatus.DRAFT) {
-      throw new BadRequestException(
-        'Documents can only be uploaded while the application is a draft',
-      );
-    }
-
-    this.validateDocumentType(input.documentType);
-    await this.assertDocumentCapacity(
-      application.orgId,
-      borrowerUserId,
-      applicationId,
-      input.documentType,
-    );
-
-    return this.createUpload(
-      application.orgId,
-      borrowerUserId,
-      applicationId,
-      input,
+    await this.loadBorrowerApplication(borrowerUserId, applicationId);
+    throw new BadRequestException(
+      'Supporting documents are linked from your profile automatically when you apply',
     );
   }
 
   async deleteForBorrower(
     borrowerUserId: string,
     applicationId: string,
-    documentId: string,
+    _documentId: string,
   ): Promise<{ message: string }> {
-    const application = await this.loadBorrowerApplication(
-      borrowerUserId,
-      applicationId,
+    await this.loadBorrowerApplication(borrowerUserId, applicationId);
+    throw new BadRequestException(
+      'Supporting documents are linked from your profile and cannot be removed here',
     );
-
-    if (application.status !== LoanApplicationStatus.DRAFT) {
-      throw new BadRequestException(
-        'Documents can only be removed while the application is a draft',
-      );
-    }
-
-    const document = await this.prisma.withUserContext(
-      borrowerUserId,
-      application.orgId,
-      async (tx) =>
-        tx.document.findFirst({
-          where: {
-            id: documentId,
-            orgId: application.orgId,
-            entityType: DocumentEntityType.LOAN_APPLICATION,
-            entityId: applicationId,
-            deletedAt: null,
-          },
-        }),
-    );
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    await this.prisma.withUserContext(
-      borrowerUserId,
-      application.orgId,
-      async (tx) => {
-        await tx.document.update({
-          where: { id: documentId },
-          data: { deletedAt: new Date() },
-        });
-      },
-    );
-
-    await this.storage.removeObject(document.storagePath);
-
-    return { message: 'Document deleted' };
   }
 
   async getDownloadUrlForBorrower(
@@ -166,8 +106,59 @@ export class ApplicationDocumentsService {
     userId: string,
     applicationId: string,
   ): Promise<ApplicationDocumentsSummaryDto> {
+    await this.attachProfileIdDocument(orgId, userId, applicationId);
     const documents = await this.listDocuments(orgId, userId, applicationId);
     return this.buildSummary(documents);
+  }
+
+  /** Copy the borrower's profile KYC ID onto the application for lender review. */
+  async attachProfileIdDocument(
+    orgId: string,
+    borrowerUserId: string,
+    applicationId: string,
+  ): Promise<void> {
+    await this.prisma.withUserContext(borrowerUserId, orgId, async (tx) => {
+      const existing = await tx.document.count({
+        where: {
+          orgId,
+          entityType: DocumentEntityType.LOAN_APPLICATION,
+          entityId: applicationId,
+          documentType: ApplicationDocumentType.ID_COPY,
+          deletedAt: null,
+        },
+      });
+
+      if (existing > 0) {
+        return;
+      }
+
+      const kycDoc = await tx.userKycDocument.findUnique({
+        where: {
+          userId_documentType: {
+            userId: borrowerUserId,
+            documentType: UserKycDocumentType.ID_COPY,
+          },
+        },
+      });
+
+      if (!kycDoc) {
+        throw new BadRequestException(
+          'Upload your SA ID in your profile before applying for a loan',
+        );
+      }
+
+      await tx.document.create({
+        data: {
+          orgId,
+          entityType: DocumentEntityType.LOAN_APPLICATION,
+          entityId: applicationId,
+          documentType: ApplicationDocumentType.ID_COPY,
+          storagePath: kycDoc.storagePath,
+          originalFilename: kycDoc.originalFilename,
+          uploadedByUserId: borrowerUserId,
+        },
+      });
+    });
   }
 
   assertDocumentsComplete(summary: ApplicationDocumentsSummaryDto): void {
@@ -181,7 +172,7 @@ export class ApplicationDocumentsService {
       .join(', ');
 
     throw new BadRequestException(
-      `Upload all required documents before submitting: ${missing}`,
+      `Required profile documents are missing before submitting: ${missing}`,
     );
   }
 

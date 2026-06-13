@@ -9,7 +9,6 @@ describe('application-review.util', () => {
     const parsed = parseApplicationReviewChecklist({
       idVerified: true,
       bankDetailsVerified: true,
-      statementsVerified: true,
       affordabilityReviewed: false,
       purposePlausible: false,
     });
@@ -21,7 +20,6 @@ describe('application-review.util', () => {
     const incomplete = buildApplicationReviewChecklistStatus({
       idVerified: true,
       bankDetailsVerified: true,
-      statementsVerified: true,
       affordabilityReviewed: true,
       purposePlausible: false,
     });
@@ -30,7 +28,6 @@ describe('application-review.util', () => {
     const complete = buildApplicationReviewChecklistStatus({
       idVerified: true,
       bankDetailsVerified: true,
-      statementsVerified: true,
       affordabilityReviewed: true,
       purposePlausible: true,
     });

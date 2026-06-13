@@ -1,6 +1,11 @@
 export interface DashboardKpisDto {
   activeLoans: number;
-  portfolioValueFormatted: string;
+  receivablesFormatted: string;
+  receivablesCents: number;
+  availableFundsFormatted: string;
+  availableFundsCents: number;
+  walletConfigured: boolean;
+  walletBankLinked: boolean;
   repaymentsThisMonthFormatted: string;
   loansInArrears: number;
   arrearsRatePercent: number;

@@ -77,6 +77,8 @@ export interface MarketplaceLenderDto {
   name: string;
   isPublic: boolean;
   isConnected: boolean;
+  /** Signed URL for org logo when configured; null when no logo uploaded */
+  logoUrl: string | null;
   /** Internal SaaS billing tier — not shown to borrowers in the UI */
   plan: string;
   profile: MarketplaceProfileDto;
@@ -86,8 +88,14 @@ export interface BorrowerLendingStatusDto {
   hasActiveCommitment: boolean;
   committedOrgId: string | null;
   committedOrgName: string | null;
+  /** Connect to a lender you are not already committed to */
   canConnectToOtherLenders: boolean;
+  /** @deprecated Use canStartNewApplication — kept in sync for older clients */
   canApplyWithOtherLenders: boolean;
+  /** Start a new loan application with any lender */
+  canStartNewApplication: boolean;
+  /** Submit an existing draft application (blocked while an open loan exists) */
+  canSubmitDraftApplication: boolean;
   message: string | null;
 }
 

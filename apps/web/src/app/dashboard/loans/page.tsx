@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { canManageRecords } from '@/lib/permissions';
 import { useApi } from '@/lib/use-api';
@@ -24,17 +25,17 @@ export default function LoansPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Loans</h1>
-          <p className="text-muted-foreground">Track lending arrangements and repayments</p>
-        </div>
-        {canManage && (
-          <Button asChild>
-            <Link href="/dashboard/loans/new">New loan</Link>
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Loans"
+        description="Track lending arrangements and repayments"
+        actions={
+          canManage ? (
+            <Button asChild>
+              <Link href="/dashboard/loans/new">New loan</Link>
+            </Button>
+          ) : undefined
+        }
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

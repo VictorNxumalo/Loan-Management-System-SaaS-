@@ -11,6 +11,7 @@ import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { ApplicationReviewChecklistPanel } from '@/components/application-review-checklist';
 import { PageLoading } from '@/components/brand/loading';
 import { LenderApplicationDocumentsPanel } from '@/components/lender-application-documents-panel';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -100,22 +101,13 @@ export default function LenderApplicationDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/applications">← Back to applications</Link>
-        </Button>
-        <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Application from {application.borrowerName}
-            </h1>
-            <p className="mt-1 text-muted-foreground">
-              Submitted {new Date(application.submittedAt).toLocaleDateString()}
-            </p>
-          </div>
-          <ApplicationStatusBadge status={application.status} />
-        </div>
-      </div>
+      <PageHeader
+        backHref="/dashboard/applications"
+        backLabel="Back to applications"
+        title={`Application from ${application.borrowerName}`}
+        description={`Submitted ${new Date(application.submittedAt).toLocaleDateString()}`}
+        actions={<ApplicationStatusBadge status={application.status} />}
+      />
 
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 

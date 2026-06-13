@@ -120,6 +120,33 @@ export class EmailService {
     await this.send(email, subject, body, 'payment-submitted');
   }
 
+  async sendPaymentConfirmedEmail(
+    email: string,
+    organisationName: string,
+    amountFormatted: string,
+    paymentDate: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Payment recorded — ${organisationName}`;
+    const body = `${organisationName} confirmed your payment of ${amountFormatted} on ${paymentDate}.\n\nView your loan:\n${link}`;
+
+    await this.send(email, subject, body, 'payment-confirmed');
+  }
+
+  async sendPaymentRejectedEmail(
+    email: string,
+    organisationName: string,
+    amountFormatted: string,
+    paymentDate: string,
+    reason: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Payment not accepted — ${organisationName}`;
+    const body = `${organisationName} could not accept your reported payment of ${amountFormatted} on ${paymentDate}.\n\nReason: ${reason}\n\nView details and submit again if needed:\n${link}`;
+
+    await this.send(email, subject, body, 'payment-rejected');
+  }
+
   private async send(
     to: string,
     subject: string,

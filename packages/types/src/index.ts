@@ -13,3 +13,5 @@ export * from './team';
 export * from './billing';
 export * from './payment-submission';
 export * from './marketplace';
+export * from './wallet';
+export * from './profile';

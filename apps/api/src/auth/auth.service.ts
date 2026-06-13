@@ -11,10 +11,13 @@ import type {
   GoogleAuthInput,
   LoginInput,
   OnboardingInput,
+  OrganisationLogoUploadInput,
+  OrganisationLogoUploadUrlDto,
   RegisterInput,
   ResetPasswordInput,
 } from '@lms/types';
 import { AccountType, BorrowerLinkSource, UserRole } from '@lms/types';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { computeTrialEndsAt } from '../billing/trial.util';
 import { OAuth2Client } from 'google-auth-library';
@@ -25,11 +28,27 @@ import {
   isGoogleOAuthConfigured,
 } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProfileService } from '../profile/profile.service';
+import {
+  assertLogoPathForOrg,
+  assertValidLogoUpload,
+  buildOrganisationLogoPath,
+  getOrganisationLogoStoragePath,
+} from '../common/organisation-logo.util';
+import { SupabaseStorageService } from '../storage/supabase-storage.service';
 import { TokenService, type AccessTokenPayload } from './token.service';
 
 const BCRYPT_ROUNDS = 12;
 const VERIFICATION_EXPIRY_HOURS = 24;
 const RESET_EXPIRY_HOURS = 1;
+
+/** User graph needed to compute profileComplete on login / refresh. */
+const AUTH_USER_INCLUDE = {
+  organisation: { include: { wallet: { include: { bankAccount: true } } } },
+  borrowerAccount: true,
+  kycDocuments: true,
+  wallet: { include: { bankAccount: true } },
+} as const;
 
 @Injectable()
 export class AuthService {
@@ -39,6 +58,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly tokenService: TokenService,
     private readonly emailService: EmailService,
+    private readonly storage: SupabaseStorageService,
+    private readonly profileService: ProfileService,
   ) {
     if (isGoogleOAuthConfigured()) {
       const env = getEnv();
@@ -307,7 +328,7 @@ export class AuthService {
     const user = await this.prisma.withAuthLookup(async (tx) =>
       tx.user.findFirst({
         where: { email, deletedAt: null, isActive: true },
-        include: { organisation: true, borrowerAccount: true },
+        include: AUTH_USER_INCLUDE,
       }),
     );
 
@@ -326,7 +347,7 @@ export class AuthService {
           tx.user.update({
             where: { id: user.id },
             data: { emailVerifiedAt: new Date() },
-            include: { organisation: true },
+            include: AUTH_USER_INCLUDE,
           }),
         );
         return this.issueTokens(verified);
@@ -425,7 +446,7 @@ export class AuthService {
     const user = await this.prisma.withAuthLookup(async (tx) =>
       tx.user.findUnique({
         where: { id: userId },
-        include: { organisation: true, borrowerAccount: true },
+        include: AUTH_USER_INCLUDE,
       }),
     );
 
@@ -448,7 +469,11 @@ export class AuthService {
       const record = await this.prisma.withUserContext(user.sub, null, async (tx) =>
         tx.user.findUnique({
           where: { id: user.sub },
-          include: { borrowerAccount: true },
+          include: {
+            borrowerAccount: true,
+            kycDocuments: true,
+            wallet: { include: { bankAccount: true } },
+          },
         }),
       );
 
@@ -456,13 +481,16 @@ export class AuthService {
         throw new UnauthorizedException('User not found');
       }
 
-      return this.mapMe(record);
+      return this.profileService.mapMe(record);
     }
 
     const record = await this.prisma.withOrgContext(user.orgId!, user.sub, async (tx) =>
       tx.user.findUnique({
         where: { id: user.sub },
-        include: { organisation: true },
+        include: {
+          organisation: { include: { wallet: { include: { bankAccount: true } } } },
+          kycDocuments: true,
+        },
       }),
     );
 
@@ -470,35 +498,7 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    return this.mapMe(record);
-  }
-
-  async completeBorrowerOnboarding(
-    userId: string,
-    input: { phone: string; idNumber?: string },
-  ): Promise<AuthMeResponse> {
-    const user = await this.prisma.withUserContext(userId, null, async (tx) => {
-      await tx.borrowerAccount.upsert({
-        where: { userId },
-        create: {
-          userId,
-          phone: input.phone.trim(),
-          idNumber: input.idNumber?.trim() || null,
-        },
-        update: {
-          phone: input.phone.trim(),
-          idNumber: input.idNumber?.trim() || null,
-        },
-      });
-
-      return tx.user.update({
-        where: { id: userId },
-        data: { onboardingCompletedAt: new Date() },
-        include: { borrowerAccount: true },
-      });
-    });
-
-    return this.mapMe(user);
+    return this.profileService.mapMe(record);
   }
 
   async verifyEmail(token: string): Promise<{ message: string }> {
@@ -584,63 +584,33 @@ export class AuthService {
     return { message: 'Password reset successfully. You can now log in.' };
   }
 
-  async completeOnboarding(
-    userId: string,
+  async requestOnboardingLogoUploadUrl(
     orgId: string,
-    input: OnboardingInput,
-  ): Promise<AuthMeResponse> {
-    const user = await this.prisma.withOrgContext(orgId, userId, async (tx) => {
-      const org = await tx.organisation.findFirstOrThrow({ where: { id: orgId } });
-      const current = (org.settings as Record<string, unknown>) ?? {};
+    userId: string,
+    input: OrganisationLogoUploadInput,
+  ): Promise<OrganisationLogoUploadUrlDto> {
+    assertValidLogoUpload(input.contentType, input.sizeBytes);
 
-      await tx.organisation.update({
-        where: { id: orgId },
-        data: {
-          name: input.organisationName,
-          settings: {
-            ...current,
-            defaultCurrency: input.defaultCurrency,
-            defaultInterestType: input.defaultInterestType,
-            publicListing: current.publicListing ?? true,
-          },
-        },
-      });
-
-      return tx.user.update({
-        where: { id: userId },
-        data: { onboardingCompletedAt: new Date() },
-        include: { organisation: true },
-      });
+    await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      await tx.organisation.findFirstOrThrow({ where: { id: orgId } });
     });
 
-    return this.mapMe(user);
+    const storagePath = buildOrganisationLogoPath(orgId, input.filename, input.contentType);
+    const signed = await this.storage.createSignedUploadUrl(storagePath);
+
+    return {
+      uploadUrl: signed.signedUrl,
+      storagePath,
+    };
   }
 
-  private async issueTokens(user: {
-    id: string;
-    orgId: string | null;
-    email: string;
-    name: string;
-    accountType: string;
-    role: string | null;
-    emailVerifiedAt: Date | null;
-    onboardingCompletedAt: Date | null;
-    organisation?: {
-      id: string;
-      name: string;
-      plan: string;
-      planStatus: string;
-      settings: unknown;
-    } | null;
-    borrowerAccount?: {
-      phone: string;
-      idNumber: string | null;
-    } | null;
-  }) {
+  private async issueTokens(
+    user: Parameters<ProfileService['mapMe']>[0],
+  ) {
     const refreshToken = await this.prisma.$transaction(async (tx) => {
       await this.prisma.setSessionContext(tx, {
         userId: user.id,
-        ...(user.orgId ? { orgId: user.orgId } : {}),
+        ...(user.organisation?.id ? { orgId: user.organisation.id } : {}),
       });
       return this.tokenService.createRefreshToken(tx, user.id);
     });
@@ -649,26 +619,10 @@ export class AuthService {
     return { tokens, refreshToken };
   }
 
-  private buildTokenResponse(user: {
-    id: string;
-    email: string;
-    name: string;
-    accountType: string;
-    role: string | null;
-    emailVerifiedAt: Date | null;
-    onboardingCompletedAt: Date | null;
-    organisation?: {
-      id: string;
-      name: string;
-      plan: string;
-      planStatus: string;
-      settings: unknown;
-    } | null;
-    borrowerAccount?: {
-      phone: string;
-      idNumber: string | null;
-    } | null;
-  }): AuthTokensResponse {
+  private buildTokenResponse(
+    user: Parameters<ProfileService['mapMe']>[0],
+  ): AuthTokensResponse {
+    const me = this.profileService.mapMe(user);
     const { accessToken, expiresIn } = this.tokenService.signAccessToken({
       sub: user.id,
       accountType: user.accountType,
@@ -681,85 +635,11 @@ export class AuthService {
       accessToken,
       expiresIn,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        accountType: user.accountType,
-        role: user.role,
+        ...me.user,
         emailVerified: this.isEmailVerified(user),
-        onboardingCompleted: Boolean(user.onboardingCompletedAt),
       },
-      ...(user.organisation
-        ? {
-            organisation: {
-              id: user.organisation.id,
-              name: user.organisation.name,
-              plan: user.organisation.plan,
-              planStatus: user.organisation.planStatus,
-              settings: (user.organisation.settings as Record<string, unknown>) ?? {},
-            },
-          }
-        : {}),
-      ...(user.borrowerAccount
-        ? {
-            borrowerProfile: {
-              phone: user.borrowerAccount.phone,
-              idNumber: user.borrowerAccount.idNumber,
-            },
-          }
-        : {}),
-    };
-  }
-
-  private mapMe(user: {
-    id: string;
-    email: string;
-    name: string;
-    accountType: string;
-    role: string | null;
-    emailVerifiedAt: Date | null;
-    onboardingCompletedAt: Date | null;
-    organisation?: {
-      id: string;
-      name: string;
-      plan: string;
-      planStatus: string;
-      settings: unknown;
-    } | null;
-    borrowerAccount?: {
-      phone: string;
-      idNumber: string | null;
-    } | null;
-  }): AuthMeResponse {
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        accountType: user.accountType,
-        role: user.role,
-        emailVerified: this.isEmailVerified(user),
-        onboardingCompleted: Boolean(user.onboardingCompletedAt),
-      },
-      ...(user.organisation
-        ? {
-            organisation: {
-              id: user.organisation.id,
-              name: user.organisation.name,
-              plan: user.organisation.plan,
-              planStatus: user.organisation.planStatus,
-              settings: (user.organisation.settings as Record<string, unknown>) ?? {},
-            },
-          }
-        : {}),
-      ...(user.borrowerAccount
-        ? {
-            borrowerProfile: {
-              phone: user.borrowerAccount.phone,
-              idNumber: user.borrowerAccount.idNumber,
-            },
-          }
-        : {}),
+      ...(me.organisation ? { organisation: me.organisation } : {}),
+      ...(me.borrowerProfile ? { borrowerProfile: me.borrowerProfile } : {}),
     };
   }
 

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { BillingStatusDto } from '@lms/types';
 import { OrganisationPlan } from '@lms/types';
 import { CardSkeleton } from '@/components/brand/skeleton';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -114,12 +115,10 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">
-          Manage your subscription and workspace limits for {session?.organisation?.name}.
-        </p>
-      </div>
+      <PageHeader
+        title="Billing"
+        description={`Manage your subscription and workspace limits for ${session?.organisation?.name}.`}
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {message && <p className="text-sm text-green-700">{message}</p>}

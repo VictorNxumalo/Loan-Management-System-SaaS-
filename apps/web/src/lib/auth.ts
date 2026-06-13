@@ -76,8 +76,12 @@ export const authOptions: NextAuthOptions = {
           };
           return credUser;
         } catch (err) {
-          const message =
+          let message =
             err instanceof Error ? err.message : 'Invalid email or password';
+          if (message === 'fetch failed') {
+            message =
+              'Cannot reach the LMS API. Ensure the API is running (pnpm dev) and API_URL points to http://localhost:3001/v1.';
+          }
           console.error('[NextAuth] Credentials login failed:', message);
           throw new Error(message);
         }
@@ -178,6 +182,7 @@ export const authOptions: NextAuthOptions = {
         emailVerified: (token.user as AuthTokensResponse['user'])?.emailVerified,
         onboardingCompleted: (token.user as AuthTokensResponse['user'])
           ?.onboardingCompleted,
+        profileComplete: (token.user as AuthTokensResponse['user'])?.profileComplete,
       };
       session.organisation = token.organisation as AuthTokensResponse['organisation'];
       session.borrowerProfile = token.borrowerProfile as AuthTokensResponse['borrowerProfile'];

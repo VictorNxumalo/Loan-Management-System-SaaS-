@@ -6,15 +6,15 @@
 <title>LMS — Lender &amp; Borrower User Guide</title>
 <style>
   :root {
-    --bg: #0f172a;
-    --ink: #0f172a;
-    --paper: #f8fafc;
+    --bg: #0d1b2a;
+    --ink: #0d1b2a;
+    --paper: #f2f4f7;
     --card: #ffffff;
     --border: #e2e8f0;
     --muted: #64748b;
-    --accent: #2563eb;
-    --accent-soft: #dbeafe;
-    --green: #059669;
+    --accent: #00a676;
+    --accent-soft: #d1fae5;
+    --green: #00a676;
     --green-soft: #d1fae5;
     --amber-soft: #fef3c7;
     --rose-soft: #ffe4e6;
@@ -54,7 +54,7 @@
   p.lead { color: var(--muted); margin-bottom: 14px; max-width: 840px; }
 
   .persona { border-radius: 12px; padding: 14px 20px; margin: 12px 0 22px; font-size: 14px; border: 1.5px solid; }
-  .persona.lender { background: var(--accent-soft); border-color: #93c5fd; }
+  .persona.lender { background: #e8eef4; border-color: #94a3b8; }
   .persona.borrower { background: var(--green-soft); border-color: #6ee7b7; }
   .persona b { font-size: 14.5px; }
 
@@ -88,7 +88,7 @@
   ul.notes li { margin: 4px 0; }
 
   .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
-  .b-blue { background: var(--accent-soft); color: #1d4ed8; }
+  .b-blue { background: #e8eef4; color: #0d1b2a; }
   .b-green { background: var(--green-soft); color: #047857; }
   .b-rose { background: var(--rose-soft); color: #be123c; }
   .b-slate { background: var(--slate-soft); color: #475569; }
@@ -120,32 +120,36 @@
   <a href="#l-dashboard">4 · Dashboard &amp; Reports</a>
   <a href="#l-borrowers">5 · Managing Borrowers</a>
   <a href="#l-loans">6 · Creating Loans</a>
-  <a href="#l-repayments">7 · Repayments &amp; Loan Detail</a>
+  <a href="#l-repayments">7 · Repayments, Wallet &amp; Payments</a>
   <a href="#l-applications">8 · Reviewing Applications</a>
   <a href="#l-team">9 · Team, Settings &amp; Audit</a>
   <div class="group">Borrower Journey</div>
-  <a href="#b-onboarding">10 · Borrower Setup</a>
+  <a href="#b-onboarding">10 · Borrower Setup &amp; Profile</a>
   <a href="#b-lenders">11 · Finding Lenders</a>
   <a href="#b-apply">12 · Applying for a Loan</a>
-  <a href="#b-loans">13 · Tracking Your Loans</a>
+  <a href="#b-loans">13 · Tracking Loans &amp; Repayments</a>
+  <a href="#b-profile">14 · Profile &amp; Wallet</a>
   <div class="group">Reference</div>
-  <a href="#notifications">14 · Notifications</a>
-  <a href="#lifecycle">15 · End-to-End Lifecycle</a>
-  <a href="#permissions">16 · Who Can Do What</a>
+  <a href="#notifications">15 · Notifications</a>
+  <a href="#lifecycle">16 · End-to-End Lifecycle</a>
+  <a href="#permissions">17 · Who Can Do What</a>
 </nav>
 
 <main>
 <header class="hero">
-  <div class="eyebrow">User Guide · with live screenshots</div>
+  <div class="eyebrow">User Guide · LMS brand (navy &amp; green)</div>
   <h1>How Lenders &amp; Borrowers Use the LMS</h1>
   <p class="sub">
-    A step-by-step walkthrough of both user journeys — every screen, what each button does, and where each
-    action takes you. All screenshots were captured from the running application with realistic demo data.
+    A step-by-step walkthrough of both user journeys — navigation, internal wallets, profile-based KYC,
+    simplified loan applications, wallet repayments, and where each action takes you. Screenshots were
+    captured from the running app; some captions reflect UI updates since the images were taken.
   </p>
   <div class="meta-chips">
     <span class="chip">Lender workspace · /dashboard</span>
     <span class="chip">Borrower portal · /borrower</span>
-    <span class="chip">29 annotated screens</span>
+    <span class="chip">Wallets · disburse &amp; repay in-app</span>
+    <span class="chip">Profile KYC · edit per section</span>
+    <span class="chip">Amounts in Rand (R)</span>
   </div>
 </header>
 
@@ -157,8 +161,9 @@
     <strong>account type</strong>, chosen at registration and enforced everywhere afterwards — a borrower who
     types a lender URL is bounced back to the borrower portal, and vice versa.
   </p>
-  <div class="persona lender"><b>Lender</b> — runs a lending business. Works in the <strong>Lending workspace</strong> (<code>/dashboard</code>): manages the people they lend to, creates loans, records repayments, reviews incoming applications, and exports reports. Staff have roles: <span class="badge b-rose">Admin</span> <span class="badge b-blue">Loan officer</span> <span class="badge b-slate">Viewer</span></div>
-  <div class="persona borrower"><b>Borrower</b> — an individual on the platform. Works in the <strong>Borrower portal</strong> (<code>/borrower</code>): browses public lenders, connects to organisations, submits loan applications, and tracks their own loans read-only.</div>
+  <div class="persona lender"><b>Lender</b> — runs a lending business. Works in the <strong>Lending workspace</strong> (<code>/dashboard</code>): overview KPIs (including <strong>Available funds</strong> wallet balance), manages borrowers, creates and disburses loans, reviews applications with profile-attached ID documents, and collects repayments into the org wallet. Staff have roles: <span class="badge b-rose">Admin</span> <span class="badge b-blue">Loan officer</span> <span class="badge b-slate">Viewer</span></div>
+  <div class="persona borrower"><b>Borrower</b> — an individual on the platform. Works in the <strong>Borrower portal</strong> (<code>/borrower</code>): completes a KYC profile once (ID, address, bank account), browses lenders, applies with profile data auto-attached, tracks loans on the overview home, and repays via <strong>Pay from wallet</strong> (primary) or reports external bank payments (fallback).</div>
+  <div class="callout good"><strong>Navigation:</strong> On wide screens, primary links sit in the top bar with a <strong>More</strong> menu for secondary items. On phones and tablets, tap the <strong>menu</strong> icon (☰) for a full-screen drawer. Page titles and action buttons stack cleanly on small screens.</div>
   <figure>
     <img src="img/public-landing.png" alt="Landing page" />
     <figcaption>The landing page (<code>/</code>). "Create lender account" → registration pre-set to lender; "Create borrower account" → pre-set to borrower; "Sign in" → login.</figcaption>
@@ -199,7 +204,7 @@
   <p class="lead">First login as a lender lands on <code>/onboarding</code>. This creates your <strong>organisation</strong> — the container for all your borrowers, loans and team members.</p>
   <figure>
     <img src="img/lender-onboarding.png" alt="Lender onboarding" />
-    <figcaption>Workspace setup: organisation name, default currency (ZAR pre-filled) and default interest method (flat or reducing balance). <strong>Complete setup</strong> → creates the org and takes you to <code>/dashboard</code>.</figcaption>
+    <figcaption>Workspace setup: organisation name, optional <strong>logo upload</strong> (PNG/JPEG/WebP, max 2 MB), default currency (ZAR pre-filled) and default interest method (flat or reducing balance). <strong>Complete setup</strong> → creates the org and takes you to <code>/dashboard</code>. You can change the logo later under Settings → Branding.</figcaption>
   </figure>
   <ul class="notes">
     <li>The person who completes onboarding becomes the organisation's <span class="badge b-rose">Admin</span>.</li>
@@ -209,12 +214,18 @@
 
 <!-- ═══════════════ 4. DASHBOARD ═══════════════ -->
 <section id="l-dashboard">
-  <h2><span class="num">4</span>Lender — Dashboard &amp; Reports</h2>
-  <p class="lead"><code>/dashboard</code> is the home screen for lender staff: portfolio health at a glance plus quick exports.</p>
+  <h2><span class="num">4</span>Lender — Dashboard, Wallet &amp; Reports</h2>
+  <p class="lead"><code>/dashboard</code> is the home screen: clickable KPI tiles link to loans, wallet, and related pages. <strong>Available funds</strong> reflects your organisation wallet balance (top-ups, disbursements, and repayments). <strong>Collected this month</strong> sums repayments recorded this calendar month — both in-app wallet payments and confirmed external payments credit the wallet.</p>
   <figure>
     <img src="img/lender-dashboard.png" alt="Lender dashboard" />
-    <figcaption>Top: five KPI cards (active loans, portfolio value, repayments this month, loans in arrears, arrears rate). Middle: CSV exports. Bottom: repayments due in 7/30 days and an overdue-loans table — borrower names link straight to the loan or borrower detail.</figcaption>
+    <figcaption>Overview tiles: available funds, receivables, active loans, collected this month, loans in arrears, and arrears rate. Tap a tile to drill into detail. CSV exports remain available for portfolio and arrears reports.</figcaption>
   </figure>
+  <h3><span class="step">4.1</span>Organisation wallet — <code>/dashboard/wallet</code></h3>
+  <p class="lead">Each lender organisation has an internal wallet linked to a bank account. Fund it via demo top-up (staging), use it to <strong>disburse</strong> activated loans to borrowers, and receive <strong>repayments</strong> back into available funds.</p>
+  <ul class="notes">
+    <li><strong>Disburse</strong> — on an active loan detail page, after activation, disburse moves principal from lender wallet → borrower wallet.</li>
+    <li><strong>Repayments</strong> — borrower wallet payments and confirmed external payments increase available funds automatically.</li>
+  </ul>
   <table>
     <tr><th>Action</th><th>What it does</th></tr>
     <tr><td><strong>Download portfolio CSV</strong></td><td>Exports every loan with balances (<code>/reports/portfolio.csv</code>)</td></tr>
@@ -258,7 +269,7 @@
   <p class="lead">The form follows a deliberate <strong>preview-before-save</strong> flow: you must see the full repayment schedule before the loan can be created.</p>
   <figure>
     <img src="img/lender-loan-new.png" alt="New loan form" />
-    <figcaption>Pick the borrower (typeahead search), then principal (in cents), annual rate, interest type, term, frequency and start date.</figcaption>
+    <figcaption>Pick the borrower (typeahead search), then enter the principal in <strong>Rand</strong> (with an <code>R</code> prefix — e.g. type <code>10000</code> for R10,000.00), annual rate, interest type, term, frequency and start date.</figcaption>
   </figure>
   <figure>
     <img src="img/lender-loan-preview.png" alt="Schedule preview" />
@@ -269,15 +280,19 @@
 
 <!-- ═══════════════ 7. REPAYMENTS ═══════════════ -->
 <section id="l-repayments">
-  <h2><span class="num">7</span>Lender — Loan Detail &amp; Recording Repayments</h2>
+  <h2><span class="num">7</span>Lender — Loan Detail, Repayments &amp; Borrower Payments</h2>
   <figure>
     <img src="img/lender-loan-detail.png" alt="Loan detail" />
-    <figcaption><code>/dashboard/loans/[id]</code> — summary cards (total scheduled / paid / outstanding / rate), the <strong>Record repayment</strong> form (amount, payment date, optional note), repayment history showing who recorded each payment, the full amortisation schedule, and loan documents (signed agreement, disbursement proof).</figcaption>
+    <figcaption><code>/dashboard/loans/[id]</code> — summary cards, <strong>Record repayment</strong> (manual/offline collections), repayment history, schedule, documents, and <strong>Disburse</strong> for active loans (moves funds to the borrower's wallet).</figcaption>
   </figure>
+  <h3><span class="step">7.1</span>In-app wallet repayments</h3>
+  <p class="lead">When a borrower uses <strong>Pay from wallet</strong>, the repayment is recorded immediately — no proof review. Your organisation wallet is credited and the loan balance updates. This appears in <strong>Collected this month</strong> and <strong>Available funds</strong>.</p>
+  <h3><span class="step">7.2</span>External bank payments — <code>/dashboard/payment-submissions/[id]</code></h3>
+  <p class="lead">If a borrower paid outside the app (EFT, cash, etc.), they use <strong>Report bank payment</strong>, upload proof, and submit for review. Lender staff receive a bell notification. Open the submission, review proof, then <strong>Confirm &amp; record</strong> (creates a repayment and credits your wallet) or <strong>Reject</strong> with a reason.</p>
   <ul class="notes">
-    <li>Repayments are <strong>insert-only</strong> — they can't be edited or deleted afterwards, which keeps the books trustworthy. Every entry is audit-logged.</li>
+    <li>Repayments you record directly are <strong>insert-only</strong> — they can't be edited or deleted afterwards. Every entry is audit-logged.</li>
     <li>When total payments cover the schedule, the daily sweep marks the loan <span class="badge b-green">Completed</span>; missed due dates flip it to <span class="badge b-rose">In arrears</span> automatically.</li>
-    <li>The borrower sees the same repayment history and schedule (read-only) in their portal the moment you record a payment.</li>
+    <li>The borrower sees repayment history and schedule (read-only) in their portal; confirmed pay-lender submissions appear in history after you confirm.</li>
   </ul>
 </section>
 
@@ -291,7 +306,7 @@
   </figure>
   <figure>
     <img src="img/lender-application-review.png" alt="Application review" />
-    <figcaption><code>/dashboard/applications/[id]</code> — the requested terms on top, then two panels: <strong>Approve</strong> (set the annual interest rate, optional notes) and <strong>Reject</strong> (reason required — the borrower sees it on their side).</figcaption>
+    <figcaption><code>/dashboard/applications/[id]</code> — requested terms, the borrower's profile ID document (attached automatically — no per-application uploads), an internal <strong>review checklist</strong> (ID, bank details, affordability, purpose — no bank statements), then <strong>Approve</strong> or <strong>Reject</strong>.</figcaption>
   </figure>
   <div class="flow"><b>Approve</b> ──► creates a borrower CRM record (if needed)
           ──► creates a <b>Draft loan</b> with the agreed terms
@@ -313,7 +328,7 @@
   <h3><span class="step">9.2</span>Settings — <code>/dashboard/settings</code></h3>
   <figure>
     <img src="img/lender-settings.png" alt="Settings" />
-    <figcaption>Two switches that control how borrowers find you: <strong>public directory listing</strong> (appear in the borrower marketplace) and <strong>borrower email invites</strong> (send a private connect link to a specific borrower).</figcaption>
+    <figcaption><strong>Branding</strong> — upload or replace your organisation logo (shown when borrowers browse lenders). <strong>Public lender directory</strong> — list in the marketplace with category, description, verification status, and typical loan range (Rand min/max). <strong>Borrower email invites</strong> — send a private connect link to a specific borrower.</figcaption>
   </figure>
 
   <h3><span class="step">9.3</span>Audit log — <code>/dashboard/audit-log</code></h3>
@@ -326,14 +341,14 @@
 <!-- ═══════════════ 10. BORROWER ONBOARDING ═══════════════ -->
 <section id="b-onboarding">
   <h2><span class="num">10</span>Borrower — Setting Up Your Profile</h2>
-  <p class="lead">First login as a borrower lands on <code>/borrower/onboarding</code> — a minimal profile before you can use the portal.</p>
+  <p class="lead">First login lands on <code>/borrower/onboarding</code> — a guided flow to complete your platform profile before you can apply for loans.</p>
   <figure>
     <img src="img/borrower-onboarding.png" alt="Borrower onboarding" />
-    <figcaption>Phone number (required — lenders use it to verify you) and optional ID/passport number. <strong>Continue</strong> → borrower home.</figcaption>
+    <figcaption>Collects phone, SA ID number, physical address, bank account details, and a coloured copy of your ID. This information is reused for every loan application — you do not upload ID or bank proof again when applying.</figcaption>
   </figure>
   <figure>
     <img src="img/borrower-home.png" alt="Borrower home" />
-    <figcaption><code>/borrower</code> — the home hub with four tiles mirroring the nav: Browse lenders, My lenders, My applications, My loans.</figcaption>
+    <figcaption><code>/borrower</code> — overview home with live KPI tiles (wallet balance, outstanding, active loans, open applications, my lenders). Tiles link to detail pages; quick actions include browse lenders and new application when allowed.</figcaption>
   </figure>
 </section>
 
@@ -348,12 +363,13 @@
   </table>
   <figure>
     <img src="img/borrower-browse-lenders.png" alt="Browse lenders" />
-    <figcaption><code>/borrower/lenders/browse</code> — every publicly listed organisation. <strong>Connect</strong> links you instantly; already-connected lenders show "Connected" with a shortcut to My lenders.</figcaption>
+    <figcaption><code>/borrower/lenders/browse</code> — publicly listed organisations with category filter and org logos when configured. <strong>Connect</strong> links you instantly. If you already have an open loan or pending application with another lender, other connect buttons are disabled until that relationship is resolved.</figcaption>
   </figure>
   <figure>
     <img src="img/borrower-my-lenders.png" alt="My lenders" />
-    <figcaption><code>/borrower/lenders/mine</code> — your connections. <strong>Apply for loan</strong> carries the lender straight into the application form.</figcaption>
+    <figcaption><code>/borrower/lenders/mine</code> — your connections (logo + category when available). <strong>Apply for loan</strong> carries the lender straight into the application form.</figcaption>
   </figure>
+  <div class="callout warn"><strong>One commitment at a time:</strong> while you have an open loan (draft, active, or in arrears) or any open application (draft or submitted) with a lender, you cannot start a new application elsewhere. Finish, withdraw, or wait for a decision first. If you have a draft with a lender, use <strong>Continue draft application</strong> on My lenders.</div>
 </section>
 
 <!-- ═══════════════ 12. APPLYING ═══════════════ -->
@@ -362,9 +378,10 @@
   <p class="lead">Applications always start from <strong>My lenders → Apply for loan</strong>, so the target lender is already chosen when the form opens.</p>
   <figure>
     <img src="img/borrower-application-new.png" alt="New application" />
-    <figcaption><code>/borrower/applications/new</code> — amount, preferred interest method, number of payments, frequency, preferred start date and an optional purpose. <strong>Submit application</strong> → your application detail page; the lender is notified immediately.</figcaption>
+    <figcaption><code>/borrower/applications/new</code> — single-step form: loan amount in <strong>Rand</strong>, term, frequency, start date, optional purpose. Your profile bank account and SA ID are shown read-only and sent automatically. <strong>Submit application to lender</strong> creates and submits in one action.</figcaption>
   </figure>
-  <div class="callout warn">You can have only <strong>one pending application per lender</strong> at a time — withdraw or wait for a decision before applying again.</div>
+  <div class="callout good"><strong>No duplicate uploads:</strong> ID and bank details come from your profile. Complete onboarding or visit <code>/borrower/profile</code> if anything is missing before applying.</div>
+  <div class="callout warn">You can have only <strong>one open application per lender</strong> (draft or submitted). You cannot apply while you have an active loan or another open application with any lender.</div>
   <figure>
     <img src="img/borrower-applications.png" alt="My applications" />
     <figcaption><code>/borrower/applications</code> — all your applications with status badges. Click any card for detail.</figcaption>
@@ -381,21 +398,38 @@
 
 <!-- ═══════════════ 13. BORROWER LOANS ═══════════════ -->
 <section id="b-loans">
-  <h2><span class="num">13</span>Borrower — Tracking Your Loans</h2>
+  <h2><span class="num">13</span>Borrower — Tracking Loans &amp; Repaying</h2>
   <figure>
     <img src="img/borrower-loans.png" alt="My loans" />
     <figcaption><code>/borrower/loans</code> — every loan across all your lenders, with outstanding balances and status.</figcaption>
   </figure>
   <figure>
     <img src="img/borrower-loan-detail.png" alt="Borrower loan detail" />
-    <figcaption><code>/borrower/loans/[id]</code> — read-only mirror of the lender's view: summary cards, loan terms, repayment history (updated the moment the lender records a payment) and the full instalment schedule. An overdue banner appears if the loan slips into arrears.</figcaption>
+    <figcaption><code>/borrower/loans/[id]</code> — summary cards, terms, repayment history, and schedule. On active or in-arrears loans: <strong>Pay from wallet</strong> (instant — debits your LMS wallet and credits the lender) or <strong>Report bank payment</strong> (external EFT with proof for lender review).</figcaption>
   </figure>
-  <div class="callout">Borrowers can't record payments themselves — payments happen outside the platform (EFT, cash) and the lender records them. The portal is your single source of truth for what's been captured and what's still owed.</div>
+  <ul class="notes">
+    <li><strong>Pay from wallet</strong> — requires sufficient wallet balance (loan disbursements credit your wallet first).</li>
+    <li><strong>Report bank payment</strong> — amber banner while awaiting lender review; red banner if rejected with reason.</li>
+    <li>Confirmed payments appear in repayment history; wallet payments are immediate.</li>
+  </ul>
 </section>
 
-<!-- ═══════════════ 14. NOTIFICATIONS ═══════════════ -->
+<!-- ═══════════════ 14. BORROWER PROFILE ═══════════════ -->
+<section id="b-profile">
+  <h2><span class="num">14</span>Borrower &amp; Lender — Profile &amp; Wallet</h2>
+  <p class="lead">Both portals include <code>/borrower/profile</code> and <code>/dashboard/profile</code> for identity and bank details, plus wallet pages for balances and transactions.</p>
+  <table>
+    <tr><th>Page</th><th>Purpose</th></tr>
+    <tr><td><code>/borrower/profile</code> · <code>/dashboard/profile</code></td><td>View personal info, ID document, and bank account. Tap <strong>Edit</strong> on each section to change — fields are read-only by default to prevent accidental edits.</td></tr>
+    <tr><td><code>/borrower/wallet</code></td><td>Wallet balance, transaction history, linked bank account.</td></tr>
+    <tr><td><code>/dashboard/wallet</code></td><td>Organisation wallet, top-up (staging), disbursement and repayment ledger.</td></tr>
+  </table>
+  <div class="callout">Your profile ID is attached automatically to every loan application. Keep it current if your ID document changes.</div>
+</section>
+
+<!-- ═══════════════ 15. NOTIFICATIONS ═══════════════ -->
 <section id="notifications">
-  <h2><span class="num">14</span>Notifications — Both Portals</h2>
+  <h2><span class="num">15</span>Notifications — Both Portals</h2>
   <p class="lead">The bell in the header is the in-app channel; the same events also go out by email (and SMS where configured).</p>
   <figure>
     <img src="img/lender-notifications.png" alt="Notification bell" />
@@ -403,48 +437,53 @@
   </figure>
   <table>
     <tr><th>Event</th><th>Who is notified</th></tr>
-    <tr><td>Application submitted</td><td>Lender staff</td></tr>
+    <tr><td>Application submitted</td><td>Lender staff (admin + loan officers)</td></tr>
     <tr><td>Application approved / rejected</td><td>The borrower</td></tr>
+    <tr><td>Borrower payment submitted (Pay lender)</td><td>Lender staff</td></tr>
+    <tr><td>Payment confirmed / rejected</td><td>The borrower</td></tr>
     <tr><td>Repayment due in 3 days (daily 07:00 sweep)</td><td>The borrower</td></tr>
-    <tr><td>Loan overdue (daily 06:00 sweep)</td><td>Lender staff + borrower</td></tr>
+    <tr><td>Loan overdue (daily 06:00 sweep)</td><td>Lender staff</td></tr>
   </table>
 </section>
 
-<!-- ═══════════════ 15. LIFECYCLE ═══════════════ -->
+<!-- ═══════════════ 16. LIFECYCLE ═══════════════ -->
 <section id="lifecycle">
-  <h2><span class="num">15</span>The End-to-End Lifecycle</h2>
+  <h2><span class="num">16</span>The End-to-End Lifecycle</h2>
   <p class="lead">How the two journeys interlock, from first contact to a fully repaid loan:</p>
   <div class="flow"><b>BORROWER</b>                              <b>LENDER</b>
-Register + onboard
-Browse marketplace ───connect───►  (or: Settings → invite borrower by email)
-Apply for loan     ───────────►   Applications queue  🔔
-                                  Review → <b>Approve</b> (set rate) or Reject
-        🔔 ◄──────approved──────  Draft loan created → <b>Activate</b>
-My loans: schedule visible        Loan detail: record repayments as money arrives
-        🔔 reminder (due in 3d)   Dashboard: upcoming / overdue tables
-        🔔 ◄──────overdue───────  Daily sweep flags <b>In arrears</b>
-Loan completed ✓                  Loan completed ✓ → statement PDF, CSV exports</div>
+Register + complete profile (ID, bank, address)
+Browse marketplace ───connect───►  (or: Settings → invite borrower)
+Apply (profile ID + bank auto) ─►  Applications queue  🔔
+                                  Review checklist → Approve / Reject
+        🔔 ◄──────approved──────  Draft loan → <b>Activate</b> → <b>Disburse</b>
+Wallet credited ◄───────────────  Lender wallet debited
+<b>Pay from wallet</b> ──────────►  Repayment + wallet credit (instant)
+  (or Report bank payment + proof ► Confirm → wallet credit)
+        🔔 reminder (due in 3d)   Dashboard: collected / available funds
+Loan completed ✓                  Loan completed ✓</div>
 </section>
 
-<!-- ═══════════════ 16. PERMISSIONS ═══════════════ -->
+<!-- ═══════════════ 17. PERMISSIONS ═══════════════ -->
 <section id="permissions">
-  <h2><span class="num">16</span>Who Can Do What</h2>
+  <h2><span class="num">17</span>Who Can Do What</h2>
   <table>
     <tr><th>Action</th><th>Admin</th><th>Loan officer</th><th>Viewer</th><th>Borrower</th></tr>
     <tr><td>View dashboard, loans, borrowers, reports</td><td>✔</td><td>✔</td><td>✔</td><td>own data only</td></tr>
     <tr><td>Add/edit borrowers, create loans, record repayments</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
     <tr><td>Approve / reject applications</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
+    <tr><td>Confirm / reject borrower payment submissions</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
     <tr><td>Upload / delete documents</td><td>✔</td><td>✔</td><td>download only</td><td>—</td></tr>
     <tr><td>Delete borrowers</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
     <tr><td>Team, settings, audit log</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-    <tr><td>Connect to lenders, submit/withdraw applications</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
+    <tr><td>Connect to lenders, submit/withdraw applications, pay from wallet / report bank payment</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
+    <tr><td>View/edit own profile, wallet</td><td>✔</td><td>✔</td><td>✔</td><td>✔</td></tr>
     <tr><td>View own loans, schedules, repayment history</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
   </table>
   <div class="callout good">Viewers see the same screens but without create/edit buttons; if a write is attempted anyway, the API rejects it — and the database's row-level security guarantees no one ever sees another organisation's data.</div>
 </section>
 
 <footer>
-  <p><strong>LMS User Guide</strong> · screenshots captured from the live app (June 2026) with demo data ·
+  <p><strong>LMS User Guide</strong> · updated for wallets, profile KYC, wallet repayments, simplified applications, and edit-mode profile (June 2026) ·
   print to PDF with Ctrl+P · see also the companion <a href="architecture.html">Architecture &amp; Tech Stack Reference</a>.</p>
 </footer>
 </main>

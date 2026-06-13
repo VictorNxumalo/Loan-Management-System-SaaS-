@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { TableSkeleton } from '@/components/brand/skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { LoanStatusBadge } from '@/components/loan-status-badge';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 
@@ -17,17 +18,15 @@ export default function BorrowerLoansPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">My loans</h1>
-          <p className="text-muted-foreground">
-            View loans from lenders you are connected with.
-          </p>
-        </div>
-        <Button variant="outline" asChild>
-          <Link href="/borrower/applications">View applications</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="My loans"
+        description="View loans from lenders you are connected with."
+        actions={
+          <Button variant="outline" asChild>
+            <Link href="/borrower/applications">View applications</Link>
+          </Button>
+        }
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {loading && <TableSkeleton rows={5} />}

@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { TableSkeleton } from '@/components/brand/skeleton';
 import { EmptyState } from '@/components/empty-state';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 import { canManageRecords } from '@/lib/permissions';
@@ -13,6 +14,7 @@ import { useSession } from 'next-auth/react';
 
 export default function LenderApplicationsPage() {
   const { data: session } = useSession();
+  const orgName = session?.organisation?.name;
   const canReview = canManageRecords(session?.user?.role ?? undefined);
   const [statusFilter, setStatusFilter] = useState('SUBMITTED');
 
@@ -26,18 +28,21 @@ export default function LenderApplicationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Loan applications</h1>
-        <p className="text-muted-foreground">
-          Review requests from borrowers connected to your organisation.
-        </p>
-      </div>
+      <PageHeader
+        title="Loan applications"
+        description={
+          orgName
+            ? `Review requests from borrowers connected to ${orgName}.`
+            : 'Review requests from borrowers connected to your organisation.'
+        }
+      />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {['SUBMITTED', 'APPROVED', 'REJECTED', 'WITHDRAWN', ''].map((value) => (
           <Button
             key={value || 'all'}
             size="sm"
+            className="shrink-0"
             variant={statusFilter === value ? 'default' : 'outline'}
             onClick={() => setStatusFilter(value)}
           >
@@ -58,7 +63,11 @@ export default function LenderApplicationsPage() {
       {!loading && applications.length === 0 && !error && (
         <EmptyState
           title="No applications in this view"
-          description="When a connected borrower submits a loan request, it will appear here for review."
+          description={
+            orgName
+              ? `No applications match this filter for ${orgName}. Borrowers must connect with this organisation before they can apply — confirm the workspace name in the header is the lender they joined (e.g. not a different lender account you also own).`
+              : 'When a connected borrower submits a loan request, it will appear here for review.'
+          }
         />
       )}
 

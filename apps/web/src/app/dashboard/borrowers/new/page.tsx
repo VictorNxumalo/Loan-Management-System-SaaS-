@@ -6,8 +6,10 @@ import { createBorrowerSchema } from '@lms/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import type { z } from 'zod';
+import { MoneyInput } from '@/components/money-input';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -38,6 +40,7 @@ export default function NewBorrowerPage() {
   const {
     register,
     handleSubmit,
+    control,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<BorrowerForm>({
@@ -102,10 +105,12 @@ export default function NewBorrowerPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Add borrower</h1>
-        <p className="text-muted-foreground">Create a new borrower profile</p>
-      </div>
+      <PageHeader
+        backHref="/dashboard/borrowers"
+        backLabel="Back to borrowers"
+        title="Add borrower"
+        description="Create a new borrower profile"
+      />
 
       <Card>
         <CardHeader>
@@ -213,11 +218,19 @@ export default function NewBorrowerPage() {
             <Field label="Employer" error={errors.employer?.message}>
               <Input id="employer" {...register('employer')} />
             </Field>
-            <Field label="Monthly income (cents)" error={errors.monthlyIncomeCents?.message}>
-              <Input
-                id="monthlyIncomeCents"
-                type="number"
-                {...register('monthlyIncomeCents', { valueAsNumber: true })}
+            <Field label="Monthly income" error={errors.monthlyIncomeCents?.message}>
+              <Controller
+                name="monthlyIncomeCents"
+                control={control}
+                render={({ field }) => (
+                  <MoneyInput
+                    id="monthlyIncome"
+                    label=""
+                    valueCents={field.value ?? null}
+                    onChangeCents={(cents) => field.onChange(cents ?? undefined)}
+                    className="space-y-0"
+                  />
+                )}
               />
             </Field>
             <div className="flex gap-3">

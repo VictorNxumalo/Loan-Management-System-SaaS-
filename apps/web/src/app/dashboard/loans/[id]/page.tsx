@@ -7,7 +7,9 @@ import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { CardSkeleton } from '@/components/brand/skeleton';
+import { MoneyInput } from '@/components/money-input';
 import { DocumentUploadPanel } from '@/components/document-upload-panel';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,7 +29,7 @@ export default function LoanDetailPage() {
   const params = useParams<{ id: string }>();
   const [loan, setLoan] = useState<LoanDetailDto | null>(null);
   const [repayments, setRepayments] = useState<RepaymentDto[]>([]);
-  const [amountCents, setAmountCents] = useState('');
+  const [amountCents, setAmountCents] = useState<number | null>(null);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,21 @@ export default function LoanDetailPage() {
   useEffect(() => {
     void load().catch((err: Error) => setError(err.message));
   }, [api, params.id]);
+
+  const handleDisburse = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await api<LoanDetailDto>(`/loans/${params.id}/disburse`, {
+        method: 'POST',
+      });
+      setLoan(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disburse loan');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleActivate = async () => {
     setLoading(true);
@@ -68,12 +85,12 @@ export default function LoanDetailPage() {
       await api(`/loans/${params.id}/repayments`, {
         method: 'POST',
         body: JSON.stringify({
-          amountCents: Number(amountCents),
+          amountCents: amountCents ?? 0,
           paymentDate,
           note: note || undefined,
         }),
       });
-      setAmountCents('');
+      setAmountCents(null);
       setNote('');
       await load();
     } catch (err) {
@@ -97,10 +114,10 @@ export default function LoanDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Loan details</h1>
-          <p className="text-muted-foreground">
+      <PageHeader
+        title="Loan details"
+        description={
+          <>
             <Link
               href={`/dashboard/borrowers/${loan.borrowerId}`}
               className="text-primary hover:underline"
@@ -108,14 +125,32 @@ export default function LoanDetailPage() {
               {loan.borrowerName}
             </Link>{' '}
             · {loan.principalFormatted} · {loan.status}
-          </p>
-        </div>
-        {loan.status === 'DRAFT' && (
-          <Button onClick={() => void handleActivate()} disabled={loading}>
-            Activate loan
-          </Button>
-        )}
-      </div>
+            {loan.disbursementStatus === 'COMPLETED' && loan.disbursedAt
+              ? ` · Disbursed ${loan.disbursedAt.slice(0, 10)}`
+              : ''}
+          </>
+        }
+        actions={
+          <>
+            {loan.status === 'DRAFT' && canManage ? (
+              <Button onClick={() => void handleActivate()} disabled={loading}>
+                Activate loan
+              </Button>
+            ) : null}
+            {(loan.status === 'ACTIVE' || loan.status === 'IN_ARREARS') &&
+            canManage &&
+            loan.disbursementStatus !== 'COMPLETED' ? (
+              <Button
+                variant="secondary"
+                onClick={() => void handleDisburse()}
+                disabled={loading}
+              >
+                Disburse funds
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryCard title="Total scheduled" value={loan.totalScheduledFormatted} />
@@ -139,16 +174,14 @@ export default function LoanDetailPage() {
           <CardHeader>
             <CardTitle>Record repayment</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="amountCents">Amount (cents)</Label>
-              <Input
-                id="amountCents"
-                type="number"
-                value={amountCents}
-                onChange={(e) => setAmountCents(e.target.value)}
-              />
-            </div>
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <MoneyInput
+              id="repayment-amount"
+              label="Repayment amount"
+              valueCents={amountCents}
+              onChangeCents={setAmountCents}
+              required
+            />
             <div className="space-y-2">
               <Label htmlFor="paymentDate">Payment date</Label>
               <Input
@@ -163,7 +196,10 @@ export default function LoanDetailPage() {
               <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
             <div className="md:col-span-3">
-              <Button onClick={() => void handleRepayment()} disabled={loading || !amountCents}>
+              <Button
+                onClick={() => void handleRepayment()}
+                disabled={loading || !amountCents || amountCents <= 0}
+              >
                 Record repayment
               </Button>
             </div>

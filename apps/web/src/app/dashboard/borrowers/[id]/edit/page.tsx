@@ -5,8 +5,10 @@ import { createBorrowerSchema, type BorrowerDetailDto } from '@lms/types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import type { z } from 'zod';
+import { MoneyInput } from '@/components/money-input';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,6 +27,7 @@ export default function EditBorrowerPage() {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<BorrowerForm>({
     resolver: zodResolver(createBorrowerSchema),
@@ -61,9 +64,12 @@ export default function EditBorrowerPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Edit borrower</h1>
-      </div>
+      <PageHeader
+        backHref={`/dashboard/borrowers/${params.id}`}
+        backLabel="Back to borrower"
+        title="Edit borrower"
+        description="Update contact and profile details"
+      />
       <Card>
         <CardHeader>
           <CardTitle>Borrower details</CardTitle>
@@ -89,10 +95,19 @@ export default function EditBorrowerPage() {
             <Field label="Employer" error={errors.employer?.message}>
               <Input {...register('employer')} />
             </Field>
-            <Field label="Monthly income (cents)" error={errors.monthlyIncomeCents?.message}>
-              <Input
-                type="number"
-                {...register('monthlyIncomeCents', { valueAsNumber: true })}
+            <Field label="Monthly income" error={errors.monthlyIncomeCents?.message}>
+              <Controller
+                name="monthlyIncomeCents"
+                control={control}
+                render={({ field }) => (
+                  <MoneyInput
+                    id="monthlyIncome"
+                    label=""
+                    valueCents={field.value ?? null}
+                    onChangeCents={(cents) => field.onChange(cents ?? undefined)}
+                    className="space-y-0"
+                  />
+                )}
               />
             </Field>
             <div className="flex gap-3">

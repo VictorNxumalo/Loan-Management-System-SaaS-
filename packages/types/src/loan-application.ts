@@ -35,14 +35,15 @@ export const createLoanApplicationDraftSchema = z.object({
   frequency: repaymentFrequencySchema,
   startDate: z.coerce.date(),
   purpose: z.string().min(1).max(1000).optional(),
-  bankDetails: bankDetailsSchema,
+  /** Omitted when applying — copied from the borrower's linked profile wallet bank account */
+  bankDetails: bankDetailsSchema.optional(),
 });
 
 /** @deprecated Use createLoanApplicationDraftSchema — kept as alias for imports */
 export const submitLoanApplicationSchema = createLoanApplicationDraftSchema;
 
 export const requestApplicationDocumentUploadSchema = z.object({
-  documentType: z.enum(['ID_COPY', 'BANK_STATEMENT']),
+  documentType: z.enum(['ID_COPY']),
   filename: z.string().min(1).max(255),
   contentType: z.string().min(1).max(128),
   sizeBytes: z.number().int().positive().max(10_485_760),
@@ -56,17 +57,13 @@ export const APPLICATION_REVIEW_CHECKLIST_ITEMS = [
   {
     id: 'idVerified',
     label: 'SA ID verified',
-    description: 'ID document matches the borrower profile and appears authentic.',
+    description:
+      'Profile ID document was attached to the application and appears authentic.',
   },
   {
     id: 'bankDetailsVerified',
     label: 'Bank details verified',
     description: 'Account holder, bank, branch code, and account number are complete and consistent.',
-  },
-  {
-    id: 'statementsVerified',
-    label: 'Bank statements reviewed',
-    description: 'Required bank statements were received and reviewed.',
   },
   {
     id: 'affordabilityReviewed',
@@ -86,7 +83,6 @@ export type ApplicationReviewChecklistItemId =
 export const applicationReviewChecklistSchema = z.object({
   idVerified: z.boolean(),
   bankDetailsVerified: z.boolean(),
-  statementsVerified: z.boolean(),
   affordabilityReviewed: z.boolean(),
   purposePlausible: z.boolean(),
 });

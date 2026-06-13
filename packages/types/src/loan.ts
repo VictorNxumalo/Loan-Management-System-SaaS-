@@ -95,6 +95,8 @@ export interface LoanDetailDto {
   frequency: string;
   startDate: string;
   status: string;
+  disbursementStatus: string;
+  disbursedAt: string | null;
   totalScheduledFormatted: string;
   totalPaidFormatted: string;
   outstandingBalanceFormatted: string;

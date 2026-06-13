@@ -126,8 +126,6 @@ function toChecklistAnswers(
     idVerified: checklist.items.find((item) => item.id === 'idVerified')?.checked ?? false,
     bankDetailsVerified:
       checklist.items.find((item) => item.id === 'bankDetailsVerified')?.checked ?? false,
-    statementsVerified:
-      checklist.items.find((item) => item.id === 'statementsVerified')?.checked ?? false,
     affordabilityReviewed:
       checklist.items.find((item) => item.id === 'affordabilityReviewed')?.checked ?? false,
     purposePlausible:

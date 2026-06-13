@@ -18,14 +18,15 @@ import type {
   SchedulePreviewResultDto,
   UpdateLoanInput,
 } from '@lms/types';
-import { LoanStatus } from '@lms/types';
+import { LoanStatus, DisbursementStatus } from '@lms/types';
 import { previewRepaymentSchedule } from '@lms/utils';
 import { AuditService } from '../audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { formatCents } from '../common/money';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
 import { LoanBalanceService } from './loan-balance.service';
 import { LoansScheduleService } from './loans-schedule.service';
+import { WalletsService } from '../wallets/wallets.service';
 
 @Injectable()
 export class LoansService {
@@ -35,6 +36,7 @@ export class LoansService {
     private readonly loanBalanceService: LoanBalanceService,
     private readonly auditService: AuditService,
     private readonly billingService: BillingService,
+    private readonly walletsService: WalletsService,
   ) {}
 
   previewSchedule(input: PreviewScheduleInputDto): SchedulePreviewResultDto {
@@ -318,6 +320,74 @@ export class LoansService {
     return this.getById(orgId, userId, id);
   }
 
+  /**
+   * Explicit disburse step after activation — debits lender wallet and credits borrower wallet.
+   * Kept separate from activate() so existing activate flow is unchanged.
+   */
+  async disburse(orgId: string, userId: string, id: string): Promise<LoanDetailDto> {
+    await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const loan = await tx.loan.findFirst({
+        where: { id, orgId, deletedAt: null },
+        include: {
+          borrower: true,
+          loanApplication: { select: { borrowerUserId: true } },
+        },
+      });
+
+      if (!loan) {
+        throw new NotFoundException('Loan not found');
+      }
+
+      if (loan.status !== LoanStatus.ACTIVE && loan.status !== LoanStatus.IN_ARREARS) {
+        throw new BadRequestException('Only active loans can be disbursed');
+      }
+
+      if (loan.disbursementStatus === DisbursementStatus.COMPLETED) {
+        throw new BadRequestException('Loan has already been disbursed');
+      }
+
+      const borrowerUserId =
+        loan.borrower.platformUserId ?? loan.loanApplication?.borrowerUserId;
+
+      if (!borrowerUserId) {
+        throw new BadRequestException(
+          'Borrower is not linked to a platform account; cannot disburse to wallet',
+        );
+      }
+
+      await this.walletsService.recordDisbursement(tx, {
+        orgId,
+        userId,
+        loanId: loan.id,
+        borrowerUserId,
+        amountCents: loan.principalCents,
+      });
+
+      await tx.loan.update({
+        where: { id },
+        data: {
+          disbursementStatus: DisbursementStatus.COMPLETED,
+          disbursedAt: new Date(),
+        },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'loan.disbursed',
+        entityType: 'LOAN',
+        entityId: id,
+        after: {
+          amountCents: loan.principalCents,
+          borrowerUserId,
+          disbursementStatus: DisbursementStatus.COMPLETED,
+        },
+      });
+    });
+
+    return this.getById(orgId, userId, id);
+  }
+
   async listRepayments(
     orgId: string,
     userId: string,
@@ -348,85 +418,107 @@ export class LoansService {
     loanId: string,
     input: CreateRepaymentInput,
   ): Promise<RecordRepaymentResultDto> {
-    return this.prisma.withOrgContext(orgId, userId, async (tx) => {
-      const loan = await tx.loan.findFirst({
-        where: { id: loanId, orgId, deletedAt: null },
-        include: {
-          repaymentSchedules: true,
-          repayments: true,
-        },
-      });
+    return this.prisma.withOrgContext(orgId, userId, async (tx) =>
+      this.recordRepaymentInTx(tx, orgId, userId, loanId, input),
+    );
+  }
 
-      if (!loan) {
-        throw new NotFoundException('Loan not found');
-      }
+  async recordRepaymentInTx(
+    tx: PrismaTx,
+    orgId: string,
+    userId: string,
+    loanId: string,
+    input: CreateRepaymentInput,
+    options?: { syncWalletCredit?: boolean; repaymentId?: string },
+  ): Promise<RecordRepaymentResultDto> {
+    const loan = await tx.loan.findFirst({
+      where: { id: loanId, orgId, deletedAt: null },
+      include: {
+        repaymentSchedules: true,
+        repayments: true,
+      },
+    });
 
-      if (loan.status !== LoanStatus.ACTIVE && loan.status !== LoanStatus.IN_ARREARS) {
-        throw new UnprocessableEntityException(
-          'Repayments can only be recorded on active or in-arrears loans',
-        );
-      }
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
 
-      const snapshot = this.loanBalanceService.computeFromData(
-        loan.repaymentSchedules,
-        loan.repayments,
-        loan.status,
+    if (loan.status !== LoanStatus.ACTIVE && loan.status !== LoanStatus.IN_ARREARS) {
+      throw new UnprocessableEntityException(
+        'Repayments can only be recorded on active or in-arrears loans',
       );
+    }
 
-      if (input.amountCents > snapshot.outstandingCents) {
-        throw new BadRequestException(
-          `Repayment amount exceeds outstanding balance (${formatCents(snapshot.outstandingCents)})`,
-        );
-      }
+    const snapshot = this.loanBalanceService.computeFromData(
+      loan.repaymentSchedules,
+      loan.repayments,
+      loan.status,
+    );
 
-      const repayment = await tx.repayment.create({
-        data: {
-          loanId,
-          orgId,
-          amountCents: input.amountCents,
-          paymentDate: input.paymentDate,
-          recordedByUserId: userId,
-          note: input.note?.trim() || null,
-        },
-        include: { recordedBy: true },
-      });
-
-      const updatedRepayments = [...loan.repayments, repayment];
-      const newSnapshot = this.loanBalanceService.computeFromData(
-        loan.repaymentSchedules,
-        updatedRepayments,
-        loan.status,
+    if (input.amountCents > snapshot.outstandingCents) {
+      throw new BadRequestException(
+        `Repayment amount exceeds outstanding balance (${formatCents(snapshot.outstandingCents)})`,
       );
+    }
 
-      await tx.loan.update({
-        where: { id: loanId },
-        data: { status: newSnapshot.resolvedStatus },
-      });
+    const repayment = await tx.repayment.create({
+      data: {
+        ...(options?.repaymentId ? { id: options.repaymentId } : {}),
+        loanId,
+        orgId,
+        amountCents: input.amountCents,
+        paymentDate: input.paymentDate,
+        recordedByUserId: userId,
+        note: input.note?.trim() || null,
+      },
+      include: { recordedBy: true },
+    });
 
-      await this.auditService.record(tx, {
+    const updatedRepayments = [...loan.repayments, repayment];
+    const newSnapshot = this.loanBalanceService.computeFromData(
+      loan.repaymentSchedules,
+      updatedRepayments,
+      loan.status,
+    );
+
+    await tx.loan.update({
+      where: { id: loanId },
+      data: { status: newSnapshot.resolvedStatus },
+    });
+
+    await this.auditService.record(tx, {
+      orgId,
+      userId,
+      action: 'repayment.recorded',
+      entityType: 'REPAYMENT',
+      entityId: repayment.id,
+      after: {
+        loanId,
+        amountCents: input.amountCents,
+        paymentDate: input.paymentDate,
+        loanStatusAfter: newSnapshot.resolvedStatus,
+      },
+    });
+
+    if (options?.syncWalletCredit !== false) {
+      await this.walletsService.creditOrgWalletForRepaymentInTx(tx, {
         orgId,
         userId,
-        action: 'repayment.recorded',
-        entityType: 'REPAYMENT',
-        entityId: repayment.id,
-        after: {
-          loanId,
-          amountCents: input.amountCents,
-          paymentDate: input.paymentDate,
-          loanStatusAfter: newSnapshot.resolvedStatus,
-        },
+        loanId,
+        repaymentId: repayment.id,
+        amountCents: input.amountCents,
       });
+    }
 
-      return {
-        repayment: this.mapRepayment(repayment),
-        loan: {
-          id: loanId,
-          status: newSnapshot.resolvedStatus,
-          totalPaidFormatted: formatCents(newSnapshot.totalPaidCents),
-          outstandingBalanceFormatted: formatCents(newSnapshot.outstandingCents),
-        },
-      };
-    });
+    return {
+      repayment: this.mapRepayment(repayment),
+      loan: {
+        id: loanId,
+        status: newSnapshot.resolvedStatus,
+        totalPaidFormatted: formatCents(newSnapshot.totalPaidCents),
+        outstandingBalanceFormatted: formatCents(newSnapshot.outstandingCents),
+      },
+    };
   }
 
   private mapListItem(row: {
@@ -468,6 +560,8 @@ export class LoansService {
     frequency: string;
     startDate: Date;
     status: string;
+    disbursementStatus: string;
+    disbursedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
     borrower: { fullName: string };
@@ -499,6 +593,8 @@ export class LoansService {
       frequency: row.frequency,
       startDate: row.startDate.toISOString().slice(0, 10),
       status: row.status,
+      disbursementStatus: row.disbursementStatus,
+      disbursedAt: row.disbursedAt?.toISOString() ?? null,
       totalScheduledFormatted: formatCents(snapshot.totalScheduledCents),
       totalPaidFormatted: formatCents(snapshot.totalPaidCents),
       outstandingBalanceFormatted: formatCents(snapshot.outstandingCents),

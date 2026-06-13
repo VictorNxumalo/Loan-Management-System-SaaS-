@@ -77,7 +77,7 @@ export class LoanApplicationsService {
     borrowerUserId: string,
     input: CreateLoanApplicationDraftInput,
   ): Promise<LoanApplicationDetailDto> {
-    await this.lendingConstraints.assertCanEngageWithLender(borrowerUserId, input.orgId);
+    await this.lendingConstraints.assertCanApplyForLoan(borrowerUserId, input.orgId);
 
     return this.prisma.withUserContext(borrowerUserId, null, async (tx) => {
       const link = await tx.borrowerLenderLink.findUnique({
@@ -111,6 +111,10 @@ export class LoanApplicationsService {
         );
       }
 
+      const bankDetails =
+        input.bankDetails ??
+        (await this.resolveBorrowerProfileBankDetails(tx, borrowerUserId));
+
       const created = await tx.loanApplication.create({
         data: {
           orgId: input.orgId,
@@ -122,10 +126,10 @@ export class LoanApplicationsService {
           startDate: input.startDate,
           purpose: input.purpose?.trim() || null,
           status: LoanApplicationStatus.DRAFT,
-          bankAccountHolder: input.bankDetails.accountHolder,
-          bankName: input.bankDetails.bankName,
-          bankBranchCode: input.bankDetails.branchCode,
-          bankAccountNumber: input.bankDetails.accountNumber,
+          bankAccountHolder: bankDetails.accountHolder,
+          bankName: bankDetails.bankName,
+          bankBranchCode: bankDetails.branchCode,
+          bankAccountNumber: bankDetails.accountNumber,
         },
         include: {
           organisation: true,
@@ -166,6 +170,7 @@ export class LoanApplicationsService {
       throw new NotFoundException('Draft application not found');
     }
 
+    await this.lendingConstraints.assertCanSubmitDraftApplication(borrowerUserId);
     await this.lendingConstraints.assertCanEngageWithLender(
       borrowerUserId,
       application.orgId,
@@ -685,6 +690,30 @@ export class LoanApplicationsService {
       loanId: row.loanId,
       submittedAt: row.createdAt.toISOString(),
       reviewedAt: row.reviewedAt?.toISOString() ?? null,
+    };
+  }
+
+  private async resolveBorrowerProfileBankDetails(
+    tx: PrismaTx,
+    borrowerUserId: string,
+  ): Promise<ApplicationBankDetailsDto> {
+    const wallet = await tx.wallet.findFirst({
+      where: { ownerUserId: borrowerUserId },
+      include: { bankAccount: true },
+    });
+
+    const bankAccount = wallet?.bankAccount;
+    if (!bankAccount) {
+      throw new BadRequestException(
+        'Link a bank account in your profile before applying for a loan',
+      );
+    }
+
+    return {
+      accountHolder: bankAccount.accountHolder,
+      bankName: bankAccount.bankName,
+      branchCode: bankAccount.branchCode,
+      accountNumber: bankAccount.accountNumber,
     };
   }
 

@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { PageLoading } from '@/components/brand/loading';
 import { LoanStatusBadge } from '@/components/loan-status-badge';
+import { PayFromWalletDialog } from '@/components/pay-from-wallet-dialog';
 import { PayLenderDialog } from '@/components/pay-lender-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,8 @@ import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 
 export default function BorrowerLoanDetailPage() {
   const params = useParams<{ id: string }>();
-  const [payOpen, setPayOpen] = useState(false);
+  const [walletPayOpen, setWalletPayOpen] = useState(false);
+  const [externalPayOpen, setExternalPayOpen] = useState(false);
   const { data: loan, error, loading, refetch } = useAuthenticatedQuery<BorrowerLoanDetailDto>(
     params.id ? `/borrower/loans/${params.id}` : null,
   );
@@ -22,11 +24,18 @@ export default function BorrowerLoanDetailPage() {
     return (
       <>
         <PageLoading label="Loading loan…" />
+        <PayFromWalletDialog
+          loanId={params.id}
+          outstandingFormatted="—"
+          open={walletPayOpen}
+          onClose={() => setWalletPayOpen(false)}
+          onSubmitted={() => void refetch({ silent: true })}
+        />
         <PayLenderDialog
           loanId={params.id}
           outstandingFormatted="—"
-          open={payOpen}
-          onClose={() => setPayOpen(false)}
+          open={externalPayOpen}
+          onClose={() => setExternalPayOpen(false)}
           onSubmitted={() => void refetch({ silent: true })}
         />
       </>
@@ -43,6 +52,11 @@ export default function BorrowerLoanDetailPage() {
       </div>
     );
   }
+
+  const inProgressPayments = loan.pendingPayments.filter(
+    (payment) => payment.status === 'AWAITING_PROOF' || payment.status === 'PENDING',
+  );
+  const rejectedPayments = loan.pendingPayments.filter((payment) => payment.status === 'REJECTED');
 
   return (
     <div className="space-y-6">
@@ -94,26 +108,57 @@ export default function BorrowerLoanDetailPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
           <CardTitle>Repayment history</CardTitle>
-          {loan.canSubmitPayment && (
-            <Button size="sm" onClick={() => setPayOpen(true)}>
-              Pay lender
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {loan.canPayFromWallet && (
+              <Button size="sm" onClick={() => setWalletPayOpen(true)}>
+                Pay from wallet
+              </Button>
+            )}
+            {loan.canReportExternalPayment && (
+              <Button size="sm" variant="outline" onClick={() => setExternalPayOpen(true)}>
+                Report bank payment
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {loan.pendingPayments.length > 0 && (
+          {inProgressPayments.length > 0 && (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-              <p className="font-medium text-amber-900">Pending payments</p>
+              <p className="font-medium text-amber-900">Awaiting lender review</p>
               <ul className="mt-2 space-y-1 text-amber-800">
-                {loan.pendingPayments.map((payment) => (
+                {inProgressPayments.map((payment) => (
                   <li key={payment.id}>
                     {payment.amountFormatted} on {payment.paymentDate} — {payment.statusLabel}
-                    {payment.reviewNote ? ` (${payment.reviewNote})` : ''}
+                    {payment.referenceNote ? ` (${payment.referenceNote})` : ''}
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {rejectedPayments.length > 0 && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm">
+              <p className="font-medium text-red-900">Rejected payments</p>
+              <ul className="mt-2 space-y-2 text-red-800">
+                {rejectedPayments.map((payment) => (
+                  <li key={payment.id}>
+                    <span>
+                      {payment.amountFormatted} on {payment.paymentDate}
+                    </span>
+                    {payment.reviewNote && (
+                      <span className="mt-1 block text-red-900">
+                        Lender note: {payment.reviewNote}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {loan.canReportExternalPayment && (
+                <p className="mt-2 text-red-900">
+                  You can submit a new payment with updated proof using Report bank payment.
+                </p>
+              )}
             </div>
           )}
           <div className="overflow-x-auto rounded-md border">
@@ -180,11 +225,18 @@ export default function BorrowerLoanDetailPage() {
         </CardContent>
       </Card>
 
+      <PayFromWalletDialog
+        loanId={loan.id}
+        outstandingFormatted={loan.outstandingBalanceFormatted}
+        open={walletPayOpen}
+        onClose={() => setWalletPayOpen(false)}
+        onSubmitted={() => void refetch({ silent: true })}
+      />
       <PayLenderDialog
         loanId={loan.id}
         outstandingFormatted={loan.outstandingBalanceFormatted}
-        open={payOpen}
-        onClose={() => setPayOpen(false)}
+        open={externalPayOpen}
+        onClose={() => setExternalPayOpen(false)}
         onSubmitted={() => void refetch({ silent: true })}
       />
     </div>

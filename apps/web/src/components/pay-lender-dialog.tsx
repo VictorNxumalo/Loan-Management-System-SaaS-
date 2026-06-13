@@ -2,6 +2,7 @@
 
 import type { DocumentUploadUrlDto, PaymentSubmissionDetailDto } from '@lms/types';
 import { useEffect, useState } from 'react';
+import { MoneyInput } from '@/components/money-input';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -30,7 +31,7 @@ export function PayLenderDialog({
   onSubmitted: () => void;
 }) {
   const api = useApi();
-  const [amountCents, setAmountCents] = useState('');
+  const [amountCents, setAmountCents] = useState<number | null>(null);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [referenceNote, setReferenceNote] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -42,7 +43,7 @@ export function PayLenderDialog({
       return;
     }
 
-    setAmountCents('');
+    setAmountCents(null);
     setPaymentDate(new Date().toISOString().slice(0, 10));
     setReferenceNote('');
     setFile(null);
@@ -61,6 +62,11 @@ export function PayLenderDialog({
       return;
     }
 
+    if (!amountCents || amountCents <= 0) {
+      setError('Enter a valid payment amount');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -70,7 +76,7 @@ export function PayLenderDialog({
         {
           method: 'POST',
           body: JSON.stringify({
-            amountCents: Number(amountCents),
+            amountCents,
             paymentDate,
             referenceNote: referenceNote.trim() || undefined,
           }),
@@ -118,29 +124,26 @@ export function PayLenderDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <Card className="w-full max-w-lg">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+      <Card className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-b-none sm:rounded-b-xl sm:shadow-xl">
         <CardHeader>
-          <CardTitle>Pay lender</CardTitle>
+          <CardTitle>Report bank payment</CardTitle>
           <CardDescription>
-            Report a payment you made outside the app. Your lender will review your proof
-            and record it in repayment history. Outstanding balance: {outstandingFormatted}.
+            Use this if you already paid your lender from your bank account outside
+            the app. Your lender will review your proof before recording the
+            repayment. Outstanding balance: {outstandingFormatted}.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="pay-amount">Amount (cents)</Label>
-              <Input
-                id="pay-amount"
-                type="number"
-                min={1}
-                required
-                value={amountCents}
-                onChange={(e) => setAmountCents(e.target.value)}
-              />
-            </div>
+            <MoneyInput
+              id="pay-amount"
+              label="Payment amount"
+              valueCents={amountCents}
+              onChangeCents={setAmountCents}
+              required
+            />
             <div className="space-y-2">
               <Label htmlFor="pay-date">Payment date</Label>
               <Input
@@ -181,11 +184,11 @@ export function PayLenderDialog({
                 </p>
               )}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" disabled={loading} onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={loading}>
                 {loading ? 'Submitting…' : 'Submit to lender'}
               </Button>
             </div>

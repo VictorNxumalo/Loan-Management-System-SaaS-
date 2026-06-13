@@ -14,12 +14,14 @@ import {
 import { formatCents } from '../common/money';
 import { LoanBalanceService } from '../loans/loan-balance.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WalletsService } from '../wallets/wallets.service';
 
 @Injectable()
 export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly loanBalanceService: LoanBalanceService,
+    private readonly walletsService: WalletsService,
   ) {}
 
   async getDashboard(
@@ -52,7 +54,7 @@ export class DashboardService {
         _sum: { amountCents: true },
       });
 
-      let portfolioValueCents = 0;
+      let receivablesCents = 0;
       let loansInArrears = 0;
       const upcoming7: UpcomingRepaymentDto[] = [];
       const upcoming30: UpcomingRepaymentDto[] = [];
@@ -66,7 +68,7 @@ export class DashboardService {
           asOf,
         );
 
-        portfolioValueCents += snapshot.outstandingCents;
+        receivablesCents += snapshot.outstandingCents;
 
         const inArrears =
           snapshot.inArrears || loan.status === LoanStatus.IN_ARREARS;
@@ -128,10 +130,20 @@ export class DashboardService {
           ? 0
           : Math.round((loansInArrears / activeLoans) * 1000) / 10;
 
+      const walletInfo = await this.walletsService.getOrgAvailableBalanceCents(
+        tx,
+        orgId,
+      );
+
       return {
         kpis: {
           activeLoans,
-          portfolioValueFormatted: formatCents(portfolioValueCents),
+          receivablesFormatted: formatCents(receivablesCents),
+          receivablesCents,
+          availableFundsFormatted: formatCents(walletInfo.balanceCents),
+          availableFundsCents: walletInfo.balanceCents,
+          walletConfigured: walletInfo.configured,
+          walletBankLinked: walletInfo.bankLinked,
           repaymentsThisMonthFormatted: formatCents(
             repaymentsThisMonth._sum.amountCents ?? 0,
           ),

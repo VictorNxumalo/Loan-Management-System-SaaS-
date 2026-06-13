@@ -50,6 +50,10 @@ export class NotificationDispatchService implements OnModuleInit {
       case NotificationType.PAYMENT_SUBMITTED:
         await this.processPaymentSubmitted(data);
         break;
+      case NotificationType.PAYMENT_CONFIRMED:
+      case NotificationType.PAYMENT_REJECTED:
+        await this.processPaymentDecision(data);
+        break;
       default:
         this.logger.warn(`Unknown notification event: ${(data as NotificationJobData).eventType}`);
     }
@@ -148,6 +152,52 @@ export class NotificationDispatchService implements OnModuleInit {
       borrowerName: input.borrowerName,
       amountFormatted: formatCents(input.amountCents),
       paymentDate: input.paymentDate,
+    });
+  }
+
+  async notifyPaymentConfirmed(input: {
+    orgId: string;
+    paymentSubmissionId: string;
+    loanId: string;
+    borrowerUserId: string;
+    organisationName: string;
+    amountCents: number;
+    paymentDate: string;
+  }) {
+    await this.enqueue({
+      eventType: NotificationType.PAYMENT_CONFIRMED,
+      dedupKey: `payment-confirmed:${input.paymentSubmissionId}`,
+      orgId: input.orgId,
+      paymentSubmissionId: input.paymentSubmissionId,
+      loanId: input.loanId,
+      borrowerUserId: input.borrowerUserId,
+      organisationName: input.organisationName,
+      amountFormatted: formatCents(input.amountCents),
+      paymentDate: input.paymentDate,
+    });
+  }
+
+  async notifyPaymentRejected(input: {
+    orgId: string;
+    paymentSubmissionId: string;
+    loanId: string;
+    borrowerUserId: string;
+    organisationName: string;
+    amountCents: number;
+    paymentDate: string;
+    reviewNote: string;
+  }) {
+    await this.enqueue({
+      eventType: NotificationType.PAYMENT_REJECTED,
+      dedupKey: `payment-rejected:${input.paymentSubmissionId}`,
+      orgId: input.orgId,
+      paymentSubmissionId: input.paymentSubmissionId,
+      loanId: input.loanId,
+      borrowerUserId: input.borrowerUserId,
+      organisationName: input.organisationName,
+      amountFormatted: formatCents(input.amountCents),
+      paymentDate: input.paymentDate,
+      reviewNote: input.reviewNote,
     });
   }
 
@@ -412,6 +462,73 @@ export class NotificationDispatchService implements OnModuleInit {
         data.paymentDate,
         link,
       );
+    }
+  }
+
+  private async processPaymentDecision(
+    data: Extract<
+      NotificationJobData,
+      {
+        eventType:
+          | typeof NotificationType.PAYMENT_CONFIRMED
+          | typeof NotificationType.PAYMENT_REJECTED;
+      }
+    >,
+  ) {
+    const borrower = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findUnique({
+        where: { id: data.borrowerUserId },
+        include: { borrowerAccount: true },
+      }),
+    );
+
+    if (!borrower) {
+      return;
+    }
+
+    const link = this.notificationsService.appUrl(`/borrower/loans/${data.loanId}`);
+    const confirmed = data.eventType === NotificationType.PAYMENT_CONFIRMED;
+    const title = confirmed ? 'Payment recorded' : 'Payment not accepted';
+    const body = confirmed
+      ? `${data.organisationName} confirmed your payment of ${data.amountFormatted} on ${data.paymentDate}.`
+      : `${data.organisationName} could not accept your payment of ${data.amountFormatted}. ${data.reviewNote ? `Reason: ${data.reviewNote}` : ''}`.trim();
+
+    await this.notificationsService.createInApp({
+      orgId: data.orgId,
+      userId: data.borrowerUserId,
+      type: data.eventType,
+      title,
+      body,
+      dedupKey: data.dedupKey,
+      relatedEntityType: 'PAYMENT_SUBMISSION',
+      relatedEntityId: data.paymentSubmissionId,
+    });
+
+    if (confirmed) {
+      await this.emailService.sendPaymentConfirmedEmail(
+        borrower.email,
+        data.organisationName,
+        data.amountFormatted,
+        data.paymentDate,
+        link,
+      );
+    } else {
+      await this.emailService.sendPaymentRejectedEmail(
+        borrower.email,
+        data.organisationName,
+        data.amountFormatted,
+        data.paymentDate,
+        data.reviewNote ?? 'No reason provided',
+        link,
+      );
+    }
+
+    const phone = borrower.borrowerAccount?.phone;
+    if (phone) {
+      const smsBody = confirmed
+        ? `${data.organisationName} recorded your LMS payment of ${data.amountFormatted}.`
+        : `${data.organisationName} could not accept your reported payment. Check the app for details.`;
+      await this.smsService.send(phone, smsBody, data.eventType);
     }
   }
 }

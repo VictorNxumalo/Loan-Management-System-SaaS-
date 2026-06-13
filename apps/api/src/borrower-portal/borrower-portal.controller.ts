@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { organisationSettingsSchema } from '@lms/types';
+import { organisationLogoUploadSchema, organisationSettingsSchema } from '@lms/types';
 import { UserRole } from '@lms/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AccessTokenPayload } from '../auth/token.service';
@@ -63,6 +63,16 @@ export class BorrowerPortalController {
 @UseGuards(JwtAuthGuard, LenderGuard, PlanGuard, RolesGuard)
 export class SettingsController {
   constructor(private readonly lenderSettingsService: LenderSettingsService) {}
+
+  @Post('organisation/logo/upload-url')
+  @Roles(UserRole.ADMIN)
+  requestLogoUploadUrl(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body(new ZodValidationPipe(organisationLogoUploadSchema))
+    body: Parameters<LenderSettingsService['requestLogoUploadUrl']>[2],
+  ) {
+    return this.lenderSettingsService.requestLogoUploadUrl(user.orgId!, user.sub, body);
+  }
 
   @Patch('organisation')
   @Roles(UserRole.ADMIN)

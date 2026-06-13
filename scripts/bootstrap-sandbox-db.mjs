@@ -6,12 +6,14 @@
  *
  * .env.sandbox.local should contain DATABASE_URL and DIRECT_URL (gitignored).
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, renameSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const rootEnvPath = join(root, '.env');
+const rootEnvBackup = join(root, '.env.bootstrap-bak');
 
 function loadEnvFile(path) {
   if (!existsSync(path)) {
@@ -49,12 +51,35 @@ if (!process.env.DATABASE_URL || !process.env.DIRECT_URL) {
 }
 
 console.log('Running prisma migrate deploy against sandbox database…');
-const result = spawnSync('pnpm', ['db:migrate:deploy'], {
-  cwd: root,
-  stdio: 'inherit',
-  env: process.env,
-  shell: true,
-});
+const host = process.env.DIRECT_URL?.replace(/:[^:@/]+@/, ':***@') ?? '(unknown)';
+console.log(`Target (direct): ${host}`);
+
+// Prisma always loads repo `.env` — hide it so sandbox credentials are used.
+let restoredRootEnv = false;
+if (existsSync(rootEnvPath)) {
+  renameSync(rootEnvPath, rootEnvBackup);
+  restoredRootEnv = true;
+}
+
+const childEnv = {
+  ...process.env,
+  DATABASE_URL: process.env.DATABASE_URL,
+  DIRECT_URL: process.env.DIRECT_URL,
+};
+
+let result;
+try {
+  result = spawnSync('pnpm', ['db:migrate:deploy'], {
+    cwd: root,
+    stdio: 'inherit',
+    env: childEnv,
+    shell: true,
+  });
+} finally {
+  if (restoredRootEnv && existsSync(rootEnvBackup)) {
+    renameSync(rootEnvBackup, rootEnvPath);
+  }
+}
 
 if (result.status !== 0) {
   process.exit(result.status ?? 1);

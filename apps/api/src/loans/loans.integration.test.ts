@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoanBalanceService } from './loan-balance.service';
 import { LoansScheduleService } from './loans-schedule.service';
 import { LoansService } from './loans.service';
+import { WalletsService } from '../wallets/wallets.service';
 
 const runIntegration = Boolean(process.env.DATABASE_URL);
 
@@ -16,12 +17,17 @@ describe.runIf(runIntegration)('LoansService integration', () => {
   const billingService = {
     assertActiveLoanCapacity: async () => {},
   } as unknown as BillingService;
+  const walletsService = {
+    recordDisbursement: async () => {},
+    creditOrgWalletForRepaymentInTx: async () => {},
+  } as unknown as WalletsService;
   const loansService = new LoansService(
     prisma,
     scheduleService,
     balanceService,
     new AuditService(prisma),
     billingService,
+    walletsService,
   );
 
   let orgId = '';

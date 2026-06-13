@@ -85,6 +85,12 @@ export class LoansController {
     return this.loansService.activate(user.orgId!, user.sub, id);
   }
 
+  @Post(':id/disburse')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
+  disburse(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.loansService.disburse(user.orgId!, user.sub, id);
+  }
+
   @Get(':id/repayments')
   listRepayments(
     @CurrentUser() user: AccessTokenPayload,

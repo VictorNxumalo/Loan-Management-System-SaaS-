@@ -22,7 +22,9 @@ import { PaymentSubmissionsModule } from './payment-submissions/payment-submissi
 import { ReportsModule } from './reports/reports.module';
 import { SmsModule } from './sms/sms.module';
 import { StorageModule } from './storage/storage.module';
+import { ProfileModule } from './profile/profile.module';
 import { TeamModule } from './team/team.module';
+import { WalletsModule } from './wallets/wallets.module';
 
 @Module({
   imports: [
@@ -52,6 +54,8 @@ import { TeamModule } from './team/team.module';
     NotificationsModule,
     DocumentsModule,
     ReportsModule,
+    WalletsModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [

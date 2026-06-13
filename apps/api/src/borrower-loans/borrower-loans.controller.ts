@@ -1,5 +1,5 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { listBorrowerLoansQuerySchema } from '@lms/types';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { listBorrowerLoansQuerySchema, payFromWalletSchema } from '@lms/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AccessTokenPayload } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -24,5 +24,15 @@ export class BorrowerLoansController {
   @Get(':id')
   getById(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.borrowerLoansService.getById(user.sub, id);
+  }
+
+  @Post(':id/pay-from-wallet')
+  payFromWallet(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(payFromWalletSchema))
+    body: Parameters<BorrowerLoansService['payFromWallet']>[2],
+  ) {
+    return this.borrowerLoansService.payFromWallet(user.sub, id, body);
   }
 }

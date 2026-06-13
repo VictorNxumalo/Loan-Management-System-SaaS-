@@ -5,4 +5,4 @@ export { LmsLoader, PageLoading, InlineLoading, LoadingOverlay, AsyncContent } f
 export { LmsIcon, LmsLogo, LmsLoaderMark } from './logo';
 export { Reveal, StaggerGroup } from './reveal';
 export { Skeleton, CardSkeleton, TableSkeleton, KpiSkeletonGrid } from './skeleton';
-export { ShellHeader, ShellNotifications, ShellUserMeta } from './shell-header';
+export { ShellDrawerUser, ShellHeader, ShellLogoutButton, ShellNotifications, ShellUserMeta } from './shell-header';

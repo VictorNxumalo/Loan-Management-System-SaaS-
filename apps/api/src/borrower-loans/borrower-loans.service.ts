@@ -1,9 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   BorrowerLoanDetailDto,
   BorrowerLoanListItemDto,
   ListBorrowerLoansQuery,
   PaginatedBorrowerLoansDto,
+  PayFromWalletInput,
+  PayFromWalletResultDto,
 } from '@lms/types';
 import {
   BORROWER_LOAN_STATUS_LABELS,
@@ -13,9 +19,12 @@ import {
   PaymentSubmissionStatus,
 } from '@lms/types';
 import { computeDaysOverdue } from '@lms/utils';
+import { randomUUID } from 'crypto';
 import { formatCents } from '../common/money';
-import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
 import { LoanBalanceService } from '../loans/loan-balance.service';
+import { LoansService } from '../loans/loans.service';
+import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
+import { WalletsService } from '../wallets/wallets.service';
 
 interface AccessibleLoansFilter {
   orgIds: string[];
@@ -27,6 +36,8 @@ export class BorrowerLoansService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly loanBalanceService: LoanBalanceService,
+    private readonly loansService: LoansService,
+    private readonly walletsService: WalletsService,
   ) {}
 
   async list(
@@ -130,6 +141,88 @@ export class BorrowerLoansService {
     });
   }
 
+  async payFromWallet(
+    userId: string,
+    loanId: string,
+    input: PayFromWalletInput,
+  ): Promise<PayFromWalletResultDto> {
+    const paymentDate = input.paymentDate ?? new Date();
+
+    const loanOrgId = await this.prisma.withUserContext(userId, null, async (tx) => {
+      const access = await this.resolveAccessibleLoansFilter(tx, userId);
+      if (!access) {
+        throw new NotFoundException('Loan not found');
+      }
+
+      const loan = await tx.loan.findFirst({
+        where: {
+          id: loanId,
+          orgId: { in: access.orgIds },
+          borrowerId: { in: access.borrowerIds },
+          deletedAt: null,
+        },
+      });
+
+      if (!loan) {
+        throw new NotFoundException('Loan not found');
+      }
+
+      const pending = await tx.paymentSubmission.findFirst({
+        where: {
+          loanId,
+          submittedByUserId: userId,
+          status: {
+            in: [
+              PaymentSubmissionStatus.AWAITING_PROOF,
+              PaymentSubmissionStatus.PENDING,
+            ],
+          },
+        },
+      });
+
+      if (pending) {
+        throw new BadRequestException(
+          'You already have a payment awaiting lender review on this loan',
+        );
+      }
+
+      return loan.orgId;
+    });
+
+    return this.prisma.withUserContext(userId, loanOrgId, async (tx) => {
+      const repaymentId = randomUUID();
+
+      await this.walletsService.recordRepayment(tx, {
+        orgId: loanOrgId,
+        userId,
+        loanId,
+        borrowerUserId: userId,
+        repaymentId,
+        amountCents: input.amountCents,
+      });
+
+      const repaymentResult = await this.loansService.recordRepaymentInTx(
+        tx,
+        loanOrgId,
+        userId,
+        loanId,
+        {
+          amountCents: input.amountCents,
+          paymentDate,
+          note: input.note?.trim() || 'Paid from LMS wallet',
+        },
+        { syncWalletCredit: false, repaymentId },
+      );
+
+      const wallet = await this.walletsService.getOrCreateBorrowerWallet(tx, userId);
+
+      return {
+        ...repaymentResult,
+        walletAvailableBalanceFormatted: formatCents(wallet.availableBalanceCents),
+      };
+    });
+  }
+
   private async resolveAccessibleLoansFilter(
     tx: PrismaTx,
     userId: string,
@@ -202,6 +295,7 @@ export class BorrowerLoansService {
       statusLabel: this.statusLabel(displayStatus),
       startDate: row.startDate.toISOString().slice(0, 10),
       outstandingBalanceFormatted: formatCents(snapshot.outstandingCents),
+      outstandingBalanceCents: snapshot.outstandingCents,
       createdAt: row.createdAt.toISOString(),
     };
   }
@@ -258,6 +352,18 @@ export class BorrowerLoansService {
         ? computeDaysOverdue(row.repaymentSchedules, snapshot.totalPaidCents)
         : null;
 
+    const hasOpenPaymentReview = pendingPayments.some(
+      (payment) =>
+        payment.status === PaymentSubmissionStatus.AWAITING_PROOF ||
+        payment.status === PaymentSubmissionStatus.PENDING,
+    );
+
+    const canRepay =
+      (displayStatus === LoanStatus.ACTIVE ||
+        displayStatus === LoanStatus.IN_ARREARS) &&
+      !hasOpenPaymentReview &&
+      snapshot.outstandingCents > 0;
+
     return {
       id: row.id,
       orgId: row.orgId,
@@ -300,14 +406,9 @@ export class BorrowerLoansService {
         submittedAt: payment.submittedAt?.toISOString() ?? null,
         reviewNote: payment.reviewNote,
       })),
-      canSubmitPayment:
-        (displayStatus === LoanStatus.ACTIVE ||
-          displayStatus === LoanStatus.IN_ARREARS) &&
-        !pendingPayments.some(
-          (payment) =>
-            payment.status === PaymentSubmissionStatus.AWAITING_PROOF ||
-            payment.status === PaymentSubmissionStatus.PENDING,
-        ),
+      canPayFromWallet: canRepay,
+      canReportExternalPayment: canRepay,
+      canSubmitPayment: canRepay,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

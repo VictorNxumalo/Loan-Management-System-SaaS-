@@ -62,6 +62,8 @@ export function LmsLogo({
   showWordmark = true,
   showTagline = false,
   showSubtitle = false,
+  /** Icon only — hides the LMS wordmark (for compact headers) */
+  compact = false,
   className,
   inverted = false,
   variant = 'auto',
@@ -71,6 +73,7 @@ export function LmsLogo({
   showWordmark?: boolean;
   showTagline?: boolean;
   showSubtitle?: boolean;
+  compact?: boolean;
   className?: string;
   inverted?: boolean;
   variant?: BrandIconVariant | 'auto';
@@ -92,7 +95,7 @@ export function LmsLogo({
         )}
       />
       {showWordmark && (
-        <div className="min-w-0 leading-none">
+        <div className={cn('min-w-0 leading-none', compact && 'hidden sm:block')}>
           <p
             className={cn(
               'font-bold tracking-tight',

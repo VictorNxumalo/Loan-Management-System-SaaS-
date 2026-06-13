@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { canManageRecords } from '@/lib/permissions';
@@ -30,19 +31,17 @@ export default function BorrowersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">People I lend to</h1>
-          <p className="text-muted-foreground">
-            Profiles for people who receive loans from your organisation
-          </p>
-        </div>
-        {canManage && (
-          <Button asChild>
-            <Link href="/dashboard/borrowers/new">Add borrower</Link>
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="People I lend to"
+        description="Profiles for people who receive loans from your organisation"
+        actions={
+          canManage ? (
+            <Button asChild>
+              <Link href="/dashboard/borrowers/new">Add borrower</Link>
+            </Button>
+          ) : undefined
+        }
+      />
 
       <Input
         placeholder="Search by name or ID number"

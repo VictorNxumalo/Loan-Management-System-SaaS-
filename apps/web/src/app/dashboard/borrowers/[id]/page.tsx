@@ -11,6 +11,7 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { CardSkeleton } from '@/components/brand/skeleton';
 import { DocumentUploadPanel } from '@/components/document-upload-panel';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiDownload } from '@/lib/api-download';
@@ -58,36 +59,41 @@ export default function BorrowerDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{borrower.fullName}</h1>
-          <p className="text-muted-foreground">{borrower.idNumber}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={!session?.accessToken}
-            onClick={() => {
-              if (!session?.accessToken) {
-                return;
-              }
-              void apiDownload(
-                `/reports/borrowers/${borrower.id}/statement.pdf`,
-                session.accessToken,
-                'statement.pdf',
-              ).catch((err: Error) => setError(err.message));
-            }}
-          >
-            Download statement PDF
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href={`/dashboard/borrowers/${borrower.id}/edit`}>Edit</Link>
-          </Button>
-          <Button asChild>
-            <Link href={`/dashboard/loans/new?borrowerId=${borrower.id}`}>New loan</Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={borrower.fullName}
+        description={borrower.idNumber}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              disabled={!session?.accessToken}
+              onClick={() => {
+                if (!session?.accessToken) {
+                  return;
+                }
+                void apiDownload(
+                  `/reports/borrowers/${borrower.id}/statement.pdf`,
+                  session.accessToken,
+                  'statement.pdf',
+                ).catch((err: Error) => setError(err.message));
+              }}
+            >
+              <span className="hidden sm:inline">Download statement PDF</span>
+              <span className="sm:hidden">Statement PDF</span>
+            </Button>
+            {canManage && (
+              <>
+                <Button variant="outline" asChild>
+                  <Link href={`/dashboard/borrowers/${borrower.id}/edit`}>Edit</Link>
+                </Button>
+                <Button asChild>
+                  <Link href={`/dashboard/loans/new?borrowerId=${borrower.id}`}>New loan</Link>
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard title="Total loans" value={String(borrower.summary.totalLoans)} />
