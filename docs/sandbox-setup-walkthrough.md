@@ -117,10 +117,11 @@ Use your **existing** Render service or create from `render.sandbox.yaml`.
 
 1. [Vercel Dashboard](https://vercel.com) → **Add New… → Project**.
 2. Import the **same GitHub repo** (`Loan-Management-System-SaaS-`).
-3. **Configure:**
-   - **Root Directory:** `apps/web`
-   - Framework: Next.js (auto)
-4. Before first deploy → **Environment Variables** (apply to **Production** on *this* project — meaning deploys from the production branch of this project):
+3. **Configure (required):**
+   - **Root Directory:** click **Edit** → **`apps/web`** → Continue
+   - Framework: **Next.js**
+   - Enable **“Include source files outside of the Root Directory in the Build Step”** (monorepo workspace packages)
+4. Before first deploy → **Environment Variables** (apply to **Production** on *this* project):
 
    | Variable | Value |
    |----------|--------|
@@ -139,6 +140,12 @@ Use your **existing** Render service or create from `render.sandbox.yaml`.
 8. Update Render sandbox `NEXTAUTH_URL` to this URL → redeploy API.
 
 You should see an **amber “Sandbox environment”** banner on the site.
+
+### Vercel build failed with `@lms/api` / `nest build`?
+
+The project is building the **API** instead of **web**. Logs show `Branch: main` and `@lms/api@0.1.0 build`.
+
+**Fix:** **Settings → General → Root Directory** = `apps/web`, enable include-outside-root, **Settings → Git → Production Branch** = `staging`, then **Redeploy**.
 
 ---
 

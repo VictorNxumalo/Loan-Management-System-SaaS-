@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "comment": "Fallback when a Vercel project is imported at repo root without Root Directory=apps/web. Prefer setting Root Directory to apps/web in the Vercel dashboard (uses apps/web/vercel.json).",
+  "installCommand": "NODE_ENV=development pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @lms/types build && pnpm --filter @lms/utils build && pnpm --filter @lms/web build",
+  "outputDirectory": "apps/web/.next"
+}
