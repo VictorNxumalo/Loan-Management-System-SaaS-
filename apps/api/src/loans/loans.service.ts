@@ -18,15 +18,19 @@ import type {
   SchedulePreviewResultDto,
   UpdateLoanInput,
 } from '@lms/types';
-import { LoanStatus, DisbursementStatus } from '@lms/types';
-import { previewRepaymentSchedule } from '@lms/utils';
+import { LoanStatus, DisbursementStatus, InterestType } from '@lms/types';
+import { buildLoanAgreementHtml, previewRepaymentSchedule } from '@lms/utils';
 import { AuditService } from '../audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { formatCents } from '../common/money';
+import { assertAnnualRateWithinNcaCap } from '../common/nca-rate.util';
 import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
+import { getNcrRepoRatePercent } from '../config/env';
+import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 import { LoanBalanceService } from './loan-balance.service';
 import { LoansScheduleService } from './loans-schedule.service';
 import { WalletsService } from '../wallets/wallets.service';
+import { StitchLoanDisbursementService } from '../stitch/stitch-loan-disbursement.service';
 
 @Injectable()
 export class LoansService {
@@ -37,6 +41,8 @@ export class LoansService {
     private readonly auditService: AuditService,
     private readonly billingService: BillingService,
     private readonly walletsService: WalletsService,
+    private readonly stitchLoanDisbursement: StitchLoanDisbursementService,
+    private readonly notificationDispatch: NotificationDispatchService,
   ) {}
 
   previewSchedule(input: PreviewScheduleInputDto): SchedulePreviewResultDto {
@@ -92,6 +98,8 @@ export class LoansService {
     userId: string,
     input: CreateLoanInput,
   ): Promise<LoanDetailDto> {
+    assertAnnualRateWithinNcaCap(input.annualRate);
+
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const borrower = await tx.borrower.findFirst({
         where: { id: input.borrowerId, orgId, deletedAt: null },
@@ -145,6 +153,7 @@ export class LoansService {
           borrower: true,
           repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
           repayments: true,
+          stitchDisbursement: true,
         },
       });
 
@@ -160,6 +169,7 @@ export class LoansService {
           borrower: true,
           repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
           repayments: true,
+          stitchDisbursement: true,
         },
       });
 
@@ -201,6 +211,10 @@ export class LoansService {
 
       if (loan.status !== LoanStatus.DRAFT) {
         throw new BadRequestException('Only draft loans can be updated');
+      }
+
+      if (input.annualRate !== undefined) {
+        assertAnnualRateWithinNcaCap(input.annualRate);
       }
 
       if (input.borrowerId) {
@@ -260,6 +274,7 @@ export class LoansService {
           borrower: true,
           repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
           repayments: true,
+          stitchDisbursement: true,
         },
       });
 
@@ -288,9 +303,14 @@ export class LoansService {
   async activate(orgId: string, userId: string, id: string): Promise<LoanDetailDto> {
     await this.billingService.assertActiveLoanCapacity(orgId, userId);
 
-    await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+    const activationContext = await this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loan = await tx.loan.findFirst({
         where: { id, orgId, deletedAt: null },
+        include: {
+          borrower: true,
+          organisation: true,
+          loanApplication: { select: { borrowerUserId: true } },
+        },
       });
 
       if (!loan) {
@@ -315,21 +335,46 @@ export class LoansService {
         before: { status: LoanStatus.DRAFT },
         after: { status: LoanStatus.ACTIVE },
       });
+
+      const borrowerUserId =
+        loan.borrower.platformUserId ?? loan.loanApplication?.borrowerUserId ?? null;
+
+      return {
+        borrowerUserId,
+        borrowerName: loan.borrower.fullName,
+        organisationName: loan.organisation.name,
+        principalCents: loan.principalCents,
+      };
     });
+
+    if (activationContext.borrowerUserId) {
+      void this.notificationDispatch.notifyLoanActivated({
+        orgId,
+        loanId: id,
+        borrowerUserId: activationContext.borrowerUserId,
+        organisationName: activationContext.organisationName,
+        principalCents: activationContext.principalCents,
+      });
+    }
 
     return this.getById(orgId, userId, id);
   }
 
   /**
-   * Explicit disburse step after activation — debits lender wallet and credits borrower wallet.
-   * Kept separate from activate() so existing activate flow is unchanged.
+   * Disburse after activation — internal wallet (demo) or Stitch payout to borrower bank.
    */
   async disburse(orgId: string, userId: string, id: string): Promise<LoanDetailDto> {
-    await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+    if (this.stitchLoanDisbursement.isEnabled()) {
+      await this.stitchLoanDisbursement.initiateLoanDisbursement(orgId, userId, id);
+      return this.getById(orgId, userId, id);
+    }
+
+    const disburseContext = await this.prisma.withOrgContext(orgId, userId, async (tx) => {
       const loan = await tx.loan.findFirst({
         where: { id, orgId, deletedAt: null },
         include: {
           borrower: true,
+          organisation: true,
           loanApplication: { select: { borrowerUserId: true } },
         },
       });
@@ -383,9 +428,69 @@ export class LoansService {
           disbursementStatus: DisbursementStatus.COMPLETED,
         },
       });
+
+      return {
+        borrowerUserId,
+        borrowerName: loan.borrower.fullName,
+        organisationName: loan.organisation.name,
+        amountCents: loan.principalCents,
+      };
+    });
+
+    void this.notificationDispatch.notifyLoanDisbursed({
+      orgId,
+      loanId: id,
+      borrowerUserId: disburseContext.borrowerUserId,
+      borrowerName: disburseContext.borrowerName,
+      organisationName: disburseContext.organisationName,
+      amountCents: disburseContext.amountCents,
     });
 
     return this.getById(orgId, userId, id);
+  }
+
+  async generateLoanAgreementHtml(
+    orgId: string,
+    userId: string,
+    id: string,
+  ): Promise<string> {
+    return this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const loan = await tx.loan.findFirst({
+        where: { id, orgId, deletedAt: null },
+        include: {
+          borrower: true,
+          organisation: true,
+        },
+      });
+
+      if (!loan) {
+        throw new NotFoundException('Loan not found');
+      }
+
+      const interestLabels: Record<string, string> = {
+        [InterestType.FLAT]: 'Flat rate',
+        [InterestType.REDUCING]: 'Reducing balance',
+      };
+      const frequencyLabels: Record<string, string> = {
+        MONTHLY: 'monthly',
+        WEEKLY: 'weekly',
+        FORTNIGHTLY: 'fortnightly',
+      };
+
+      return buildLoanAgreementHtml({
+        organisationName: loan.organisation.name,
+        borrowerName: loan.borrower.fullName,
+        principalFormatted: formatCents(loan.principalCents),
+        annualRatePercent: Number(loan.interestRate),
+        interestTypeLabel: interestLabels[loan.interestType] ?? loan.interestType,
+        termPeriods: loan.termPeriods,
+        frequencyLabel:
+          frequencyLabels[loan.frequency] ?? loan.frequency.toLowerCase(),
+        startDate: loan.startDate.toISOString().slice(0, 10),
+        generatedAt: new Date().toISOString().slice(0, 10),
+        repoRatePercent: getNcrRepoRatePercent(),
+      });
+    });
   }
 
   async listRepayments(
@@ -574,6 +679,20 @@ export class LoansService {
       balanceAfterCents: number;
     }[];
     repayments: { amountCents: number }[];
+    stitchDisbursement?: {
+      id: string;
+      status: import('@prisma/client').StitchDisbursementStatus;
+      statusReason: string | null;
+      stitchDisbursementId: string | null;
+      amountCents: number;
+      beneficiaryName: string;
+      beneficiaryBankId: string;
+      beneficiaryAccountNumber: string;
+      disbursementType: string;
+      createdAt: Date;
+      updatedAt: Date;
+      lastWebhookAt: Date | null;
+    } | null;
   }): LoanDetailDto {
     const snapshot = this.loanBalanceService.computeFromData(
       row.repaymentSchedules,
@@ -608,6 +727,9 @@ export class LoansService {
       })),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
+      stitchDisbursement: row.stitchDisbursement
+        ? this.stitchLoanDisbursement.mapDto(row.stitchDisbursement)
+        : null,
     };
   }
 

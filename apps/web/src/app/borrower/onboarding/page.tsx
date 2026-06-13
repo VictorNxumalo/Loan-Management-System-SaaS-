@@ -9,6 +9,7 @@ import { PageLoading } from '@/components/brand/loading';
 import { LmsLoaderMark } from '@/components/brand/logo';
 import { BankDetailsFields, KycProfileFields } from '@/components/kyc-profile-fields';
 import { KycIdUpload } from '@/components/kyc-id-upload';
+import { OnboardingStepGuide } from '@/components/onboarding-guide';
 import { Button } from '@/components/ui/button';
 import { apiFetch } from '@/lib/api';
 
@@ -98,6 +99,8 @@ export default function BorrowerOnboardingPage() {
           {error}
         </p>
       )}
+
+      <OnboardingStepGuide variant="borrower" step={step} />
 
       <div className="mb-6 flex gap-2 text-xs text-muted-foreground">
         <StepBadge active={step === 1} done={step > 1} label="Details" />

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { interestTypeSchema, loanStatusSchema, paginationQuerySchema, repaymentFrequencySchema } from './schemas';
+import type { LoanStitchDisbursementDto } from './stitch';
 
 export const generateScheduleInputSchema = z.object({
   principalCents: z.number().int().positive(),
@@ -103,6 +104,7 @@ export interface LoanDetailDto {
   schedule: LoanSchedulePeriodDto[];
   createdAt: string;
   updatedAt: string;
+  stitchDisbursement: LoanStitchDisbursementDto | null;
 }
 
 export interface PaginatedLoansDto {

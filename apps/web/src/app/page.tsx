@@ -39,13 +39,13 @@ export default function HomePage() {
   return (
     <MarketingShell>
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <LmsLogo href="/" size="md" showSubtitle />
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" asChild>
+        <div className="mx-auto flex h-14 min-h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
+          <LmsLogo href="/" size="sm" compact className="min-w-0 shrink" />
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <Button variant="ghost" size="sm" className="px-2 sm:px-3" asChild>
               <Link href="/auth/login">Sign in</Link>
             </Button>
-            <Button asChild className="shadow-md shadow-brand-green/20">
+            <Button size="sm" asChild className="px-2 shadow-md shadow-brand-green/20 sm:px-3">
               <Link href="/auth/register?type=lender">Get started</Link>
             </Button>
           </div>

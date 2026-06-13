@@ -147,6 +147,42 @@ export class EmailService {
     await this.send(email, subject, body, 'payment-rejected');
   }
 
+  async sendLoanActivatedEmail(
+    email: string,
+    organisationName: string,
+    principalFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Loan activated — ${organisationName}`;
+    const body = `${organisationName} activated your loan for ${principalFormatted}.\n\nView your loan and await disbursement:\n${link}`;
+
+    await this.send(email, subject, body, 'loan-activated');
+  }
+
+  async sendLoanDisbursedLenderEmail(
+    email: string,
+    borrowerName: string,
+    amountFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Loan disbursed — ${borrowerName}`;
+    const body = `You disbursed ${amountFormatted} to ${borrowerName}.\n\nView the loan:\n${link}`;
+
+    await this.send(email, subject, body, 'loan-disbursed-lender');
+  }
+
+  async sendLoanDisbursedBorrowerEmail(
+    email: string,
+    organisationName: string,
+    amountFormatted: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Funds received — ${organisationName}`;
+    const body = `${organisationName} disbursed ${amountFormatted} to your account.\n\nView your loan:\n${link}`;
+
+    await this.send(email, subject, body, 'loan-disbursed-borrower');
+  }
+
   private async send(
     to: string,
     subject: string,

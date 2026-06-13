@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   Patch,
   Post,
@@ -65,6 +66,12 @@ export class LoansController {
   @Get(':id')
   getById(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.loansService.getById(user.orgId!, user.sub, id);
+  }
+
+  @Get(':id/loan-agreement')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  loanAgreement(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.loansService.generateLoanAgreementHtml(user.orgId!, user.sub, id);
   }
 
   @Patch(':id')

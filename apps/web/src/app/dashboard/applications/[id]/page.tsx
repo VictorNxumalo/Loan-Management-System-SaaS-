@@ -10,6 +10,11 @@ import { useState } from 'react';
 import { ApplicationStatusBadge } from '@/components/application-status-badge';
 import { ApplicationReviewChecklistPanel } from '@/components/application-review-checklist';
 import { PageLoading } from '@/components/brand/loading';
+import {
+  GenerateLoanAgreementButton,
+  LoanAgreementNcaNotice,
+  NcaRateHint,
+} from '@/components/loan-agreement-panel';
 import { LenderApplicationDocumentsPanel } from '@/components/lender-application-documents-panel';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -19,6 +24,7 @@ import { useApi } from '@/lib/use-api';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
 import { canManageRecords } from '@/lib/permissions';
 import { useSession } from 'next-auth/react';
+import { isAnnualRateWithinNcaCap } from '@lms/utils';
 
 export default function LenderApplicationDetailPage() {
   const api = useApi();
@@ -37,6 +43,9 @@ export default function LenderApplicationDetailPage() {
   const [rejectNotes, setRejectNotes] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | null>(null);
+
+  const parsedRate = Number(annualRate);
+  const rateWithinNcaCap = isAnnualRateWithinNcaCap(parsedRate);
 
   const approve = async () => {
     setActionLoading('approve');
@@ -211,6 +220,7 @@ export default function LenderApplicationDetailPage() {
               Creates a borrower record (if needed) and a draft loan you can review and
               activate.
             </p>
+            <LoanAgreementNcaNotice />
             {!application.reviewChecklist.isComplete && (
               <p className="text-sm text-amber-800">
                 Complete and save the review checklist first.
@@ -222,11 +232,17 @@ export default function LenderApplicationDetailPage() {
                 id="annualRate"
                 type="number"
                 min={0}
+                max={100}
                 step="0.01"
                 value={annualRate}
                 onChange={(e) => setAnnualRate(e.target.value)}
               />
+              <NcaRateHint annualRate={parsedRate} />
             </div>
+            <GenerateLoanAgreementButton
+              agreementPath={`/applications/${params.id}/loan-agreement?annualRate=${encodeURIComponent(annualRate)}`}
+              disabled={!rateWithinNcaCap || Number.isNaN(parsedRate)}
+            />
             <div className="space-y-2">
               <Label htmlFor="approveNotes">Notes (optional)</Label>
               <Input
@@ -236,7 +252,12 @@ export default function LenderApplicationDetailPage() {
               />
             </div>
             <Button
-              disabled={actionLoading !== null || !application.reviewChecklist.isComplete}
+              disabled={
+                actionLoading !== null ||
+                !application.reviewChecklist.isComplete ||
+                !rateWithinNcaCap ||
+                Number.isNaN(parsedRate)
+              }
               onClick={() => void approve()}
             >
               {actionLoading === 'approve' ? 'Approving…' : 'Approve application'}

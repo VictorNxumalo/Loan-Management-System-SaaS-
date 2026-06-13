@@ -80,6 +80,17 @@ enum DocumentEntityType {
 enum PaymentProvider {
   MANUAL
   STRIPE
+  STITCH
+}
+
+enum StitchDisbursementStatus {
+  PENDING
+  SUBMITTED
+  COMPLETED
+  ERROR
+  PAUSED
+  CANCELLED
+  REVERSED
 }
 
 enum PaymentSubmissionStatus {
@@ -153,6 +164,8 @@ model Organisation {
   paymentSubmissions PaymentSubmission[]
   teamInvites       TeamInvite[]
   wallet            Wallet?
+  loanStitchDisbursements LoanStitchDisbursement[]
+  stitchLinkPay     OrganisationStitchLinkPay?
 
   @@map("organisations")
 }
@@ -393,6 +406,7 @@ model Loan {
   repayments         Repayment[]
   loanApplication    LoanApplication?
   paymentSubmissions PaymentSubmission[]
+  stitchDisbursement LoanStitchDisbursement?
 
   @@index([orgId])
   @@index([orgId, status])
@@ -627,4 +641,48 @@ model UserKycDocument {
   @@unique([userId, documentType])
   @@index([userId])
   @@map("user_kyc_documents")
+}
+
+model LoanStitchDisbursement {
+  id                       String                  @id @default(uuid()) @db.Uuid
+  loanId                   String                  @unique @map("loan_id") @db.Uuid
+  orgId                    String                  @map("org_id") @db.Uuid
+  stitchDisbursementId     String?                 @unique @map("stitch_disbursement_id")
+  nonce                    String                  @unique
+  externalReference        String                  @unique @map("external_reference")
+  amountCents              Int                     @map("amount_cents")
+  status                   StitchDisbursementStatus @default(PENDING)
+  statusReason             String?                 @map("status_reason")
+  beneficiaryName          String                  @map("beneficiary_name")
+  beneficiaryAccountNumber String                  @map("beneficiary_account_number")
+  beneficiaryBankId        String                  @map("beneficiary_bank_id")
+  beneficiaryReference     String                  @map("beneficiary_reference")
+  disbursementType         String                  @default("default") @map("disbursement_type")
+  lastWebhookAt            DateTime?               @map("last_webhook_at")
+  createdByUserId          String                  @map("created_by_user_id") @db.Uuid
+  createdAt                DateTime                @default(now()) @map("created_at")
+  updatedAt                DateTime                @updatedAt @map("updated_at")
+
+  loan         Loan         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([status])
+  @@map("loan_stitch_disbursements")
+}
+
+/// LinkPay authorization for lender org — pull funds per loan (phase 2).
+model OrganisationStitchLinkPay {
+  id              String    @id @default(uuid()) @db.Uuid
+  orgId           String    @unique @map("org_id") @db.Uuid
+  refreshToken    String    @map("refresh_token")
+  accessToken     String?   @map("access_token")
+  accessExpiresAt DateTime? @map("access_expires_at")
+  status          String    @default("ACTIVE")
+  linkedAt        DateTime  @default(now()) @map("linked_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("organisation_stitch_linkpay")
 }

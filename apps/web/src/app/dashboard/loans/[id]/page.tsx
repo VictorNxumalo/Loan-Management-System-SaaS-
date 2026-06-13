@@ -7,6 +7,10 @@ import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { CardSkeleton } from '@/components/brand/skeleton';
+import {
+  GenerateLoanAgreementButton,
+  LoanAgreementNcaNotice,
+} from '@/components/loan-agreement-panel';
 import { MoneyInput } from '@/components/money-input';
 import { DocumentUploadPanel } from '@/components/document-upload-panel';
 import { PageHeader } from '@/components/page-header';
@@ -17,10 +21,12 @@ import { Label } from '@/components/ui/label';
 import { canManageRecords } from '@/lib/permissions';
 import { useApi } from '@/lib/use-api';
 
-const loanDocumentTypes = Object.values(LoanDocumentType).map((value) => ({
-  value,
-  label: LOAN_DOCUMENT_LABELS[value],
-}));
+const loanDocumentTypes = [
+  {
+    value: LoanDocumentType.DISBURSEMENT_PROOF,
+    label: LOAN_DOCUMENT_LABELS[LoanDocumentType.DISBURSEMENT_PROOF],
+  },
+];
 
 export default function LoanDetailPage() {
   const api = useApi();
@@ -127,7 +133,11 @@ export default function LoanDetailPage() {
             · {loan.principalFormatted} · {loan.status}
             {loan.disbursementStatus === 'COMPLETED' && loan.disbursedAt
               ? ` · Disbursed ${loan.disbursedAt.slice(0, 10)}`
-              : ''}
+              : loan.disbursementStatus === 'PENDING'
+                ? ' · Disbursement pending (Stitch)'
+                : loan.disbursementStatus === 'FAILED'
+                  ? ' · Disbursement failed'
+                  : ''}
           </>
         }
         actions={
@@ -139,7 +149,8 @@ export default function LoanDetailPage() {
             ) : null}
             {(loan.status === 'ACTIVE' || loan.status === 'IN_ARREARS') &&
             canManage &&
-            loan.disbursementStatus !== 'COMPLETED' ? (
+            loan.disbursementStatus !== 'COMPLETED' &&
+            loan.disbursementStatus !== 'PENDING' ? (
               <Button
                 variant="secondary"
                 onClick={() => void handleDisburse()}
@@ -160,6 +171,49 @@ export default function LoanDetailPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {loan.stitchDisbursement ? (
+        <div
+          className={`rounded-lg border p-4 text-sm ${
+            loan.stitchDisbursement.status === 'COMPLETED'
+              ? 'border-green-200 bg-green-50 text-green-900'
+              : loan.stitchDisbursement.status === 'ERROR' ||
+                  loan.stitchDisbursement.status === 'CANCELLED' ||
+                  loan.stitchDisbursement.status === 'REVERSED'
+                ? 'border-red-200 bg-red-50 text-red-900'
+                : 'border-amber-200 bg-amber-50 text-amber-900'
+          }`}
+        >
+          <p className="font-medium">Stitch bank disbursement — {loan.stitchDisbursement.status}</p>
+          <p className="mt-1 text-muted-foreground">
+            {loan.stitchDisbursement.amountFormatted} to{' '}
+            {loan.stitchDisbursement.beneficiaryName} (
+            {loan.stitchDisbursement.beneficiaryBankId}{' '}
+            {loan.stitchDisbursement.beneficiaryAccountNumberMasked})
+          </p>
+          {loan.stitchDisbursement.statusReason ? (
+            <p className="mt-1">{loan.stitchDisbursement.statusReason}</p>
+          ) : null}
+          {loan.disbursementStatus === 'PENDING' ? (
+            <p className="mt-2 text-xs">
+              Waiting for Stitch to confirm payment to the borrower&apos;s bank. This can take a
+              few minutes.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {canManage && loan.status === 'DRAFT' ? (
+        <div className="rounded-lg border bg-background p-4 space-y-3">
+          <h2 className="font-semibold">Loan agreement</h2>
+          <LoanAgreementNcaNotice />
+          <GenerateLoanAgreementButton agreementPath={`/loans/${loan.id}/loan-agreement`} />
+          <p className="text-xs text-muted-foreground">
+            Use the generated LMS template instead of uploading a separate signed agreement.
+            Optional disbursement proof can still be attached below.
+          </p>
+        </div>
+      ) : null}
 
       <DocumentUploadPanel
         entityType="LOAN"

@@ -24,6 +24,7 @@ import {
 } from '@lms/types';
 import { AuditService } from '../audit/audit.service';
 import { formatCents } from '../common/money';
+import { assertAnnualRateWithinNcaCap } from '../common/nca-rate.util';
 import { BorrowerLendingConstraintsService } from '../borrower-portal/borrower-lending-constraints.service';
 import { PrismaService, PrismaTx } from '../prisma/prisma.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
@@ -468,6 +469,8 @@ export class LoanApplicationsService {
     id: string,
     input: ApproveLoanApplicationInput,
   ): Promise<ApproveLoanApplicationResultDto> {
+    assertAnnualRateWithinNcaCap(input.annualRate);
+
     const platformUser = await this.loadBorrowerPlatformUser(id, orgId, userId);
 
     return this.prisma.withOrgContext(orgId, userId, async (tx) => {

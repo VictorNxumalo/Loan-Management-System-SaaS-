@@ -54,6 +54,19 @@ const envSchema = z.object({
   STRIPE_PRICE_PRO: z.string().optional(),
   STRIPE_PRICE_BUSINESS: z.string().optional(),
   TRIAL_DAYS: z.coerce.number().int().min(1).max(90).default(14),
+  /** Stitch — SA disbursements + LinkPay (https://docs.stitch.money) */
+  STITCH_CLIENT_ID: optionalString,
+  STITCH_CLIENT_SECRET: optionalString,
+  STITCH_WEBHOOK_SECRET: optionalString,
+  /** When true, loan Disburse uses Stitch payout to borrower bank (requires float + credentials). */
+  STITCH_DISBURSEMENTS_ENABLED: z.coerce.boolean().default(false),
+  STITCH_API_BASE: z.string().url().default('https://api.stitch.money/v2'),
+  STITCH_TOKEN_URL: z
+    .string()
+    .url()
+    .default('https://secure.stitch.money/connect/token'),
+  /** SA repo rate (% p.a.) for NCA maximum interest cap calculation */
+  NCR_REPO_RATE_PERCENT: z.coerce.number().positive().max(30).default(8.25),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -125,4 +138,25 @@ export function isStripeConfigured(): boolean {
 
 export function getTrialDays(): number {
   return getEnv().TRIAL_DAYS;
+}
+
+export function isStitchConfigured(): boolean {
+  const env = getEnv();
+  return Boolean(env.STITCH_CLIENT_ID && env.STITCH_CLIENT_SECRET);
+}
+
+export function isStitchDisbursementsEnabled(): boolean {
+  return isStitchConfigured() && getEnv().STITCH_DISBURSEMENTS_ENABLED;
+}
+
+export function getStitchApiBaseUrl(): string {
+  return getEnv().STITCH_API_BASE.replace(/\/$/, '');
+}
+
+export function getStitchTokenUrl(): string {
+  return getEnv().STITCH_TOKEN_URL;
+}
+
+export function getNcrRepoRatePercent(): number {
+  return getEnv().NCR_REPO_RATE_PERCENT;
 }

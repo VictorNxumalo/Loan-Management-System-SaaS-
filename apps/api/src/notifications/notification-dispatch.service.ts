@@ -54,6 +54,12 @@ export class NotificationDispatchService implements OnModuleInit {
       case NotificationType.PAYMENT_REJECTED:
         await this.processPaymentDecision(data);
         break;
+      case NotificationType.LOAN_ACTIVATED:
+        await this.processLoanActivated(data);
+        break;
+      case NotificationType.LOAN_DISBURSED:
+        await this.processLoanDisbursed(data);
+        break;
       default:
         this.logger.warn(`Unknown notification event: ${(data as NotificationJobData).eventType}`);
     }
@@ -216,6 +222,44 @@ export class NotificationDispatchService implements OnModuleInit {
       borrowerName: input.borrowerName,
       daysOverdue: input.daysOverdue,
       outstandingFormatted: formatCents(input.outstandingCents),
+    });
+  }
+
+  async notifyLoanActivated(input: {
+    orgId: string;
+    loanId: string;
+    borrowerUserId: string;
+    organisationName: string;
+    principalCents: number;
+  }) {
+    await this.enqueue({
+      eventType: NotificationType.LOAN_ACTIVATED,
+      dedupKey: `loan-activated:${input.loanId}`,
+      orgId: input.orgId,
+      loanId: input.loanId,
+      borrowerUserId: input.borrowerUserId,
+      organisationName: input.organisationName,
+      principalFormatted: formatCents(input.principalCents),
+    });
+  }
+
+  async notifyLoanDisbursed(input: {
+    orgId: string;
+    loanId: string;
+    borrowerUserId: string;
+    borrowerName: string;
+    organisationName: string;
+    amountCents: number;
+  }) {
+    await this.enqueue({
+      eventType: NotificationType.LOAN_DISBURSED,
+      dedupKey: `loan-disbursed:${input.loanId}`,
+      orgId: input.orgId,
+      loanId: input.loanId,
+      borrowerUserId: input.borrowerUserId,
+      borrowerName: input.borrowerName,
+      organisationName: input.organisationName,
+      amountFormatted: formatCents(input.amountCents),
     });
   }
 
@@ -529,6 +573,136 @@ export class NotificationDispatchService implements OnModuleInit {
         ? `${data.organisationName} recorded your LMS payment of ${data.amountFormatted}.`
         : `${data.organisationName} could not accept your reported payment. Check the app for details.`;
       await this.smsService.send(phone, smsBody, data.eventType);
+    }
+  }
+
+  private async processLoanActivated(
+    data: Extract<NotificationJobData, { eventType: typeof NotificationType.LOAN_ACTIVATED }>,
+  ) {
+    const borrower = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findUnique({
+        where: { id: data.borrowerUserId },
+        include: { borrowerAccount: true },
+      }),
+    );
+
+    if (!borrower) {
+      return;
+    }
+
+    const link = this.notificationsService.appUrl(`/borrower/loans/${data.loanId}`);
+    const title = 'Loan activated';
+    const body = `${data.organisationName} activated your loan for ${data.principalFormatted}. Funds will be disbursed once the lender completes disbursement.`;
+
+    await this.notificationsService.createInApp({
+      orgId: data.orgId,
+      userId: data.borrowerUserId,
+      type: NotificationType.LOAN_ACTIVATED,
+      title,
+      body,
+      dedupKey: data.dedupKey,
+      relatedEntityType: 'LOAN',
+      relatedEntityId: data.loanId,
+    });
+
+    await this.emailService.sendLoanActivatedEmail(
+      borrower.email,
+      data.organisationName,
+      data.principalFormatted,
+      link,
+    );
+
+    const phone = borrower.borrowerAccount?.phone;
+    if (phone) {
+      await this.smsService.send(
+        phone,
+        `${data.organisationName} activated your LMS loan for ${data.principalFormatted}.`,
+        NotificationType.LOAN_ACTIVATED,
+      );
+    }
+  }
+
+  private async processLoanDisbursed(
+    data: Extract<NotificationJobData, { eventType: typeof NotificationType.LOAN_DISBURSED }>,
+  ) {
+    const lenderRecipients = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findMany({
+        where: {
+          orgId: data.orgId,
+          deletedAt: null,
+          isActive: true,
+          role: { in: [UserRole.ADMIN, UserRole.LOAN_OFFICER] },
+        },
+        select: { id: true, email: true },
+      }),
+    );
+
+    const lenderLink = this.notificationsService.appUrl(`/dashboard/loans/${data.loanId}`);
+    const lenderTitle = 'Loan disbursed';
+    const lenderBody = `You disbursed ${data.amountFormatted} to ${data.borrowerName}.`;
+
+    for (const recipient of lenderRecipients) {
+      const dedupKey = `${data.dedupKey}:lender:${recipient.id}`;
+
+      await this.notificationsService.createInApp({
+        orgId: data.orgId,
+        userId: recipient.id,
+        type: NotificationType.LOAN_DISBURSED,
+        title: lenderTitle,
+        body: lenderBody,
+        dedupKey,
+        relatedEntityType: 'LOAN',
+        relatedEntityId: data.loanId,
+      });
+
+      await this.emailService.sendLoanDisbursedLenderEmail(
+        recipient.email,
+        data.borrowerName,
+        data.amountFormatted,
+        lenderLink,
+      );
+    }
+
+    const borrower = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findUnique({
+        where: { id: data.borrowerUserId },
+        include: { borrowerAccount: true },
+      }),
+    );
+
+    if (!borrower) {
+      return;
+    }
+
+    const borrowerLink = this.notificationsService.appUrl(`/borrower/loans/${data.loanId}`);
+    const borrowerTitle = 'Funds disbursed';
+    const borrowerBody = `${data.organisationName} disbursed ${data.amountFormatted} to your account.`;
+
+    await this.notificationsService.createInApp({
+      orgId: data.orgId,
+      userId: data.borrowerUserId,
+      type: NotificationType.LOAN_DISBURSED,
+      title: borrowerTitle,
+      body: borrowerBody,
+      dedupKey: `${data.dedupKey}:borrower`,
+      relatedEntityType: 'LOAN',
+      relatedEntityId: data.loanId,
+    });
+
+    await this.emailService.sendLoanDisbursedBorrowerEmail(
+      borrower.email,
+      data.organisationName,
+      data.amountFormatted,
+      borrowerLink,
+    );
+
+    const phone = borrower.borrowerAccount?.phone;
+    if (phone) {
+      await this.smsService.send(
+        phone,
+        `${data.organisationName} disbursed ${data.amountFormatted} to your LMS wallet/account.`,
+        NotificationType.LOAN_DISBURSED,
+      );
     }
   }
 }

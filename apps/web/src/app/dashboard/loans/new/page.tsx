@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { MoneyInput } from '@/components/money-input';
+import { NcaRateHint } from '@/components/loan-agreement-panel';
 import { PageLoading } from '@/components/brand/loading';
 import { BorrowerSearch } from '@/components/borrower-search';
 import { PageHeader } from '@/components/page-header';
@@ -148,6 +149,7 @@ function NewLoanPageContent() {
               value={annualRate}
               onChange={(e) => setAnnualRate(e.target.value)}
             />
+            <NcaRateHint annualRate={Number(annualRate)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="interestType">Interest type</Label>

@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { AuthShell } from '@/components/brand/auth-shell';
 import { LmsLoaderMark } from '@/components/brand/logo';
+import { SignUpGuide } from '@/components/onboarding-guide';
 import { LegalConsentNotice } from '@/components/legal/legal-consent-notice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +94,8 @@ export function RegisterForm() {
             </Button>
           </div>
         )}
+
+        {!inviteToken && <SignUpGuide accountType={accountType} />}
 
         {message && (
           <p className="rounded-md border border-brand-green/30 bg-brand-green/10 p-3 text-sm text-brand-green motion-safe:animate-fade-in">

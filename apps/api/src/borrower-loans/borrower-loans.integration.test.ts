@@ -6,10 +6,18 @@ import { BorrowerLoansService } from '../borrower-loans/borrower-loans.service';
 import { LoanBalanceService } from '../loans/loan-balance.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
 import { LoansService } from '../loans/loans.service';
+import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 import { WalletsService } from '../wallets/wallets.service';
+import { StitchLoanDisbursementService } from '../stitch/stitch-loan-disbursement.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const runIntegration = Boolean(process.env.DATABASE_URL);
+
+const stitchLoanDisbursementMock = {
+  isEnabled: () => false,
+  mapDto: () => null,
+  initiateLoanDisbursement: async () => {},
+} as unknown as StitchLoanDisbursementService;
 
 describe.runIf(runIntegration)('Borrower loans integration', () => {
   const prisma = new PrismaService();
@@ -21,6 +29,10 @@ describe.runIf(runIntegration)('Borrower loans integration', () => {
   const walletsService = {
     recordDisbursement: async () => {},
   } as unknown as WalletsService;
+  const notificationDispatch = {
+    notifyLoanActivated: async () => {},
+    notifyLoanDisbursed: async () => {},
+  } as unknown as NotificationDispatchService;
   const loansService = new LoansService(
     prisma,
     scheduleService,
@@ -28,8 +40,15 @@ describe.runIf(runIntegration)('Borrower loans integration', () => {
     new AuditService(prisma),
     billingService,
     walletsService,
+    stitchLoanDisbursementMock,
+    notificationDispatch,
   );
-  const borrowerLoansService = new BorrowerLoansService(prisma, balanceService);
+  const borrowerLoansService = new BorrowerLoansService(
+    prisma,
+    balanceService,
+    loansService,
+    walletsService,
+  );
 
   let orgId = '';
   let lenderUserId = '';

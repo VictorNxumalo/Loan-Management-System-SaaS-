@@ -108,7 +108,7 @@ export function LmsLogo({
           {(showSubtitle || size === 'lg' || size === 'hero') && (
             <p
               className={cn(
-                'mt-0.5 font-medium uppercase tracking-[0.14em]',
+                'mt-0.5 hidden font-medium uppercase tracking-[0.14em] sm:block',
                 wordmark.subtitle,
                 inverted ? 'text-white/60' : 'text-muted-foreground',
               )}

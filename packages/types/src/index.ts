@@ -15,3 +15,4 @@ export * from './payment-submission';
 export * from './marketplace';
 export * from './wallet';
 export * from './profile';
+export * from './stitch';

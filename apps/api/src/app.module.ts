@@ -23,6 +23,7 @@ import { ReportsModule } from './reports/reports.module';
 import { SmsModule } from './sms/sms.module';
 import { StorageModule } from './storage/storage.module';
 import { ProfileModule } from './profile/profile.module';
+import { StitchModule } from './stitch/stitch.module';
 import { TeamModule } from './team/team.module';
 import { WalletsModule } from './wallets/wallets.module';
 
@@ -56,6 +57,7 @@ import { WalletsModule } from './wallets/wallets.module';
     ReportsModule,
     WalletsModule,
     ProfileModule,
+    StitchModule,
   ],
   controllers: [AppController],
   providers: [
