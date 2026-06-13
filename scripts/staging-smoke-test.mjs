@@ -24,6 +24,13 @@ const STAGING_TEST_BANK_DETAILS = {
   accountNumber: '62000012345',
 };
 
+const STAGING_LENDER_BANK_DETAILS = {
+  accountHolder: 'Staging Lender',
+  bankName: 'FNB',
+  branchCode: '250655',
+  accountNumber: '62000054321',
+};
+
 const proofPath = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/fake-eft-proof-of-payment.pdf');
 const proofBytes = readFileSync(proofPath);
 
@@ -97,8 +104,9 @@ async function main() {
   console.log(`Lender:  ${lenderEmail}`);
   console.log(`Borrower: ${borrowerEmail}`);
 
-  // ── Lender: register → onboard ─────────────────────────────────
+  // ── Lender: register → ID upload → onboard ─────────────────────
   let { accessToken: lt } = await registerAndLogin('Staging Lender', lenderEmail, 'LENDER');
+  await uploadProfileIdDocument(lt, 'staging-lender-id.pdf', proofBytes);
   await api('/auth/onboarding', {
     method: 'PATCH',
     token: lt,
@@ -106,6 +114,9 @@ async function main() {
       organisationName: `Staging Capital ${runId}`,
       defaultCurrency: 'ZAR',
       defaultInterestType: 'REDUCING',
+      idNumber: '8001015800088',
+      address: '456 Lender Avenue, Cape Town',
+      bankDetails: STAGING_LENDER_BANK_DETAILS,
     },
   });
   ({ accessToken: lt } = await api('/auth/login', {
@@ -128,8 +139,9 @@ async function main() {
   });
   console.log('✓ Lender wallet funded');
 
-  // ── Borrower: register → onboard → connect → apply ─────────────
+  // ── Borrower: register → ID upload → onboard → connect → apply ─
   let { accessToken: bt } = await registerAndLogin('Staging Borrower', borrowerEmail, 'BORROWER');
+  await uploadProfileIdDocument(bt, 'staging-borrower-id.pdf', proofBytes);
   await api('/auth/borrower-onboarding', {
     method: 'PATCH',
     token: bt,
@@ -140,7 +152,6 @@ async function main() {
       bankDetails: STAGING_TEST_BANK_DETAILS,
     },
   });
-  await uploadProfileIdDocument(bt, 'staging-id.pdf', proofBytes);
   ({ accessToken: bt } = await api('/auth/login', {
     method: 'POST',
     body: { email: borrowerEmail, password: PASSWORD },
