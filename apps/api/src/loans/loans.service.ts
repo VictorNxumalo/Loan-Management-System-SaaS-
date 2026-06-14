@@ -11,19 +11,30 @@ import type {
   ListLoansQuery,
   LoanDetailDto,
   LoanListItemDto,
+  LoanPortfolioSummaryDto,
   PaginatedLoansDto,
+  PaymentSubmissionDetailDto,
   PreviewScheduleInputDto,
   RecordRepaymentResultDto,
   RepaymentDto,
   SchedulePreviewResultDto,
   UpdateLoanInput,
 } from '@lms/types';
-import { LoanStatus, DisbursementStatus } from '@lms/types';
-import { previewRepaymentSchedule } from '@lms/utils';
+import { LoanStatus, DisbursementStatus, DocumentEntityType, LoanDocumentType, PaymentSubmissionStatus } from '@lms/types';
+import {
+  previewRepaymentSchedule,
+  buildDisbursementProofHtml,
+  computeDaysOverdue,
+  computeInterestEarnedCents,
+  computeNextUnpaidPeriod,
+  computePaymentsMadeCount,
+} from '@lms/utils';
 import { AuditService } from '../audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { formatCents } from '../common/money';
+import { formatLoanReference } from '../common/loan-reference.util';
 import { assertAnnualRateWithinNcaCap } from '../common/nca-rate.util';
+import { DocumentsService } from '../documents/documents.service';
 import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
 import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 import { LoanBalanceService } from './loan-balance.service';
@@ -44,6 +55,7 @@ export class LoansService {
     private readonly stitchLoanDisbursement: StitchLoanDisbursementService,
     private readonly notificationDispatch: NotificationDispatchService,
     private readonly loanAgreementService: LoanAgreementService,
+    private readonly documentsService: DocumentsService,
   ) {}
 
   previewSchedule(input: PreviewScheduleInputDto): SchedulePreviewResultDto {
@@ -75,7 +87,7 @@ export class LoansService {
           where,
           include: {
             borrower: true,
-            repaymentSchedules: true,
+            repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
             repayments: true,
           },
           orderBy: { createdAt: 'desc' },
@@ -84,13 +96,98 @@ export class LoansService {
         }),
       ]);
 
+      const items = rows.map((row) => this.mapListItem(row));
+
+      const allLoansForSummary = await tx.loan.findMany({
+        where: { orgId, deletedAt: null },
+        include: {
+          repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
+          repayments: true,
+        },
+      });
+      const summary = this.buildPortfolioSummary(allLoansForSummary);
+
       return {
-        items: rows.map((row) => this.mapListItem(row)),
+        items,
+        summary,
         page: query.page,
         limit: query.limit,
         total,
         totalPages: Math.max(1, Math.ceil(total / query.limit)),
       };
+    });
+  }
+
+  async listPendingPaymentSubmissions(
+    orgId: string,
+    userId: string,
+    loanId: string,
+  ): Promise<PaymentSubmissionDetailDto[]> {
+    return this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const loan = await tx.loan.findFirst({
+        where: { id: loanId, orgId, deletedAt: null },
+        include: {
+          borrower: true,
+          organisation: true,
+          repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
+          repayments: true,
+        },
+      });
+
+      if (!loan) {
+        throw new NotFoundException('Loan not found');
+      }
+
+      const rows = await tx.paymentSubmission.findMany({
+        where: {
+          orgId,
+          loanId,
+          status: PaymentSubmissionStatus.PENDING,
+        },
+        orderBy: { submittedAt: 'asc' },
+      });
+
+      const snapshot = this.loanBalanceService.computeFromData(
+        loan.repaymentSchedules,
+        loan.repayments,
+        loan.status,
+      );
+
+      const proofCounts = await tx.document.groupBy({
+        by: ['entityId'],
+        where: {
+          orgId,
+          entityType: DocumentEntityType.PAYMENT_SUBMISSION,
+          entityId: { in: rows.map((row) => row.id) },
+          deletedAt: null,
+        },
+        _count: { _all: true },
+      });
+      const proofBySubmission = new Map(
+        proofCounts.map((row) => [row.entityId, row._count._all > 0]),
+      );
+
+      return rows.map((row) => ({
+        id: row.id,
+        loanId: row.loanId,
+        orgId: row.orgId,
+        amountFormatted: formatCents(row.amountCents),
+        paymentDate: row.paymentDate.toISOString().slice(0, 10),
+        status: row.status,
+        referenceNote: row.referenceNote,
+        submittedAt: row.submittedAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+        borrowerName: loan.borrower.fullName,
+        organisationName: loan.organisation.name,
+        loanPrincipalFormatted: formatCents(loan.principalCents),
+        loanOutstandingFormatted: formatCents(snapshot.outstandingCents),
+        provider: row.provider,
+        externalReference: row.externalReference,
+        reviewNote: row.reviewNote,
+        reviewedAt: row.reviewedAt?.toISOString() ?? null,
+        repaymentId: row.repaymentId,
+        hasProofDocument: proofBySubmission.get(row.id) ?? false,
+      }));
     });
   }
 
@@ -428,6 +525,8 @@ export class LoansService {
         entityType: 'LOAN',
         entityId: id,
         after: {
+          loanId: id,
+          borrowerName: loan.borrower.fullName,
           amountCents: loan.principalCents,
           borrowerUserId,
           disbursementStatus: DisbursementStatus.COMPLETED,
@@ -435,12 +534,34 @@ export class LoansService {
       });
 
       return {
+        loan,
         borrowerUserId,
         borrowerName: loan.borrower.fullName,
         organisationName: loan.organisation.name,
         amountCents: loan.principalCents,
       };
     });
+
+    try {
+      await this.documentsService.storeGeneratedContent(orgId, userId, {
+        entityType: DocumentEntityType.LOAN,
+        entityId: id,
+        documentType: LoanDocumentType.DISBURSEMENT_PROOF,
+        filename: `disbursement-proof-${id.slice(0, 8)}.html`,
+        content: buildDisbursementProofHtml({
+          organisationName: disburseContext.organisationName,
+          borrowerName: disburseContext.borrowerName,
+          loanReference: formatLoanReference(id, new Date()),
+          principalFormatted: formatCents(disburseContext.amountCents),
+          disbursedAt: new Date().toISOString().slice(0, 10),
+          disbursementMethod: 'LMS in-app wallet',
+          generatedAt: new Date().toISOString().slice(0, 10),
+        }),
+        contentType: 'text/html; charset=utf-8',
+      });
+    } catch {
+      // Disbursement succeeds even if proof storage is unavailable.
+    }
 
     void this.notificationDispatch.notifyLoanDisbursed({
       orgId,
@@ -594,8 +715,17 @@ export class LoansService {
     startDate: Date;
     createdAt: Date;
     principalCents: number;
+    interestRate: { toString(): string } | number;
+    interestType: string;
+    termPeriods: number;
+    frequency: string;
     borrower: { fullName: string };
-    repaymentSchedules: { dueDate: Date; totalDueCents: number; periodNumber: number }[];
+    repaymentSchedules: {
+      dueDate: Date;
+      totalDueCents: number;
+      interestDueCents: number;
+      periodNumber: number;
+    }[];
     repayments: { amountCents: number }[];
   }): LoanListItemDto {
     const snapshot = this.loanBalanceService.computeFromData(
@@ -604,15 +734,106 @@ export class LoansService {
       row.status as typeof LoanStatus.DRAFT,
     );
 
+    const nextPeriod = computeNextUnpaidPeriod(
+      row.repaymentSchedules,
+      snapshot.totalPaidCents,
+    );
+    const interestEarnedCents = computeInterestEarnedCents(
+      row.repaymentSchedules,
+      snapshot.totalPaidCents,
+    );
+    const paymentsMade = computePaymentsMadeCount(
+      row.repaymentSchedules,
+      snapshot.totalPaidCents,
+    );
+    const daysOverdue = computeDaysOverdue(
+      row.repaymentSchedules,
+      snapshot.totalPaidCents,
+    );
+
     return {
       id: row.id,
       borrowerId: row.borrowerId,
       borrowerName: row.borrower.fullName,
+      loanReference: formatLoanReference(row.id, row.createdAt),
       principalFormatted: formatCents(row.principalCents),
+      principalCents: row.principalCents,
+      annualRate: Number(row.interestRate),
+      interestType: row.interestType,
+      termPeriods: row.termPeriods,
+      frequency: row.frequency,
       status: row.status,
       startDate: row.startDate.toISOString().slice(0, 10),
       outstandingBalanceFormatted: formatCents(snapshot.outstandingCents),
+      outstandingBalanceCents: snapshot.outstandingCents,
+      totalPaidFormatted: formatCents(snapshot.totalPaidCents),
+      interestEarnedFormatted: formatCents(interestEarnedCents),
+      paymentsMade,
+      nextPaymentAmountFormatted: nextPeriod ? formatCents(nextPeriod.totalDueCents) : null,
+      nextPaymentDueDate: nextPeriod
+        ? nextPeriod.dueDate.toISOString().slice(0, 10)
+        : null,
+      nextPaymentDaysUntil: nextPeriod?.daysUntilDue ?? null,
+      daysOverdue,
       createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  private buildPortfolioSummary(
+    rows: {
+      status: string;
+      principalCents: number;
+      disbursementStatus: string;
+      repaymentSchedules: {
+        dueDate: Date;
+        totalDueCents: number;
+        interestDueCents: number;
+        periodNumber: number;
+      }[];
+      repayments: { amountCents: number }[];
+    }[],
+  ): LoanPortfolioSummaryDto {
+    let totalLentCents = 0;
+    let interestEarnedCents = 0;
+    let outstandingCents = 0;
+    let activeLoanCount = 0;
+    let latePaymentCount = 0;
+
+    for (const row of rows) {
+      if (row.disbursementStatus === DisbursementStatus.COMPLETED) {
+        totalLentCents += row.principalCents;
+      }
+
+      const snapshot = this.loanBalanceService.computeFromData(
+        row.repaymentSchedules,
+        row.repayments,
+        row.status as LoanStatus,
+      );
+
+      outstandingCents += snapshot.outstandingCents;
+      interestEarnedCents += computeInterestEarnedCents(
+        row.repaymentSchedules,
+        snapshot.totalPaidCents,
+      );
+
+      if (
+        row.status === LoanStatus.ACTIVE ||
+        row.status === LoanStatus.IN_ARREARS
+      ) {
+        activeLoanCount += 1;
+      }
+
+      if (row.status === LoanStatus.IN_ARREARS || snapshot.inArrears) {
+        latePaymentCount += 1;
+      }
+    }
+
+    return {
+      totalLentFormatted: formatCents(totalLentCents),
+      interestEarnedFormatted: formatCents(interestEarnedCents),
+      outstandingFormatted: formatCents(outstandingCents),
+      activeLoanCount,
+      latePaymentCount,
     };
   }
 

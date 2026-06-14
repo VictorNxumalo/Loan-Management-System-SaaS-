@@ -48,6 +48,9 @@ describe.runIf(runIntegration)('Tenant isolation integration', () => {
       canSign: false,
     }),
   } as unknown as LoanAgreementService;
+  const documentsService = {
+    storeGeneratedContent: async () => ({}),
+  } as unknown as import('../documents/documents.service').DocumentsService;
   const loansService = new LoansService(
     prisma,
     scheduleService,
@@ -58,6 +61,7 @@ describe.runIf(runIntegration)('Tenant isolation integration', () => {
     stitchLoanDisbursementMock,
     notificationDispatch,
     loanAgreementService,
+    documentsService,
   );
   const borrowersService = new BorrowersService(prisma, balanceService, auditService);
 

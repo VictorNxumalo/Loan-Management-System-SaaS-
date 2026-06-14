@@ -71,4 +71,15 @@ export class SupabaseStorageService {
       this.logger.warn(`Storage remove failed for ${storagePath}: ${error.message}`);
     }
   }
+
+  async uploadBuffer(storagePath: string, content: Buffer, contentType: string) {
+    const { error } = await this.getClient()
+      .storage.from(this.bucket)
+      .upload(storagePath, content, { contentType, upsert: true });
+
+    if (error) {
+      this.logger.error(`Storage upload failed for ${storagePath}: ${error.message}`);
+      throw new ServiceUnavailableException('Could not store generated document');
+    }
+  }
 }

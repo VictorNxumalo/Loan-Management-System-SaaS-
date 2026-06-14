@@ -43,6 +43,7 @@ export interface BorrowerListItemDto {
   phone: string;
   email: string | null;
   createdAt: string;
+  summary: BorrowerSummaryDto;
 }
 
 export interface BorrowerDetailDto extends BorrowerListItemDto {
@@ -51,11 +52,11 @@ export interface BorrowerDetailDto extends BorrowerListItemDto {
   monthlyIncomeCents: number | null;
   monthlyIncomeFormatted: string | null;
   updatedAt: string;
-  summary: BorrowerSummaryDto;
 }
 
 export interface PaginatedBorrowersDto {
   items: BorrowerListItemDto[];
+  summary: BorrowerSummaryDto;
   page: number;
   limit: number;
   total: number;

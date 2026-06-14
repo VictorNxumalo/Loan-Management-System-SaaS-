@@ -1,11 +1,9 @@
 'use client';
 
 import type { LoanAgreementSummaryDto } from '@lms/types';
-import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { getApiBaseUrl } from '@/lib/api-url';
-import { openLoanAgreementHtml } from '@/lib/open-loan-agreement';
+import { LoanAgreementViewer } from '@/components/loan-agreement-viewer';
 import { useApi } from '@/lib/use-api';
 
 export function BorrowerLoanAgreementPanel({
@@ -20,83 +18,26 @@ export function BorrowerLoanAgreementPanel({
   onSigned?: () => void;
 }) {
   const api = useApi();
-  const { data: session } = useSession();
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
 
-  useEffect(() => {
-    if (!session?.accessToken || !agreement.canSign) {
-      setPreviewHtml(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoadingPreview(true);
-
-    void (async () => {
-      try {
-        const response = await fetch(
-          `${getApiBaseUrl()}/borrower/loans/${loanId}/loan-agreement/html`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.accessToken}`,
-              Accept: 'text/html',
-            },
-          },
-        );
-
-        if (!response.ok) {
-          throw new Error('Could not load agreement');
-        }
-
-        const html = await response.text();
-        if (!cancelled) {
-          setPreviewHtml(html);
-        }
-      } catch {
-        if (!cancelled) {
-          setPreviewHtml(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingPreview(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.accessToken, agreement.canSign, loanId]);
+  if (agreement.status === 'NOT_SENT') {
+    return null;
+  }
 
   if (agreement.status === 'SIGNED') {
     return (
-      <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-        <p className="font-medium">Loan agreement signed</p>
-        <p className="mt-1">
-          You signed this agreement with {organisationName}
-          {agreement.signedAt ? ` on ${agreement.signedAt.slice(0, 10)}` : ''}. The lender will
-          disburse funds once they complete that step.
-        </p>
-        {session?.accessToken ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={() =>
-              void openLoanAgreementHtml(
-                `/borrower/loans/${loanId}/loan-agreement/html`,
-                session.accessToken!,
-              )
-            }
-          >
-            View signed agreement
-          </Button>
-        ) : null}
+      <div className="rounded-lg border border-green-200 bg-green-50 p-4 space-y-4 text-sm text-green-900">
+        <div>
+          <p className="font-medium">Loan agreement signed</p>
+          <p className="mt-1">
+            You signed this agreement with {organisationName}
+            {agreement.signedAt ? ` on ${agreement.signedAt.slice(0, 10)}` : ''}. Review your
+            signed copy below to confirm your e-signature details.
+          </p>
+        </div>
+        <LoanAgreementViewer loanId={loanId} borrower label="Open signed agreement in new tab" />
       </div>
     );
   }
@@ -131,18 +72,7 @@ export function BorrowerLoanAgreementPanel({
         </p>
       </div>
 
-      {loadingPreview ? (
-        <p className="text-sm text-muted-foreground">Loading agreement…</p>
-      ) : previewHtml ? (
-        <iframe
-          title="Loan agreement preview"
-          srcDoc={previewHtml}
-          className="h-80 w-full rounded-md border bg-white"
-          sandbox=""
-        />
-      ) : (
-        <p className="text-sm text-muted-foreground">Agreement preview unavailable.</p>
-      )}
+      <LoanAgreementViewer loanId={loanId} borrower label="Open full agreement in new tab" />
 
       <label className="flex items-start gap-2 text-sm">
         <input
@@ -159,11 +89,7 @@ export function BorrowerLoanAgreementPanel({
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <Button
-        type="button"
-        disabled={!acknowledged || signing}
-        onClick={() => void sign()}
-      >
+      <Button type="button" disabled={!acknowledged || signing} onClick={() => void sign()}>
         {signing ? 'Signing…' : 'Sign agreement'}
       </Button>
     </div>

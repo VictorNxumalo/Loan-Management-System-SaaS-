@@ -143,3 +143,63 @@ export function getUpcomingPeriods(
     return isPeriodUnpaid(schedule, period.periodNumber, totalPaidCents);
   });
 }
+
+export interface SchedulePeriodDetailCents extends SchedulePeriodCents {
+  interestDueCents: number;
+}
+
+export function computePaymentsMadeCount(
+  schedule: SchedulePeriodCents[],
+  totalPaidCents: number,
+): number {
+  const sorted = [...schedule].sort((a, b) => a.periodNumber - b.periodNumber);
+  let count = 0;
+  for (const period of sorted) {
+    if (isPeriodUnpaid(schedule, period.periodNumber, totalPaidCents)) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+export function computeInterestEarnedCents(
+  schedule: SchedulePeriodDetailCents[],
+  totalPaidCents: number,
+): number {
+  const sorted = [...schedule].sort((a, b) => a.periodNumber - b.periodNumber);
+  let remaining = totalPaidCents;
+  let interestEarned = 0;
+
+  for (const period of sorted) {
+    if (remaining <= 0) {
+      break;
+    }
+    if (remaining >= period.totalDueCents) {
+      interestEarned += period.interestDueCents;
+      remaining -= period.totalDueCents;
+    }
+  }
+
+  return interestEarned;
+}
+
+export function computeNextUnpaidPeriod(
+  schedule: SchedulePeriodCents[],
+  totalPaidCents: number,
+  asOf: Date = new Date(),
+): (SchedulePeriodCents & { daysUntilDue: number }) | null {
+  const today = startOfDay(asOf);
+  const sorted = [...schedule].sort((a, b) => a.periodNumber - b.periodNumber);
+
+  for (const period of sorted) {
+    if (!isPeriodUnpaid(schedule, period.periodNumber, totalPaidCents)) {
+      continue;
+    }
+    const due = startOfDay(period.dueDate);
+    const daysUntilDue = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+    return { ...period, daysUntilDue };
+  }
+
+  return null;
+}

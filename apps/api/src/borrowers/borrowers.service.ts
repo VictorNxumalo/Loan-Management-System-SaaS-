@@ -58,14 +58,38 @@ export class BorrowersService {
         tx.borrower.count({ where }),
         tx.borrower.findMany({
           where,
+          include: {
+            loans: {
+              where: { deletedAt: null },
+              include: {
+                repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
+                repayments: true,
+              },
+            },
+          },
           orderBy: { fullName: 'asc' },
           skip,
           take: query.limit,
         }),
       ]);
 
+      const items = rows.map((row) => ({
+        ...this.mapListItem(row),
+        summary: this.computeBorrowerSummary(row.loans),
+      }));
+
+      const allBorrowerLoans = await tx.loan.findMany({
+        where: { orgId, deletedAt: null },
+        include: {
+          repaymentSchedules: { orderBy: { periodNumber: 'asc' } },
+          repayments: true,
+        },
+      });
+      const summary = this.computeBorrowerSummary(allBorrowerLoans);
+
       return {
-        items: rows.map((row) => this.mapListItem(row)),
+        items,
+        summary,
         page: query.page,
         limit: query.limit,
         total,
@@ -404,7 +428,36 @@ export class BorrowersService {
       const snapshot = this.loanBalanceService.computeFromData(
         loan.repaymentSchedules,
         loan.repayments,
-        loan.status,
+        loan.status as LoanStatus,
+      );
+      totalOutstandingCents += snapshot.outstandingCents;
+      if (snapshot.inArrears || loan.status === LoanStatus.IN_ARREARS) {
+        loansInArrears += 1;
+      }
+    }
+
+    return {
+      totalLoans: loans.length,
+      totalOutstandingFormatted: formatCents(totalOutstandingCents),
+      loansInArrears,
+    };
+  }
+
+  private computeBorrowerSummary(
+    loans: {
+      status: string;
+      repaymentSchedules: { dueDate: Date; totalDueCents: number; periodNumber: number }[];
+      repayments: { amountCents: number }[];
+    }[],
+  ): BorrowerSummaryDto {
+    let totalOutstandingCents = 0;
+    let loansInArrears = 0;
+
+    for (const loan of loans) {
+      const snapshot = this.loanBalanceService.computeFromData(
+        loan.repaymentSchedules,
+        loan.repayments,
+        loan.status as LoanStatus,
       );
       totalOutstandingCents += snapshot.outstandingCents;
       if (snapshot.inArrears || loan.status === LoanStatus.IN_ARREARS) {
@@ -426,7 +479,7 @@ export class BorrowersService {
     phone: string;
     email: string | null;
     createdAt: Date;
-  }): BorrowerListItemDto {
+  }): Omit<BorrowerListItemDto, 'summary'> {
     return {
       id: row.id,
       fullName: row.fullName,

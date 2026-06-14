@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ListAuditLogsQuery, PaginatedAuditLogsDto } from '@lms/types';
 import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
+import { presentAuditLogEntry } from './audit-presenter';
 
 export interface AuditEntry {
   orgId: string;
@@ -69,17 +70,30 @@ export class AuditService {
       ]);
 
       return {
-        items: rows.map((row) => ({
-          id: row.id,
-          userName: row.user.name,
-          userEmail: row.user.email,
-          action: row.action,
-          entityType: row.entityType,
-          entityId: row.entityId,
-          beforeState: row.beforeState,
-          afterState: row.afterState,
-          createdAt: row.createdAt.toISOString(),
-        })),
+        items: rows.map((row) => {
+          const presented = presentAuditLogEntry({
+            action: row.action,
+            entityType: row.entityType,
+            entityId: row.entityId,
+            beforeState: row.beforeState,
+            afterState: row.afterState,
+          });
+
+          return {
+            id: row.id,
+            userName: row.user.name,
+            userEmail: row.user.email,
+            action: row.action,
+            entityType: row.entityType,
+            entityId: row.entityId,
+            beforeState: row.beforeState,
+            afterState: row.afterState,
+            createdAt: row.createdAt.toISOString(),
+            summary: presented.summary,
+            subjectLabel: presented.subjectLabel,
+            details: presented.details,
+          };
+        }),
         page: query.page,
         limit: query.limit,
         total,

@@ -116,6 +116,15 @@ export class LoansController {
     return this.loansService.listRepayments(user.orgId!, user.sub, id);
   }
 
+  @Get(':id/payment-submissions')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
+  listPendingPaymentSubmissions(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+  ) {
+    return this.loansService.listPendingPaymentSubmissions(user.orgId!, user.sub, id);
+  }
+
   @Post(':id/repayments')
   @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
   recordRepayment(

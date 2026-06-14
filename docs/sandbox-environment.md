@@ -187,7 +187,7 @@ See `render.production.yaml` for a reference blueprint.
 STAGING_API_URL=https://<sandbox-api>.onrender.com/v1 pnpm staging:smoke:hosted
 ```
 
-Manual checklist: register lender + borrower, application, payment proof — same as [staging-deploy.md](./staging-deploy.md) §6.
+Manual checklist: register lender + borrower, application, **loan agreement sign**, disburse, wallet payment — same as [staging-deploy.md](./staging-deploy.md) §6.
 
 ---
 

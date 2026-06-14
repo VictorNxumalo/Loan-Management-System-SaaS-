@@ -207,6 +207,19 @@ export class EmailService {
     await this.send(email, subject, body, 'loan-agreement-signed');
   }
 
+  async sendWalletRepaymentReceivedEmail(
+    email: string,
+    borrowerName: string,
+    amountFormatted: string,
+    paymentDate: string,
+    link: string,
+  ): Promise<void> {
+    const subject = `Wallet repayment received — ${borrowerName}`;
+    const body = `${borrowerName} paid ${amountFormatted} from their LMS wallet on ${paymentDate}.\n\nView the loan:\n${link}`;
+
+    await this.send(email, subject, body, 'wallet-repayment-received');
+  }
+
   private async send(
     to: string,
     subject: string,

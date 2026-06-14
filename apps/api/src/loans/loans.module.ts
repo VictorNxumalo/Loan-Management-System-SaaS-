@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DocumentsModule } from '../documents/documents.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StitchModule } from '../stitch/stitch.module';
 import { WalletsModule } from '../wallets/wallets.module';
@@ -9,7 +10,7 @@ import { LoansScheduleService } from './loans-schedule.service';
 import { LoansService } from './loans.service';
 
 @Module({
-  imports: [WalletsModule, StitchModule, NotificationsModule],
+  imports: [WalletsModule, StitchModule, NotificationsModule, DocumentsModule],
   controllers: [LoansController],
   providers: [LoansScheduleService, LoanBalanceService, LoansService, LoanAgreementService],
   exports: [LoansScheduleService, LoanBalanceService, LoansService, LoanAgreementService],

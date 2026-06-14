@@ -77,11 +77,33 @@ export interface LoanListItemDto {
   id: string;
   borrowerId: string;
   borrowerName: string;
+  loanReference: string;
   principalFormatted: string;
+  principalCents: number;
+  annualRate: number;
+  interestType: string;
+  termPeriods: number;
+  frequency: string;
   status: string;
   startDate: string;
   outstandingBalanceFormatted: string;
+  outstandingBalanceCents: number;
+  totalPaidFormatted: string;
+  interestEarnedFormatted: string;
+  paymentsMade: number;
+  nextPaymentAmountFormatted: string | null;
+  nextPaymentDueDate: string | null;
+  nextPaymentDaysUntil: number | null;
+  daysOverdue: number;
   createdAt: string;
+}
+
+export interface LoanPortfolioSummaryDto {
+  totalLentFormatted: string;
+  interestEarnedFormatted: string;
+  outstandingFormatted: string;
+  activeLoanCount: number;
+  latePaymentCount: number;
 }
 
 export interface LoanDetailDto {
@@ -110,6 +132,7 @@ export interface LoanDetailDto {
 
 export interface PaginatedLoansDto {
   items: LoanListItemDto[];
+  summary: LoanPortfolioSummaryDto;
   page: number;
   limit: number;
   total: number;

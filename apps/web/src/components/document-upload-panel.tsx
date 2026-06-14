@@ -17,12 +17,14 @@ export function DocumentUploadPanel({
   documentTypes,
   canManage,
   title = 'Documents',
+  description,
 }: {
   entityType: 'BORROWER' | 'LOAN';
   entityId: string;
   documentTypes: DocumentTypeOption[];
   canManage: boolean;
   title?: string;
+  description?: string;
 }) {
   const api = useApi();
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
@@ -124,9 +126,10 @@ export function DocumentUploadPanel({
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {canManage && (
+        {canManage && documentTypes.length > 0 && (
           <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor={`doc-type-${entityId}`}>Document type</Label>

@@ -1,3 +1,4 @@
+export * from './disbursement-proof-template';
 export * from './finance';
 export * from './loan-agreement-template';
 export * from './loan-balance';

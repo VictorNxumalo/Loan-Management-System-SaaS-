@@ -127,21 +127,24 @@ This script (idempotent per run — unique emails each time):
 
 1. Register lender → onboard → fund wallet → enable public listing  
 2. Register borrower → onboard (profile + ID) → connect → apply (R5 000 loan)  
-3. Lender approves → activates → disburses loan  
+3. Lender approves → activates → **sends loan agreement** → borrower **signs** → disburses loan  
 4. Borrower pays R500 **from wallet** (instant repayment)  
 
 Credentials are printed at the end for manual UI testing on the Vercel URL.
+
+> Includes the full agreement gate: disburse only succeeds after `POST /borrower/loans/:id/loan-agreement/sign`. Migration `20250613210000_loan_agreements` must be deployed.
 
 ---
 
 ## 6. Manual UI checklist
 
 - [ ] Register as lender at `/auth/register` → complete onboarding  
-- [ ] Dashboard → create/approve flows match smoke test  
+- [ ] Dashboard → approve application → **Generate loan agreement** → borrower signs → **Disburse**  
 - [ ] Register as borrower → complete profile → browse lenders → apply (profile data auto-attached)  
+- [ ] Borrower approved application / loan → **Sign agreement** when sent by lender  
 - [ ] Borrower loan → **Pay from wallet** after disbursement; lender **Available funds** increases  
 - [ ] Optional: **Report bank payment** → lender confirms in dashboard  
-- [ ] Notification bell shows payment events (needs Redis for queue)  
+- [ ] Notification bell shows agreement, disbursement, and payment events (needs Redis for queue)  
 
 Use **Stripe test mode** only if you exercise billing; otherwise leave Stripe vars unset.
 

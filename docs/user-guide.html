@@ -133,6 +133,7 @@
   <a href="#notifications">15 · Notifications</a>
   <a href="#lifecycle">16 · End-to-End Lifecycle</a>
   <a href="#permissions">17 · Who Can Do What</a>
+  <a href="#legal">18 · Legal Pages</a>
 </nav>
 
 <main>
@@ -140,13 +141,15 @@
   <div class="eyebrow">User Guide · LMS brand (navy &amp; green)</div>
   <h1>How Lenders &amp; Borrowers Use the LMS</h1>
   <p class="sub">
-    A step-by-step walkthrough of both user journeys — navigation, internal wallets, profile-based KYC,
-    simplified loan applications, wallet repayments, and where each action takes you. Screenshots were
-    captured from the running app; some captions reflect UI updates since the images were taken.
+    A step-by-step walkthrough of both user journeys — navigation, NCA-compliant loan agreements,
+    internal wallets, profile-based KYC, simplified loan applications, wallet repayments, and where
+    each action takes you. Screenshots were captured from the running app; agreement-flow shots may
+    show placeholder callouts until you re-run <code>docs/_capture</code>.
   </p>
   <div class="meta-chips">
     <span class="chip">Lender workspace · /dashboard</span>
     <span class="chip">Borrower portal · /borrower</span>
+    <span class="chip">Loan agreement · sign before disburse</span>
     <span class="chip">Wallets · disburse &amp; repay in-app</span>
     <span class="chip">Profile KYC · edit per section</span>
     <span class="chip">Amounts in Rand (R)</span>
@@ -275,7 +278,8 @@
     <img src="img/lender-loan-preview.png" alt="Schedule preview" />
     <figcaption><strong>Preview schedule</strong> computes the full amortisation table — every instalment's principal/interest split and running balance — without saving anything. <strong>Confirm and save loan</strong> then creates the loan as a <span class="badge b-slate">Draft</span> and opens its detail page.</figcaption>
   </figure>
-  <div class="callout good"><strong>Draft → Active:</strong> a new loan starts as a Draft so you can double-check terms. Click <strong>Activate loan</strong> on the detail page to lock in the schedule and start tracking repayments.</div>
+  <div class="callout good"><strong>Draft → Active:</strong> a new loan starts as a Draft so you can double-check terms. For application-backed loans, <strong>Generate loan agreement</strong> auto-activates the loan if it is still a draft. Manually created loans use <strong>Activate loan</strong> on the detail page first.</div>
+  <div class="callout warn"><strong>NCA rate cap:</strong> annual interest rates are capped at <code>(repo × 2.2) + 20%</code> using <code>NCR_REPO_RATE_PERCENT</code> (default 8.25% → max 38.15%). LMS blocks approve/create/update when the rate exceeds the cap.</div>
 </section>
 
 <!-- ═══════════════ 7. REPAYMENTS ═══════════════ -->
@@ -283,8 +287,9 @@
   <h2><span class="num">7</span>Lender — Loan Detail, Repayments &amp; Borrower Payments</h2>
   <figure>
     <img src="img/lender-loan-detail.png" alt="Loan detail" />
-    <figcaption><code>/dashboard/loans/[id]</code> — summary cards, <strong>Record repayment</strong> (manual/offline collections), repayment history, schedule, documents, and <strong>Disburse</strong> for active loans (moves funds to the borrower's wallet).</figcaption>
+    <figcaption><code>/dashboard/loans/[id]</code> — summary cards, loan agreement panel (<strong>Generate loan agreement</strong>, status banner, <strong>Disburse</strong> when signed), <strong>Record repayment</strong>, repayment history, schedule, and documents.</figcaption>
   </figure>
+  <div class="callout warn"><strong>Disburse is gated:</strong> <strong>Disburse</strong> stays disabled until the borrower has signed the loan agreement electronically. The status banner shows <span class="badge b-slate">Not sent</span> → <span class="badge b-blue">Pending signature</span> → <span class="badge b-green">Signed</span>.</div>
   <h3><span class="step">7.1</span>In-app wallet repayments</h3>
   <p class="lead">When a borrower uses <strong>Pay from wallet</strong>, the repayment is recorded immediately — no proof review. Your organisation wallet is credited and the loan balance updates. This appears in <strong>Collected this month</strong> and <strong>Available funds</strong>.</p>
   <h3><span class="step">7.2</span>External bank payments — <code>/dashboard/payment-submissions/[id]</code></h3>
@@ -306,14 +311,21 @@
   </figure>
   <figure>
     <img src="img/lender-application-review.png" alt="Application review" />
-    <figcaption><code>/dashboard/applications/[id]</code> — requested terms, the borrower's profile ID document (attached automatically — no per-application uploads), an internal <strong>review checklist</strong> (ID, bank details, affordability, purpose — no bank statements), then <strong>Approve</strong> or <strong>Reject</strong>.</figcaption>
+    <figcaption><code>/dashboard/applications/[id]</code> — requested terms, the borrower's profile ID document (attached automatically), an internal <strong>review checklist</strong>, then <strong>Approve</strong> or <strong>Reject</strong>. Approval includes an <strong>Annual interest rate (%)</strong> field with an NCA cap hint.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/lender-application-agreement.png" alt="Generate loan agreement on approved application" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+    <p class="callout warn" style="display:none">Screenshot pending — run <code>docs/_capture</code> after <code>seed.mjs</code> to capture the agreement panel on an approved application.</p>
+    <figcaption>On an <strong>approved</strong> application, the <strong>Loan agreement &amp; disbursement</strong> panel shows status banners, <strong>Generate loan agreement</strong> (sends to borrower and auto-activates draft loans), <strong>View agreement</strong>, and <strong>Disburse funds to borrower wallet</strong> once signed.</figcaption>
   </figure>
   <div class="flow"><b>Approve</b> ──► creates a borrower CRM record (if needed)
-          ──► creates a <b>Draft loan</b> with the agreed terms
-          ──► "Open draft loan" button appears → review → <b>Activate</b>
-          ──► borrower is notified and sees the loan under "My loans"
+          ──► creates a <b>Draft loan</b> with the agreed NCA-capped rate
+          ──► <b>Generate loan agreement</b> ──► activates loan (if draft) + sends agreement
+          ──► borrower signs ──► <b>Disburse</b> unlocks
+          ──► borrower wallet credited, lender notified
 
 <b>Reject</b>  ──► application marked Rejected, your reason is shown to the borrower</div>
+  <div class="callout good"><strong>Same workflow on loan detail:</strong> approved-application loans also expose agreement actions on <code>/dashboard/loans/[id]</code> — useful for manually created loans.</div>
 </section>
 
 <!-- ═══════════════ 9. TEAM / SETTINGS / AUDIT ═══════════════ -->
@@ -331,7 +343,10 @@
     <figcaption><strong>Branding</strong> — upload or replace your organisation logo (shown when borrowers browse lenders). <strong>Public lender directory</strong> — list in the marketplace with category, description, verification status, and typical loan range (Rand min/max). <strong>Borrower email invites</strong> — send a private connect link to a specific borrower.</figcaption>
   </figure>
 
-  <h3><span class="step">9.3</span>Audit log — <code>/dashboard/audit-log</code></h3>
+  <h3><span class="step">9.4</span>Billing — <code>/dashboard/billing</code> <span class="badge b-rose">Admin only</span></h3>
+  <p class="lead">Subscription management via Stripe Checkout (when <code>STRIPE_SECRET_KEY</code> is configured). Shows current plan, trial status, and links to the Stripe customer portal. When a trial expires without a subscription, the workspace becomes <strong>read-only</strong> until you subscribe.</p>
+
+  <h3><span class="step">9.5</span>Audit log — <code>/dashboard/audit-log</code></h3>
   <figure>
     <img src="img/lender-audit-log.png" alt="Audit log" />
     <figcaption>An immutable trail of every change in the workspace — who did what, when, with before/after values. Covers borrowers, loans, repayments, applications, documents, team and settings.</figcaption>
@@ -392,7 +407,12 @@
   </figure>
   <figure>
     <img src="img/borrower-application-approved.png" alt="Approved application" />
-    <figcaption>An <strong>approved</strong> application shows the lender's notes and the agreed rate. Once the lender activates the loan it appears under <strong>My loans</strong>. If rejected, the lender's reason is shown here instead.</figcaption>
+    <figcaption>An <strong>approved</strong> application shows the lender's notes, agreed rate, and — when the lender has sent the agreement — a <strong>Loan agreement</strong> panel with an inline preview, acknowledgement checkbox, and <strong>Sign agreement</strong>.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/borrower-sign-agreement.png" alt="Borrower sign agreement panel" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+    <p class="callout warn" style="display:none">Screenshot pending — run <code>docs/_capture</code> after seeding a pending-agreement loan.</p>
+    <figcaption>Borrower agreement panel: read the NCA-compliant HTML agreement in-page, tick <strong>I have read and agree</strong>, then <strong>Sign agreement</strong>. The lender is notified and disbursement unlocks.</figcaption>
   </figure>
 </section>
 
@@ -405,7 +425,7 @@
   </figure>
   <figure>
     <img src="img/borrower-loan-detail.png" alt="Borrower loan detail" />
-    <figcaption><code>/borrower/loans/[id]</code> — summary cards, terms, repayment history, and schedule. On active or in-arrears loans: <strong>Pay from wallet</strong> (instant — debits your LMS wallet and credits the lender) or <strong>Report bank payment</strong> (external EFT with proof for lender review).</figcaption>
+    <figcaption><code>/borrower/loans/[id]</code> — summary cards, terms, loan agreement panel (when sent), repayment history, and schedule. On active or in-arrears loans: <strong>Pay from wallet</strong> or <strong>Report bank payment</strong>.</figcaption>
   </figure>
   <ul class="notes">
     <li><strong>Pay from wallet</strong> — requires sufficient wallet balance (loan disbursements credit your wallet first).</li>
@@ -420,10 +440,15 @@
   <p class="lead">Both portals include <code>/borrower/profile</code> and <code>/dashboard/profile</code> for identity and bank details, plus wallet pages for balances and transactions.</p>
   <table>
     <tr><th>Page</th><th>Purpose</th></tr>
-    <tr><td><code>/borrower/profile</code> · <code>/dashboard/profile</code></td><td>View personal info, ID document, and bank account. Tap <strong>Edit</strong> on each section to change — fields are read-only by default to prevent accidental edits.</td></tr>
-    <tr><td><code>/borrower/wallet</code></td><td>Wallet balance, transaction history, linked bank account.</td></tr>
-    <tr><td><code>/dashboard/wallet</code></td><td>Organisation wallet, top-up (staging), disbursement and repayment ledger.</td></tr>
+    <tr><td><code>/borrower/profile</code> · <code>/dashboard/profile</code></td><td>View personal info, SA ID document, and bank account. Tap <strong>Edit</strong> on each section to change — fields are read-only by default.</td></tr>
+    <tr><td><code>/borrower/wallet</code></td><td>Wallet balance, transaction history, linked bank account (used for Stitch disbursements when enabled).</td></tr>
+    <tr><td><code>/dashboard/wallet</code></td><td>Organisation wallet, demo top-up (staging), disbursement and repayment ledger.</td></tr>
   </table>
+  <figure>
+    <img src="img/lender-wallet.png" alt="Lender wallet" onerror="this.style.display='none'" />
+    <img src="img/borrower-wallet.png" alt="Borrower wallet" onerror="this.style.display='none'" />
+    <figcaption>Wallet pages show available balance and a transaction ledger (disbursements, repayments, top-ups).</figcaption>
+  </figure>
   <div class="callout">Your profile ID is attached automatically to every loan application. Keep it current if your ID document changes.</div>
 </section>
 
@@ -436,14 +461,19 @@
     <figcaption>The bell shows an unread badge; the dropdown lists recent notifications. Clicking one marks it read and <strong>deep-links to the related record</strong> — an application notification opens that application, a loan notification opens that loan.</figcaption>
   </figure>
   <table>
-    <tr><th>Event</th><th>Who is notified</th></tr>
-    <tr><td>Application submitted</td><td>Lender staff (admin + loan officers)</td></tr>
-    <tr><td>Application approved / rejected</td><td>The borrower</td></tr>
-    <tr><td>Borrower payment submitted (Pay lender)</td><td>Lender staff</td></tr>
-    <tr><td>Payment confirmed / rejected</td><td>The borrower</td></tr>
-    <tr><td>Repayment due in 3 days (daily 07:00 sweep)</td><td>The borrower</td></tr>
-    <tr><td>Loan overdue (daily 06:00 sweep)</td><td>Lender staff</td></tr>
+    <tr><th>Event</th><th>Who is notified</th><th>Channels</th><th>Deep link</th></tr>
+    <tr><td>Application submitted</td><td>Lender staff (admin + loan officers)</td><td>In-app · email</td><td><code>/dashboard/applications/[id]</code></td></tr>
+    <tr><td>Application approved / rejected</td><td>The borrower</td><td>In-app · email · SMS (if phone on profile)</td><td><code>/borrower/applications/[id]</code></td></tr>
+    <tr><td>Loan activated</td><td>The borrower</td><td>In-app · email · SMS</td><td><code>/borrower/loans/[id]</code></td></tr>
+    <tr><td>Loan agreement sent</td><td>The borrower</td><td>In-app · email · SMS</td><td><code>/borrower/loans/[id]</code></td></tr>
+    <tr><td>Loan agreement signed</td><td>Lender staff (admin + loan officers)</td><td>In-app · email</td><td><code>/dashboard/loans/[id]</code></td></tr>
+    <tr><td>Loan disbursed</td><td>Borrower + lender staff</td><td>In-app · email · SMS (borrower)</td><td><code>/borrower/loans/[id]</code> · <code>/dashboard/loans/[id]</code></td></tr>
+    <tr><td>Borrower payment submitted</td><td>Lender staff</td><td>In-app · email</td><td><code>/dashboard/payment-submissions/[id]</code></td></tr>
+    <tr><td>Payment confirmed / rejected</td><td>The borrower</td><td>In-app · email · SMS</td><td><code>/borrower/loans/[id]</code></td></tr>
+    <tr><td>Repayment due in 3 days (daily 07:00 sweep)</td><td>The borrower</td><td>In-app · email · SMS</td><td><code>/borrower/loans/[id]</code></td></tr>
+    <tr><td>Loan overdue (daily 06:00 sweep)</td><td>Lender staff</td><td>In-app · email</td><td><code>/dashboard/loans/[id]</code></td></tr>
   </table>
+  <!-- verified: packages/types/src/notification.ts, apps/api/src/notifications/notification-dispatch.service.ts -->
 </section>
 
 <!-- ═══════════════ 16. LIFECYCLE ═══════════════ -->
@@ -454,9 +484,13 @@
 Register + complete profile (ID, bank, address)
 Browse marketplace ───connect───►  (or: Settings → invite borrower)
 Apply (profile ID + bank auto) ─►  Applications queue  🔔
-                                  Review checklist → Approve / Reject
-        🔔 ◄──────approved──────  Draft loan → <b>Activate</b> → <b>Disburse</b>
-Wallet credited ◄───────────────  Lender wallet debited
+                                  Review checklist → Approve (NCA rate) / Reject
+        🔔 ◄──────approved──────  Draft loan created
+                                  <b>Generate loan agreement</b> → borrower notified
+        🔔 agreement sent ◄──────  (auto-activates draft loan)
+Review agreement + <b>Sign agreement</b> ──►  🔔 agreement signed
+                                  <b>Disburse</b> unlocks → lender wallet debited
+Wallet credited ◄───────────────  (demo wallet, or Stitch when enabled)
 <b>Pay from wallet</b> ──────────►  Repayment + wallet credit (instant)
   (or Report bank payment + proof ► Confirm → wallet credit)
         🔔 reminder (due in 3d)   Dashboard: collected / available funds
@@ -471,19 +505,35 @@ Loan completed ✓                  Loan completed ✓</div>
     <tr><td>View dashboard, loans, borrowers, reports</td><td>✔</td><td>✔</td><td>✔</td><td>own data only</td></tr>
     <tr><td>Add/edit borrowers, create loans, record repayments</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
     <tr><td>Approve / reject applications</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
+    <tr><td>Generate / send loan agreement</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
+    <tr><td>Disburse loan (requires signed agreement)</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
     <tr><td>Confirm / reject borrower payment submissions</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
     <tr><td>Upload / delete documents</td><td>✔</td><td>✔</td><td>download only</td><td>—</td></tr>
     <tr><td>Delete borrowers</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-    <tr><td>Team, settings, audit log</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-    <tr><td>Connect to lenders, submit/withdraw applications, pay from wallet / report bank payment</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
+    <tr><td>Team, settings, audit log, billing</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>Connect to lenders, submit/withdraw applications</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
+    <tr><td>Sign loan agreement, pay from wallet / report bank payment</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
     <tr><td>View/edit own profile, wallet</td><td>✔</td><td>✔</td><td>✔</td><td>✔</td></tr>
     <tr><td>View own loans, schedules, repayment history</td><td>—</td><td>—</td><td>—</td><td>✔</td></tr>
   </table>
   <div class="callout good">Viewers see the same screens but without create/edit buttons; if a write is attempted anyway, the API rejects it — and the database's row-level security guarantees no one ever sees another organisation's data.</div>
+  <!-- verified: apps/api/src/loans/loan-agreement.service.ts assertDisbursementAllowed -->
+</section>
+
+<!-- ═══════════════ 18. LEGAL ═══════════════ -->
+<section id="legal">
+  <h2><span class="num">18</span>Legal Pages</h2>
+  <p class="lead">Public terms and privacy pages are available without signing in. Operator name and contact email come from environment variables.</p>
+  <table>
+    <tr><th>Page</th><th>URL</th><th>Content</th></tr>
+    <tr><td>Terms of service</td><td><code>/legal/terms</code></td><td>Platform usage terms; operator from <code>NEXT_PUBLIC_LEGAL_OPERATOR_NAME</code></td></tr>
+    <tr><td>Privacy policy</td><td><code>/legal/privacy</code></td><td>POPIA-oriented privacy notice; enquiries via <code>NEXT_PUBLIC_LEGAL_CONTACT_EMAIL</code></td></tr>
+  </table>
+  <!-- verified: apps/web/src/app/legal/terms/page.tsx, apps/web/src/app/legal/privacy/page.tsx -->
 </section>
 
 <footer>
-  <p><strong>LMS User Guide</strong> · updated for wallets, profile KYC, wallet repayments, simplified applications, and edit-mode profile (June 2026) ·
+  <p><strong>LMS User Guide</strong> · updated for NCA loan agreements, wallets, profile KYC, and wallet repayments (June 2026) ·
   print to PDF with Ctrl+P · see also the companion <a href="architecture.html">Architecture &amp; Tech Stack Reference</a>.</p>
 </footer>
 </main>

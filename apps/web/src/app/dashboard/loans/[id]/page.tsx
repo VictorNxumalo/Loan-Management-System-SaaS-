@@ -1,7 +1,6 @@
 'use client';
 
 import type { LoanDetailDto, RepaymentDto } from '@lms/types';
-import { LOAN_DOCUMENT_LABELS, LoanDocumentType } from '@lms/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -16,22 +15,14 @@ import {
   LoanAgreementStatusBanner,
   ViewLoanAgreementButton,
 } from '@/components/loan-agreement-actions';
-import { MoneyInput } from '@/components/money-input';
+import { LoanAgreementViewer } from '@/components/loan-agreement-viewer';
+import { LoanBankPaymentReviewPanel } from '@/components/loan-bank-payment-review';
 import { DocumentUploadPanel } from '@/components/document-upload-panel';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { canManageRecords } from '@/lib/permissions';
 import { useApi } from '@/lib/use-api';
-
-const loanDocumentTypes = [
-  {
-    value: LoanDocumentType.DISBURSEMENT_PROOF,
-    label: LOAN_DOCUMENT_LABELS[LoanDocumentType.DISBURSEMENT_PROOF],
-  },
-];
 
 export default function LoanDetailPage() {
   const api = useApi();
@@ -40,9 +31,6 @@ export default function LoanDetailPage() {
   const params = useParams<{ id: string }>();
   const [loan, setLoan] = useState<LoanDetailDto | null>(null);
   const [repayments, setRepayments] = useState<RepaymentDto[]>([]);
-  const [amountCents, setAmountCents] = useState<number | null>(null);
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
-  const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -89,28 +77,6 @@ export default function LoanDetailPage() {
     }
   };
 
-  const handleRepayment = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await api(`/loans/${params.id}/repayments`, {
-        method: 'POST',
-        body: JSON.stringify({
-          amountCents: amountCents ?? 0,
-          paymentDate,
-          note: note || undefined,
-        }),
-      });
-      setAmountCents(null);
-      setNote('');
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record repayment');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (!loan) {
     return (
       <div className="space-y-6">
@@ -120,7 +86,7 @@ export default function LoanDetailPage() {
     );
   }
 
-  const canRecordRepayment =
+  const canReviewBankPayments =
     loan.status === 'ACTIVE' || loan.status === 'IN_ARREARS';
 
   return (
@@ -209,72 +175,47 @@ export default function LoanDetailPage() {
         </div>
       ) : null}
 
-      {canManage &&
-      loan.disbursementStatus !== 'COMPLETED' &&
-      (loan.agreement.canSend || loan.agreement.status !== 'NOT_SENT') ? (
-        <div className="rounded-lg border bg-background p-4 space-y-3">
-          <h2 className="font-semibold">Loan agreement</h2>
-          <LoanAgreementNcaNotice />
-          <LoanAgreementStatusBanner agreement={loan.agreement} />
-          <div className="flex flex-wrap gap-2">
-            <GenerateLoanAgreementButton
-              loanId={loan.id}
-              loanStatus={loan.status}
-              agreement={loan.agreement}
-              onComplete={() => void load()}
-            />
-            {loan.agreement.status !== 'NOT_SENT' ? (
-              <ViewLoanAgreementButton loanId={loan.id} />
-            ) : null}
+      {canManage && loan.agreement.status !== 'NOT_SENT' ? (
+        <div className="rounded-lg border bg-background p-4 space-y-4">
+          <div>
+            <h2 className="font-semibold">Loan agreement</h2>
+            <LoanAgreementStatusBanner agreement={loan.agreement} />
           </div>
+          {loan.agreement.canSend ? (
+            <>
+              <LoanAgreementNcaNotice />
+              <GenerateLoanAgreementButton
+                loanId={loan.id}
+                loanStatus={loan.status}
+                agreement={loan.agreement}
+                onComplete={() => void load()}
+              />
+            </>
+          ) : null}
+          {loan.agreement.status === 'SIGNED' ? (
+            <LoanAgreementViewer loanId={loan.id} label="Open agreement in new tab" />
+          ) : (
+            <ViewLoanAgreementButton loanId={loan.id} />
+          )}
         </div>
       ) : null}
 
       <DocumentUploadPanel
         entityType="LOAN"
         entityId={loan.id}
-        documentTypes={loanDocumentTypes}
-        canManage={canManage}
+        documentTypes={[]}
+        canManage={false}
         title="Loan documents"
+        description="Disbursement proof and other audit documents are generated automatically by LMS."
       />
 
-      {canRecordRepayment && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Record repayment</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <MoneyInput
-              id="repayment-amount"
-              label="Repayment amount"
-              valueCents={amountCents}
-              onChangeCents={setAmountCents}
-              required
-            />
-            <div className="space-y-2">
-              <Label htmlFor="paymentDate">Payment date</Label>
-              <Input
-                id="paymentDate"
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="note">Note</Label>
-              <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-            <div className="md:col-span-3">
-              <Button
-                onClick={() => void handleRepayment()}
-                disabled={loading || !amountCents || amountCents <= 0}
-              >
-                Record repayment
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {canReviewBankPayments ? (
+        <LoanBankPaymentReviewPanel
+          loanId={loan.id}
+          canManage={canManage}
+          onUpdated={() => void load()}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>

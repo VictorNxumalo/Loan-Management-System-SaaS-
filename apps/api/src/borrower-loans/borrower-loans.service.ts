@@ -24,6 +24,7 @@ import { formatCents } from '../common/money';
 import { LoanBalanceService } from '../loans/loan-balance.service';
 import { LoanAgreementService } from '../loans/loan-agreement.service';
 import { LoansService } from '../loans/loans.service';
+import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 import { PrismaService, type PrismaTx } from '../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
 
@@ -40,6 +41,7 @@ export class BorrowerLoansService {
     private readonly loansService: LoansService,
     private readonly walletsService: WalletsService,
     private readonly loanAgreementService: LoanAgreementService,
+    private readonly notificationDispatch: NotificationDispatchService,
   ) {}
 
   async list(
@@ -168,6 +170,7 @@ export class BorrowerLoansService {
           borrowerId: { in: access.borrowerIds },
           deletedAt: null,
         },
+        include: { borrower: true },
       });
 
       if (!loan) {
@@ -193,14 +196,17 @@ export class BorrowerLoansService {
         );
       }
 
-      return loan.orgId;
+      return {
+        orgId: loan.orgId,
+        borrowerName: loan.borrower.fullName,
+      };
     });
 
-    return this.prisma.withUserContext(userId, loanOrgId, async (tx) => {
+    const result = await this.prisma.withUserContext(userId, loanOrgId.orgId, async (tx) => {
       const repaymentId = randomUUID();
 
       await this.walletsService.recordRepayment(tx, {
-        orgId: loanOrgId,
+        orgId: loanOrgId.orgId,
         userId,
         loanId,
         borrowerUserId: userId,
@@ -210,7 +216,7 @@ export class BorrowerLoansService {
 
       const repaymentResult = await this.loansService.recordRepaymentInTx(
         tx,
-        loanOrgId,
+        loanOrgId.orgId,
         userId,
         loanId,
         {
@@ -228,6 +234,20 @@ export class BorrowerLoansService {
         walletAvailableBalanceFormatted: formatCents(wallet.availableBalanceCents),
       };
     });
+
+    void this.notificationDispatch.notifyWalletRepaymentReceived({
+      orgId: loanOrgId.orgId,
+      loanId,
+      repaymentId: result.repayment.id,
+      borrowerName: loanOrgId.borrowerName,
+      amountCents: input.amountCents,
+      paymentDate:
+        paymentDate instanceof Date
+          ? paymentDate.toISOString().slice(0, 10)
+          : new Date(paymentDate).toISOString().slice(0, 10),
+    });
+
+    return result;
   }
 
   private async resolveAccessibleLoansFilter(

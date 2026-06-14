@@ -58,6 +58,14 @@ export interface AuditLogEntryDto {
   beforeState: unknown;
   afterState: unknown;
   createdAt: string;
+  summary: string;
+  subjectLabel: string | null;
+  details: AuditLogDetailFieldDto[];
+}
+
+export interface AuditLogDetailFieldDto {
+  label: string;
+  value: string;
 }
 
 export interface PaginatedAuditLogsDto {

@@ -79,8 +79,8 @@ Use **sandbox Vercel + sandbox Render + sandbox Supabase** with your personal em
 
 1. **Borrower** — complete profile + bank account (`/borrower/profile`, wallet page).
 2. **Lender** — complete profile + org bank details.
-3. Apply → approve → activate loan.
-4. **Disburse** — LMS calls Stitch; loan shows **PENDING** until webhook **completed**.
+3. Apply → approve → **generate & send loan agreement** → borrower signs → activate (if not already) → **Disburse**.
+4. **Disburse** — when Stitch enabled, calls Stitch API (requires signed agreement); loan shows **PENDING** until webhook **completed**. When disabled, demo wallet disburse after signed agreement.
 5. Confirm money in borrower bank (sandbox simulation rules apply).
 
 ### Stitch sandbox simulation ([docs](https://docs.stitch.money/payment-products/payouts/rest))
@@ -92,7 +92,7 @@ Use **sandbox Vercel + sandbox Render + sandbox Supabase** with your personal em
 
 ## API behaviour
 
-- `POST /v1/loans/:id/disburse` — when Stitch enabled, creates `LoanStitchDisbursement`, sets loan `disbursementStatus=PENDING`, calls Stitch.
+- `POST /v1/loans/:id/disburse` — requires signed `LoanAgreement` (<code>assertDisbursementAllowed</code>). When Stitch enabled, creates `LoanStitchDisbursement`, sets loan `disbursementStatus=PENDING`, calls Stitch.
 - `POST /v1/webhooks/stitch/disbursement` — updates status; on **completed** sets loan `COMPLETED` + `disbursedAt`.
 - Loan detail includes `stitchDisbursement` when present.
 

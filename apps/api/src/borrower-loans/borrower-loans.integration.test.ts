@@ -57,6 +57,9 @@ describe.runIf(runIntegration)('Borrower loans integration', () => {
       canSign: false,
     }),
   } as unknown as LoanAgreementService;
+  const documentsService = {
+    storeGeneratedContent: async () => ({}),
+  } as unknown as import('../documents/documents.service').DocumentsService;
   const loansService = new LoansService(
     prisma,
     scheduleService,
@@ -67,6 +70,7 @@ describe.runIf(runIntegration)('Borrower loans integration', () => {
     stitchLoanDisbursementMock,
     notificationDispatch,
     loanAgreementService,
+    documentsService,
   );
   const borrowerLoansService = new BorrowerLoansService(
     prisma,
@@ -74,6 +78,7 @@ describe.runIf(runIntegration)('Borrower loans integration', () => {
     loansService,
     walletsService,
     loanAgreementService,
+    notificationDispatch,
   );
 
   let orgId = '';

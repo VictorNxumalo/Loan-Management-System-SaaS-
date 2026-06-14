@@ -80,8 +80,10 @@ async function main() {
   const bAppItems = bApps.items ?? bApps;
   const bPending = bAppItems.find((a) => a.status === 'SUBMITTED');
   const bApproved = bAppItems.find((a) => a.status === 'APPROVED');
+  const pendingAgreementLoanId = bApproved?.loanId;
+  const disbursedLoan = bLoanItems.find((l) => l.disbursementStatus === 'COMPLETED') ?? bLoan;
 
-  console.log({ orgId, naledi: naledi.id, nalediLoan: nalediLoan?.id, pendingApp: pendingApp?.id, bLoan: bLoan?.id });
+  console.log({ orgId, naledi: naledi.id, nalediLoan: nalediLoan?.id, pendingApp: pendingApp?.id, bLoan: bLoan?.id, pendingAgreementLoanId, disbursedLoan: disbursedLoan?.id });
 
   const browser = await puppeteer.launch({
     executablePath: EDGE,
@@ -142,8 +144,20 @@ async function main() {
     } catch (e) { console.log('preview skipped:', e.message); }
 
     await shoot(page, `/dashboard/loans/${nalediLoan.id}`, 'lender-loan-detail');
+    // Signed agreement + disburse unlocked (use approved app loan if agreement signed, else naledi loan page)
+    const signedLoan = (await apiGet('/loans?limit=20', lt)).items?.find(
+      (l) => l.agreement?.status === 'SIGNED' || l.disbursementStatus === 'COMPLETED',
+    );
+    if (signedLoan) {
+      await shoot(page, `/dashboard/loans/${signedLoan.id}`, 'lender-disburse-unlocked');
+    }
     await shoot(page, '/dashboard/applications', 'lender-applications');
     if (pendingApp) await shoot(page, `/dashboard/applications/${pendingApp.id}`, 'lender-application-review');
+    const approvedApp = (await apiGet('/applications?status=APPROVED&limit=5', lt)).items?.[0];
+    if (approvedApp) {
+      await shoot(page, `/dashboard/applications/${approvedApp.id}`, 'lender-application-agreement');
+    }
+    await shoot(page, '/dashboard/wallet', 'lender-wallet');
     await shoot(page, '/dashboard/team', 'lender-team');
     await shoot(page, '/dashboard/settings', 'lender-settings');
     await shoot(page, '/dashboard/audit-log', 'lender-audit-log');
@@ -181,10 +195,23 @@ async function main() {
     await shoot(page, '/borrower/lenders/mine', 'borrower-my-lenders');
     await shoot(page, '/borrower/applications', 'borrower-applications');
     await shoot(page, `/borrower/applications/new?orgId=${orgId}&lenderName=${encodeURIComponent(orgName)}`, 'borrower-application-new');
-    if (bPending) await shoot(page, `/borrower/applications/${bPending.id}`, 'borrower-application-pending');
+    // Pending application (review borrower — sipho has blocking draft loan)
+    const reviewBorrower = await apiLogin('demo.borrower.review@lmsguide.dev');
+    const reviewApps = await apiGet('/borrower/applications?limit=10', reviewBorrower.accessToken);
+    const reviewPending = (reviewApps.items ?? reviewApps).find((a) => a.status === 'SUBMITTED');
+    if (reviewPending) {
+      const { ctx: rctx, page: rpage } = await newPage(browser);
+      await uiLogin(rpage, 'demo.borrower.review@lmsguide.dev');
+      await shoot(rpage, `/borrower/applications/${reviewPending.id}`, 'borrower-application-pending');
+      await rctx.close();
+    }
     if (bApproved) await shoot(page, `/borrower/applications/${bApproved.id}`, 'borrower-application-approved');
+    if (pendingAgreementLoanId) {
+      await shoot(page, `/borrower/loans/${pendingAgreementLoanId}`, 'borrower-sign-agreement');
+    }
+    await shoot(page, '/borrower/wallet', 'borrower-wallet');
     await shoot(page, '/borrower/loans', 'borrower-loans');
-    if (bLoan) await shoot(page, `/borrower/loans/${bLoan.id}`, 'borrower-loan-detail');
+    if (disbursedLoan) await shoot(page, `/borrower/loans/${disbursedLoan.id}`, 'borrower-loan-detail');
     await ctx.close();
   }
 

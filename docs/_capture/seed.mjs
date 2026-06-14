@@ -169,6 +169,7 @@ async function main() {
   let items = myApps.items ?? myApps;
 
   let approved = items.find((a) => a.status === 'APPROVED');
+  let borrowerLoanId = approved?.loanId;
   if (!approved) {
     let toApprove = items.find((a) => a.status === 'SUBMITTED');
     if (!toApprove) {
@@ -180,34 +181,109 @@ async function main() {
           purpose: 'School fees and uniforms for the new term.',
         },
       });
+      await api(`/borrower/applications/${toApprove.id}/submit`, { method: 'POST', token: bt });
     }
     const result = await api(`/applications/${toApprove.id}/approve`, {
       method: 'POST', token: lt,
       body: { annualRate: 15, lenderNotes: 'Approved at 15% based on income verification.' },
     });
-    await api(`/loans/${result.loanId}/activate`, { method: 'POST', token: lt });
+    borrowerLoanId = result.loanId;
     out.approvedAppId = toApprove.id;
-    out.borrowerLoanId = result.loanId;
-    console.log('approved application + activated borrower loan');
+    console.log('approved application');
   } else {
     out.approvedAppId = approved.id;
-    out.borrowerLoanId = approved.loanId;
+    borrowerLoanId = approved.loanId ?? borrowerLoanId;
   }
 
-  // Fresh application left SUBMITTED (for the lender review screenshot)
-  myApps = await api('/borrower/applications?limit=50', { token: bt });
-  items = myApps.items ?? myApps;
-  let pending = items.find((a) => a.status === 'SUBMITTED');
-  if (!pending) {
-    pending = await api('/borrower/applications', {
+  // Agreement states: approved app loan with agreement sent (pending borrower sign)
+  if (borrowerLoanId) {
+    const loanDetail = await api(`/loans/${borrowerLoanId}`, { token: lt });
+    if (loanDetail.agreement?.status === 'NOT_SENT') {
+      await api(`/loans/${borrowerLoanId}/loan-agreement/send`, { method: 'POST', token: lt });
+      console.log('sent loan agreement (pending borrower sign)');
+    }
+    out.borrowerLoanId = borrowerLoanId;
+    out.pendingAgreementLoanId = borrowerLoanId;
+  }
+
+  // Disbursed borrower loan (manual loan on sipho's CRM borrower record)
+  const borrowersAfter = await api('/borrowers?limit=50', { token: lt });
+  const siphoBorrower = borrowersAfter.items.find((b) => b.platformUserId || b.email === 'demo.borrower@lmsguide.dev');
+  const platformBorrower = borrowersAfter.items.find((b) => {
+    return b.fullName === 'Sipho Dlamini';
+  });
+  const linkedBorrower = borrowersAfter.items.find((b) => b.idNumber === '9001015800087') ?? platformBorrower ?? siphoBorrower;
+
+  const loansRefresh = await api('/loans?limit=50', { token: lt });
+  let disbursedBorrowerLoan = loansRefresh.items.find(
+    (l) => l.disbursementStatus === 'COMPLETED' && linkedBorrower && l.borrowerId === linkedBorrower.id,
+  );
+
+  if (!disbursedBorrowerLoan && linkedBorrower) {
+    const loan3 = await api('/loans', {
+      method: 'POST', token: lt,
+      body: {
+        borrowerId: linkedBorrower.id, principalCents: 500000, annualRate: 12, interestType: 'REDUCING',
+        termPeriods: 6, frequency: 'MONTHLY', startDate: isoDaysFromNow(-14),
+      },
+    });
+    await api(`/loans/${loan3.id}/activate`, { method: 'POST', token: lt });
+    await api(`/loans/${loan3.id}/loan-agreement/send`, { method: 'POST', token: lt });
+    await api(`/borrower/loans/${loan3.id}/loan-agreement/sign`, {
       method: 'POST', token: bt,
+      body: { acknowledged: true },
+    });
+    await api(`/loans/${loan3.id}/disburse`, { method: 'POST', token: lt });
+    disbursedBorrowerLoan = loan3;
+    out.signedDisbursedLoanId = loan3.id;
+    console.log('created signed + disbursed loan for borrower wallet screenshots');
+  }
+
+  // Fund lender wallet for disburse screenshots
+  try {
+    await api('/wallets/me/top-up', {
+      method: 'POST', token: lt,
+      body: { amountCents: 5_000_000, description: 'Docs seed capital' },
+    });
+  } catch (e) {
+    console.log('wallet top-up skipped:', e.status);
+  }
+
+  // Fresh SUBMITTED application for lender review screenshot (separate borrower — sipho has blocking draft loan)
+  const reviewBorrower = await registerOrLogin('Zanele Nkosi', 'demo.borrower.review@lmsguide.dev', 'BORROWER');
+  let rt = reviewBorrower.accessToken;
+  let rme = await api('/auth/me', { token: rt });
+  if (!rme.user.onboardingCompleted) {
+    await api('/auth/borrower-onboarding', {
+      method: 'PATCH', token: rt,
+      body: { phone: '+27831234567', idNumber: '9101015800086' },
+    });
+    const re = await api('/auth/login', {
+      method: 'POST',
+      body: { email: 'demo.borrower.review@lmsguide.dev', password: PASSWORD },
+    });
+    rt = re.accessToken;
+  }
+  try {
+    await api(`/borrower/lenders/${out.orgId}/connect`, { method: 'POST', token: rt });
+  } catch (e) {
+    console.log('review borrower connect skipped:', e.status);
+  }
+  let reviewApps = await api('/borrower/applications?limit=20', { token: rt });
+  let reviewItems = reviewApps.items ?? reviewApps;
+  let pending = reviewItems.find((a) => a.status === 'SUBMITTED');
+  if (!pending) {
+    const draft = await api('/borrower/applications', {
+      method: 'POST', token: rt,
       body: {
         orgId: out.orgId, principalCents: 800000, interestType: 'REDUCING', termPeriods: 6,
         frequency: 'MONTHLY', startDate: isoDaysFromNow(14),
         purpose: 'Stock purchase for my spaza shop ahead of the festive season.',
       },
     });
-    console.log('submitted pending application');
+    await api(`/borrower/applications/${draft.id}/submit`, { method: 'POST', token: rt });
+    pending = draft;
+    console.log('submitted pending application (review borrower)');
   }
   out.pendingAppId = pending.id;
 

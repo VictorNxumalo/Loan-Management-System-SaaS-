@@ -14,6 +14,7 @@ export const NotificationType = {
   PAYMENT_SUBMITTED: 'PAYMENT_SUBMITTED',
   PAYMENT_CONFIRMED: 'PAYMENT_CONFIRMED',
   PAYMENT_REJECTED: 'PAYMENT_REJECTED',
+  WALLET_REPAYMENT_RECEIVED: 'WALLET_REPAYMENT_RECEIVED',
 } as const;
 
 export type NotificationType =
@@ -163,6 +164,17 @@ export interface LoanAgreementSignedJobData {
   principalFormatted: string;
 }
 
+export interface WalletRepaymentReceivedJobData {
+  eventType: typeof NotificationType.WALLET_REPAYMENT_RECEIVED;
+  dedupKey: string;
+  orgId: string;
+  loanId: string;
+  repaymentId: string;
+  borrowerName: string;
+  amountFormatted: string;
+  paymentDate: string;
+}
+
 export type NotificationJobData =
   | ApplicationSubmittedJobData
   | ApplicationDecisionJobData
@@ -173,4 +185,5 @@ export type NotificationJobData =
   | LoanActivatedJobData
   | LoanDisbursedJobData
   | LoanAgreementSentJobData
-  | LoanAgreementSignedJobData;
+  | LoanAgreementSignedJobData
+  | WalletRepaymentReceivedJobData;

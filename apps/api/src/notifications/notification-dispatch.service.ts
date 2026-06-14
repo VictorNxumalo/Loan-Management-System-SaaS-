@@ -66,6 +66,9 @@ export class NotificationDispatchService implements OnModuleInit {
       case NotificationType.LOAN_AGREEMENT_SIGNED:
         await this.processLoanAgreementSigned(data);
         break;
+      case NotificationType.WALLET_REPAYMENT_RECEIVED:
+        await this.processWalletRepaymentReceived(data);
+        break;
       default:
         this.logger.warn(`Unknown notification event: ${(data as NotificationJobData).eventType}`);
     }
@@ -304,6 +307,26 @@ export class NotificationDispatchService implements OnModuleInit {
       borrowerName: input.borrowerName,
       organisationName: input.organisationName,
       principalFormatted: formatCents(input.principalCents),
+    });
+  }
+
+  async notifyWalletRepaymentReceived(input: {
+    orgId: string;
+    loanId: string;
+    repaymentId: string;
+    borrowerName: string;
+    amountCents: number;
+    paymentDate: string;
+  }) {
+    await this.enqueue({
+      eventType: NotificationType.WALLET_REPAYMENT_RECEIVED,
+      dedupKey: `wallet-repayment:${input.repaymentId}`,
+      orgId: input.orgId,
+      loanId: input.loanId,
+      repaymentId: input.repaymentId,
+      borrowerName: input.borrowerName,
+      amountFormatted: formatCents(input.amountCents),
+      paymentDate: input.paymentDate,
     });
   }
 
@@ -839,6 +862,52 @@ export class NotificationDispatchService implements OnModuleInit {
         recipient.email,
         data.borrowerName,
         data.principalFormatted,
+        link,
+      );
+    }
+  }
+
+  private async processWalletRepaymentReceived(
+    data: Extract<
+      NotificationJobData,
+      { eventType: typeof NotificationType.WALLET_REPAYMENT_RECEIVED }
+    >,
+  ) {
+    const recipients = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findMany({
+        where: {
+          orgId: data.orgId,
+          deletedAt: null,
+          isActive: true,
+          role: { in: [UserRole.ADMIN, UserRole.LOAN_OFFICER] },
+        },
+        select: { id: true, email: true },
+      }),
+    );
+
+    const link = this.notificationsService.appUrl(`/dashboard/loans/${data.loanId}`);
+    const title = 'Wallet repayment received';
+    const body = `${data.borrowerName} paid ${data.amountFormatted} from their LMS wallet on ${data.paymentDate}.`;
+
+    for (const recipient of recipients) {
+      const dedupKey = `${data.dedupKey}:user:${recipient.id}`;
+
+      await this.notificationsService.createInApp({
+        orgId: data.orgId,
+        userId: recipient.id,
+        type: NotificationType.WALLET_REPAYMENT_RECEIVED,
+        title,
+        body,
+        dedupKey,
+        relatedEntityType: 'LOAN',
+        relatedEntityId: data.loanId,
+      });
+
+      await this.emailService.sendWalletRepaymentReceivedEmail(
+        recipient.email,
+        data.borrowerName,
+        data.amountFormatted,
+        data.paymentDate,
         link,
       );
     }

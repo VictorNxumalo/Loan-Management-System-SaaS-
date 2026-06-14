@@ -174,6 +174,88 @@ export class DocumentsService {
     return { message: 'Document deleted' };
   }
 
+  /** Stores system-generated document content (e.g. disbursement proof). */
+  async storeGeneratedContent(
+    orgId: string,
+    userId: string,
+    input: {
+      entityType: typeof DocumentEntityType.LOAN;
+      entityId: string;
+      documentType: string;
+      filename: string;
+      content: string;
+      contentType: string;
+    },
+  ): Promise<DocumentDto> {
+    this.validateDocumentType(input.entityType, input.documentType);
+    await this.assertEntityAccess(orgId, userId, input.entityType, input.entityId);
+
+    const storagePath = this.buildStoragePath(
+      orgId,
+      input.entityType,
+      input.entityId,
+      input.documentType,
+      input.filename,
+    );
+
+    await this.storage.uploadBuffer(
+      storagePath,
+      Buffer.from(input.content, 'utf8'),
+      input.contentType,
+    );
+
+    const document = await this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const existing = await tx.document.findFirst({
+        where: {
+          orgId,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          documentType: input.documentType,
+          deletedAt: null,
+        },
+      });
+
+      if (existing) {
+        await tx.document.update({
+          where: { id: existing.id },
+          data: { deletedAt: new Date() },
+        });
+      }
+
+      const created = await tx.document.create({
+        data: {
+          orgId,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          documentType: input.documentType,
+          storagePath,
+          originalFilename: input.filename,
+          uploadedByUserId: userId,
+        },
+        include: { uploadedBy: { select: { name: true } } },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'document.uploaded',
+        entityType: 'DOCUMENT',
+        entityId: created.id,
+        after: {
+          targetEntityType: input.entityType,
+          targetEntityId: input.entityId,
+          documentType: input.documentType,
+          filename: input.filename,
+          generated: true,
+        },
+      });
+
+      return created;
+    });
+
+    return this.mapRow(document);
+  }
+
   private validateDocumentType(entityType: string, documentType: string) {
     if (entityType === DocumentEntityType.BORROWER) {
       if (!(BORROWER_DOCUMENT_TYPES as readonly string[]).includes(documentType)) {
