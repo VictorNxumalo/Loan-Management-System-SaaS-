@@ -129,13 +129,13 @@ export function isEmailVerificationSkipped(): boolean {
   return getEnv().SKIP_EMAIL_VERIFICATION;
 }
 
-/** Refuse to boot when verification is required but Brevo is not configured. */
+/** Warn at boot when verification is required but Brevo is not configured. */
 export function assertEmailDeliveryReady(): void {
-  if (isEmailVerificationSkipped()) return;
-  if (isBrevoConfigured()) return;
+  if (isEmailVerificationSkipped() || isBrevoConfigured()) return;
 
-  throw new Error(
-    'SKIP_EMAIL_VERIFICATION=false requires BREVO_API_KEY and BREVO_FROM_EMAIL on the API service.',
+  console.error(
+    'WARNING: SKIP_EMAIL_VERIFICATION=false but Brevo is not configured. ' +
+      'Set BREVO_API_KEY and BREVO_FROM_EMAIL on the API service.',
   );
 }
 
