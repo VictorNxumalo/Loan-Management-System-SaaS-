@@ -175,7 +175,7 @@ export default function LoanDetailPage() {
         </div>
       ) : null}
 
-      {canManage && loan.agreement.status !== 'NOT_SENT' ? (
+      {canManage ? (
         <div className="rounded-lg border bg-background p-4 space-y-4">
           <div>
             <h2 className="font-semibold">Loan agreement</h2>
@@ -194,9 +194,9 @@ export default function LoanDetailPage() {
           ) : null}
           {loan.agreement.status === 'SIGNED' ? (
             <LoanAgreementViewer loanId={loan.id} label="Open agreement in new tab" />
-          ) : (
+          ) : loan.agreement.status !== 'NOT_SENT' ? (
             <ViewLoanAgreementButton loanId={loan.id} />
-          )}
+          ) : null}
         </div>
       ) : null}
 

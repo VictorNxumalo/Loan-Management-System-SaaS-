@@ -156,7 +156,7 @@ export function LenderApplicationAgreementWorkflow({
   const [disbursing, setDisbursing] = useState(false);
   const [disburseError, setDisburseError] = useState<string | null>(null);
 
-  const { data: loan, loading, refetch } = useAuthenticatedQuery<LoanDetailDto>(
+  const { data: loan, loading, error, refetch } = useAuthenticatedQuery<LoanDetailDto>(
     loanId ? `/loans/${loanId}` : null,
   );
 
@@ -182,8 +182,12 @@ export function LenderApplicationAgreementWorkflow({
     return <p className="text-sm text-muted-foreground">Loading loan agreement status…</p>;
   }
 
-  if (!loan) {
-    return null;
+  if (error || !loan) {
+    return (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        {error ?? 'Could not load the loan record for this application.'}
+      </div>
+    );
   }
 
   return (
