@@ -16,6 +16,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:reset:staging": "node scripts/reset-staging-data.mjs --confirm",
+    "db:reset:sandbox": "node scripts/reset-staging-data.mjs --confirm --env-file .env.sandbox.local",
     "staging:smoke": "node scripts/staging-smoke-test.mjs",
     "staging:smoke:hosted": "node scripts/staging-smoke-hosted.mjs",
     "sandbox:secrets": "node scripts/generate-env-secrets.mjs",

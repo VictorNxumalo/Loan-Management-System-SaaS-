@@ -3,8 +3,11 @@
  *
  * Usage:
  *   pnpm db:reset:staging
+ *   pnpm db:reset:sandbox
+ *   node scripts/reset-staging-data.mjs --confirm --env-file .env.sandbox.local
  *
- * Uses DIRECT_URL (session pooler) from repo root .env — required for TRUNCATE on Supabase.
+ * Uses DIRECT_URL (session pooler). Default: repo root .env.
+ * For hosted sandbox, use .env.sandbox.local (see .env.sandbox.example).
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -15,16 +18,17 @@ import { PrismaClient } from '@prisma/client';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 
-function loadRootEnv() {
-  const envPath = join(root, '.env');
-  if (!existsSync(envPath)) return;
-  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+function loadEnvFile(path) {
+  if (!existsSync(path)) {
+    console.error(`Env file not found: ${path}`);
+    process.exit(1);
+  }
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const i = trimmed.indexOf('=');
     if (i === -1) continue;
     const key = trimmed.slice(0, i).trim();
-    if (process.env[key] !== undefined) continue;
     let val = trimmed.slice(i + 1).trim();
     if (
       (val.startsWith('"') && val.endsWith('"')) ||
@@ -36,7 +40,17 @@ function loadRootEnv() {
   }
 }
 
-loadRootEnv();
+const envArg = process.argv.indexOf('--env-file');
+if (envArg !== -1) {
+  const envPath = process.argv[envArg + 1];
+  if (!envPath) {
+    console.error('Usage: --env-file <path>');
+    process.exit(1);
+  }
+  loadEnvFile(envPath.startsWith('/') || /^[A-Za-z]:/.test(envPath) ? envPath : join(root, envPath));
+} else {
+  loadEnvFile(join(root, '.env'));
+}
 
 const confirmed =
   process.env.RESET_STAGING === '1' || process.argv.includes('--confirm');
@@ -51,12 +65,17 @@ if (!confirmed) {
 
 const directUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 if (!directUrl) {
-  console.error('DIRECT_URL or DATABASE_URL must be set in .env');
+  console.error('DIRECT_URL or DATABASE_URL must be set in the env file');
   process.exit(1);
 }
 
+const projectRef =
+  directUrl.match(/postgres\.([a-z0-9]+)/i)?.[1] ??
+  process.env.SUPABASE_URL?.match(/https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1] ??
+  'unknown';
+
 const dbHost = directUrl.includes('supabase')
-  ? 'Supabase (hosted)'
+  ? `Supabase project ${projectRef}`
   : directUrl.includes('localhost')
     ? 'localhost'
     : 'database';
