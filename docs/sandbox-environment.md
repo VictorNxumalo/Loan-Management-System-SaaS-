@@ -10,7 +10,7 @@ Run new work in **sandbox** first. Promote to **production** only after you are 
 |-------|---------|------|----------------|
 | **Local** | Day-to-day coding | Docker Postgres or your `.env` | `pnpm dev` |
 | **Sandbox** | Hosted pre-production — same build as prod, isolated infra | Fake / disposable test users | Push to `staging` |
-| **Production** | Real lenders and borrowers | Live data, backups, SendGrid, etc. | Merge / push to `main` |
+| **Production** | Real lenders and borrowers | Live data, backups, Brevo, etc. | Merge / push to `main` |
 
 ```text
   feature/my-change

@@ -291,7 +291,7 @@
     <div class="arrow-row"><div class="arrow">outbound integrations</div></div>
     <div class="lane">
       <div class="node n-ext"><div class="t">Google OAuth</div><div class="s">Social sign-in (id_token)</div></div>
-      <div class="node n-ext"><div class="t">SendGrid</div><div class="s">Transactional email</div></div>
+      <div class="node n-ext"><div class="t">Brevo</div><div class="s">Transactional email</div></div>
       <div class="node n-ext"><div class="t">Africa's Talking / Twilio</div><div class="s">SMS notifications</div></div>
       <div class="node n-ext"><div class="t">Supabase</div><div class="s">Managed Postgres + Storage</div></div>
       <div class="node n-ext"><div class="t">Stripe</div><div class="s">Billing (Checkout + webhooks when configured)</div></div>
@@ -325,7 +325,7 @@
     </div>
     <div class="arrow-row"><div class="arrow">dispatch channels</div></div>
     <div class="lane">
-      <div class="node n-ext"><div class="t">SendGrid</div><div class="s">Email</div></div>
+      <div class="node n-ext"><div class="t">Brevo</div><div class="s">Email</div></div>
       <div class="node n-ext"><div class="t">Africa's Talking / Twilio</div><div class="s">SMS</div></div>
       <div class="node n-ext"><div class="t">Google OAuth</div><div class="s">id_token verification</div></div>
     </div>
@@ -361,7 +361,7 @@
     <tr><td><strong>Database</strong></td><td>PostgreSQL 15 (Supabase-managed)</td><td>RLS for tenant isolation; Supavisor pooling (tx + direct URLs)</td></tr>
     <tr><td><strong>File storage</strong></td><td>Supabase Storage (private bucket)</td><td>Direct client uploads via signed URLs; PDF/JPEG/PNG, 10 MB cap</td></tr>
     <tr><td><strong>Queue / jobs</strong></td><td>BullMQ + Redis 7 (ioredis) · @nestjs/schedule crons</td><td>Notification dispatch queue; daily overdue + reminder sweeps</td></tr>
-    <tr><td><strong>Email</strong></td><td>SendGrid REST API</td><td>Verification, resets, invites, application lifecycle, reminders; console fallback in dev</td></tr>
+    <tr><td><strong>Email</strong></td><td>Brevo REST API</td><td>Verification, resets, invites, application lifecycle, reminders; console fallback in dev</td></tr>
     <tr><td><strong>SMS</strong></td><td>Africa's Talking (preferred) or Twilio</td><td>Console fallback in dev</td></tr>
     <tr><td><strong>Financial math</strong></td><td>Decimal.js in <code>@lms/utils</code></td><td>Flat &amp; reducing-balance schedules; all money stored as integer cents</td></tr>
     <tr><td><strong>Reports</strong></td><td>pdfkit (statement PDFs) · in-process CSV</td><td>Portfolio CSV, arrears CSV, borrower statement PDF</td></tr>
@@ -449,7 +449,7 @@
     <tr><td><code>notifications</code></td><td><span class="badge b-purple">Platform</span></td><td>In-app notifications (12 event types), dedup, cron sweeps, multi-channel dispatch</td></tr>
     <tr><td><code>audit</code></td><td><span class="badge b-purple">Platform</span></td><td>Immutable audit-log writes inside business transactions; ADMIN read API</td></tr>
     <tr><td><code>queue</code></td><td><span class="badge b-green">Infra</span></td><td>BullMQ + Redis producer/worker; synchronous fallback without Redis</td></tr>
-    <tr><td><code>email</code> / <code>sms</code></td><td><span class="badge b-green">Infra</span></td><td>SendGrid · Africa's Talking / Twilio adapters with dev console fallbacks</td></tr>
+    <tr><td><code>email</code> / <code>sms</code></td><td><span class="badge b-green">Infra</span></td><td>Brevo · Africa's Talking / Twilio adapters with dev console fallbacks</td></tr>
     <tr><td><code>storage</code></td><td><span class="badge b-green">Infra</span></td><td>Supabase Storage signed-URL service</td></tr>
     <tr><td><code>prisma</code></td><td><span class="badge b-green">Infra</span></td><td>DB client + RLS session-context transaction helpers</td></tr>
     <tr><td><code>common</code> / <code>config</code></td><td><span class="badge b-green">Infra</span></td><td>Guards, decorators, Zod pipe, money helpers; Zod-validated env config</td></tr>
@@ -704,7 +704,7 @@
     <div class="arrow-row"><div class="arrow">dispatch worker</div></div>
     <div class="lane">
       <div class="node n-data"><div class="t">In-app</div><div class="s"><code>notifications</code> table · dedup keys · bell UI</div></div>
-      <div class="node n-ext"><div class="t">Email</div><div class="s">SendGrid templates</div></div>
+      <div class="node n-ext"><div class="t">Email</div><div class="s">Brevo templates</div></div>
       <div class="node n-ext"><div class="t">SMS</div><div class="s">Africa's Talking / Twilio</div></div>
     </div>
     <div class="caption">All 12 notification types from <code>@lms/types</code>: APPLICATION_SUBMITTED, APPLICATION_APPROVED, APPLICATION_REJECTED, LOAN_ACTIVATED, LOAN_DISBURSED, LOAN_AGREEMENT_SENT, LOAN_AGREEMENT_SIGNED, PAYMENT_SUBMITTED, PAYMENT_CONFIRMED, PAYMENT_REJECTED, REPAYMENT_REMINDER, LOAN_OVERDUE.</div>
@@ -761,7 +761,7 @@
   <table>
     <tr><th style="width:200px">Concern</th><th>Approach</th></tr>
     <tr><td>Local development</td><td><code>pnpm dev</code> — builds shared packages, then runs API (3001) + web (3000) in parallel; <code>docker-compose.yml</code> provides local Postgres 15 + Redis 7</td></tr>
-    <tr><td>Configuration</td><td>Single root <code>.env</code> contract (documented in <code>.env.example</code>): DB URLs, JWT secrets, NextAuth, Supabase, SendGrid, SMS, Redis, cron schedules, Stripe (reserved)</td></tr>
+    <tr><td>Configuration</td><td>Single root <code>.env</code> contract (documented in <code>.env.example</code>): DB URLs, JWT secrets, NextAuth, Supabase, Brevo, SMS, Redis, cron schedules, Stripe (reserved)</td></tr>
     <tr><td>Continuous integration</td><td>GitHub Actions on push/PR to <code>main</code>/<code>staging</code>: pnpm install → prisma generate → lint → type-check → test, against Postgres 15 (Node 22)</td></tr>
     <tr><td>Database operations</td><td><code>prisma migrate deploy</code> via <code>DIRECT_URL</code>; RLS policies versioned in migrations</td></tr>
     <tr><td>Sandbox hosting</td><td><strong>Vercel</strong> web (<code>apps/web</code>, branch <code>staging</code>) + <strong>Render</strong> API (<code>apps/api/Dockerfile</code>, branch <code>staging</code>) + Supabase sandbox project + Redis. See <code>docs/staging-deploy.md</code> and <code>docs/sandbox-environment.md</code>.</td></tr>

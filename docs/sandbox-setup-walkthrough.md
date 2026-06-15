@@ -184,7 +184,7 @@ Today production web may share the “staging” API. Create a **dedicated produ
    | `SUPABASE_*` | Production project |
    | `JWT_SECRET` / `JWT_REFRESH_SECRET` | Production secrets (keep existing so users stay logged in) |
    | `NEXTAUTH_URL` | `https://loan-management-system-saa-s-web-kr.vercel.app` |
-   | `SKIP_EMAIL_VERIFICATION` | `true` (until SendGrid live) |
+   | `SKIP_EMAIL_VERIFICATION` | `true` (until Brevo sender is verified) |
    | **Do not set** | `STAGING_ALLOW_VERCEL_CORS` |
 
 6. Deploy → note URL, e.g. `https://lms-production-api.onrender.com/v1`.

@@ -1,16 +1,10 @@
-import { resolve } from 'path';
+import { loadedEnvPath } from './config/load-env';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { getEnv, isEmailVerificationSkipped } from './config/env';
+import { getEnv, isBrevoConfigured, isEmailVerificationSkipped } from './config/env';
 import { getCorsOptions } from './config/cors';
-
-// Local dev only — hosted staging/production inject env vars via the platform (Render, etc.)
-if (process.env.NODE_ENV !== 'production') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('dotenv').config({ path: resolve(__dirname, '../../../.env') });
-}
 
 async function bootstrap() {
   const env = getEnv();
@@ -28,8 +22,14 @@ async function bootstrap() {
       ? `LMS API listening on port ${port} (/v1)`
       : `LMS API running on http://localhost:${port}/v1 (LAN: use your PC IP on port ${port})`;
   console.warn(hostHint);
+  if (loadedEnvPath) {
+    console.warn(`Loaded env from ${loadedEnvPath}`);
+  }
   console.warn(
     `Email verification: ${isEmailVerificationSkipped() ? 'SKIPPED (dev mode)' : 'REQUIRED'}`,
+  );
+  console.warn(
+    `Transactional email: ${isBrevoConfigured() ? 'Brevo' : 'console only (set BREVO_API_KEY + BREVO_FROM_EMAIL)'}`,
   );
 }
 

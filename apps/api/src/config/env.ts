@@ -1,3 +1,4 @@
+import './load-env';
 import { z } from 'zod';
 
 /** Render/other hosts sometimes set blank env vars; treat as unset for optional fields. */
@@ -10,6 +11,18 @@ const optionalUrl = z.preprocess(
   (val) => (val === '' || val === undefined ? undefined : val),
   z.string().url().optional(),
 );
+
+/** Parse env booleans — z.coerce.boolean() treats the string "false" as true. */
+const envBoolean = (defaultValue: boolean) =>
+  z.preprocess(
+    (val) => {
+      if (val === undefined || val === '') return defaultValue;
+      if (val === true || val === 'true' || val === '1') return true;
+      if (val === false || val === 'false' || val === '0') return false;
+      return val;
+    },
+    z.boolean(),
+  );
 
 const envSchema = z.object({
   NODE_ENV: z
@@ -28,16 +41,21 @@ const envSchema = z.object({
   /** Comma-separated extra browser origins allowed by CORS (staging preview URLs, etc.) */
   CORS_ORIGINS: optionalString,
   /** Staging only: allow any https://*.vercel.app origin (preview deploys) */
-  STAGING_ALLOW_VERCEL_CORS: z.coerce.boolean().default(false),
-  SENDGRID_API_KEY: z.string().optional(),
-  SENDGRID_FROM_EMAIL: z.string().email().optional(),
-  /** When true, new accounts are auto-verified and can sign in immediately (no SendGrid). */
-  SKIP_EMAIL_VERIFICATION: z.coerce.boolean().default(true),
+  STAGING_ALLOW_VERCEL_CORS: envBoolean(false),
+  /** Brevo transactional email — https://app.brevo.com/settings/keys/api */
+  BREVO_API_KEY: optionalString,
+  BREVO_FROM_EMAIL: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : val),
+    z.string().email().optional(),
+  ),
+  BREVO_FROM_NAME: z.string().default('LMS'),
+  /** When true, new accounts are auto-verified and can sign in immediately (no email provider). */
+  SKIP_EMAIL_VERIFICATION: envBoolean(true),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
-  CRON_OVERDUE_ENABLED: z.coerce.boolean().default(true),
+  CRON_OVERDUE_ENABLED: envBoolean(true),
   CRON_OVERDUE_SCHEDULE: z.string().default('0 6 * * *'),
-  CRON_REMINDER_ENABLED: z.coerce.boolean().default(true),
+  CRON_REMINDER_ENABLED: envBoolean(true),
   CRON_REMINDER_SCHEDULE: z.string().default('0 7 * * *'),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
@@ -59,7 +77,7 @@ const envSchema = z.object({
   STITCH_CLIENT_SECRET: optionalString,
   STITCH_WEBHOOK_SECRET: optionalString,
   /** When true, loan Disburse uses Stitch payout to borrower bank (requires float + credentials). */
-  STITCH_DISBURSEMENTS_ENABLED: z.coerce.boolean().default(false),
+  STITCH_DISBURSEMENTS_ENABLED: envBoolean(false),
   STITCH_API_BASE: z.string().url().default('https://api.stitch.money/v2'),
   STITCH_TOKEN_URL: z
     .string()
@@ -87,9 +105,9 @@ export function getEnv(): Env {
   return cached;
 }
 
-export function isSendGridConfigured(): boolean {
+export function isBrevoConfigured(): boolean {
   const env = getEnv();
-  return Boolean(env.SENDGRID_API_KEY && env.SENDGRID_FROM_EMAIL);
+  return Boolean(env.BREVO_API_KEY && env.BREVO_FROM_EMAIL);
 }
 
 export function isGoogleOAuthConfigured(): boolean {

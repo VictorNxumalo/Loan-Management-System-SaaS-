@@ -142,7 +142,7 @@ export default function PrivacyPage() {
             <strong>Application hosting</strong> — e.g. Vercel (web) and Render (API);
           </li>
           <li>
-            <strong>Email</strong> — e.g. SendGrid for transactional messages;
+            <strong>Email</strong> — e.g. Brevo for transactional messages;
           </li>
           <li>
             <strong>Payments</strong> — Stripe for lender subscriptions;

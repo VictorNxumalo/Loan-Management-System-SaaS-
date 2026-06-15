@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { getEnv, isSendGridConfigured } from '../config/env';
+import { getEnv, isBrevoConfigured } from '../config/env';
 
 @Injectable()
 export class EmailService {
@@ -226,7 +226,7 @@ export class EmailService {
     body: string,
     type: string,
   ): Promise<void> {
-    if (!isSendGridConfigured()) {
+    if (!isBrevoConfigured()) {
       this.logger.warn(
         `[DEV EMAIL - ${type}] To: ${to}\nSubject: ${subject}\n${body}`,
       );
@@ -234,22 +234,27 @@ export class EmailService {
     }
 
     const env = getEnv();
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
+        accept: 'application/json',
+        'api-key': env.BREVO_API_KEY!,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        personalizations: [{ to: [{ email: to }] }],
-        from: { email: env.SENDGRID_FROM_EMAIL },
+        sender: {
+          email: env.BREVO_FROM_EMAIL,
+          name: env.BREVO_FROM_NAME,
+        },
+        to: [{ email: to }],
         subject,
-        content: [{ type: 'text/plain', value: body }],
+        textContent: body,
+        tags: [type],
       }),
     });
 
     if (!response.ok) {
-      this.logger.error(`SendGrid error: ${response.status} ${await response.text()}`);
+      this.logger.error(`Brevo error: ${response.status} ${await response.text()}`);
     }
   }
 }
