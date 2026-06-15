@@ -7,10 +7,14 @@ import type {
 } from '@lms/types';
 import { getEnv } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationRealtimeService } from './notification-realtime.service';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: NotificationRealtimeService,
+  ) {}
 
   async list(
     userId: string,
@@ -123,8 +127,8 @@ export class NotificationsService {
     relatedEntityId?: string;
   }): Promise<NotificationDto | null> {
     try {
-      const row = await this.prisma.withAuthLookup(async (tx) =>
-        tx.notification.create({
+      const result = await this.prisma.withAuthLookup(async (tx) => {
+        const row = await tx.notification.create({
           data: {
             orgId: input.orgId,
             userId: input.userId,
@@ -135,9 +139,19 @@ export class NotificationsService {
             relatedEntityType: input.relatedEntityType ?? null,
             relatedEntityId: input.relatedEntityId ?? null,
           },
-        }),
-      );
-      return this.mapRow(row);
+        });
+        const unreadCount = await tx.notification.count({
+          where: { userId: input.userId, readAt: null },
+        });
+        return { row, unreadCount };
+      });
+
+      const dto = this.mapRow(result.row);
+      this.realtime.publish(input.userId, {
+        notification: dto,
+        unreadCount: result.unreadCount,
+      });
+      return dto;
     } catch {
       return null;
     }

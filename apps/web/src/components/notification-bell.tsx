@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineLoading } from '@/components/brand/loading';
 import { Button } from '@/components/ui/button';
+import { useNotificationStream } from '@/lib/use-notification-stream';
 import { useApi } from '@/lib/use-api';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,8 @@ function notificationHref(notification: NotificationDto, accountType?: string) {
   return accountType === 'BORROWER' ? '/borrower' : '/dashboard';
 }
 
+const POLL_INTERVAL_MS = 30_000;
+
 export function NotificationBell() {
   const api = useApi();
   const { data: session, status } = useSession();
@@ -37,6 +40,8 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
 
   const fetchUnreadCount = useCallback(async () => {
     if (status !== 'authenticated') {
@@ -66,17 +71,45 @@ export function NotificationBell() {
     }
   }, [api, status]);
 
+  const handleRealtimeEvent = useCallback((event: { notification: NotificationDto; unreadCount: number }) => {
+    setUnreadCount(event.unreadCount);
+    if (openRef.current) {
+      setNotifications((items) => {
+        const withoutDuplicate = items.filter((item) => item.id !== event.notification.id);
+        return [event.notification, ...withoutDuplicate].slice(0, 10);
+      });
+    }
+  }, []);
+
+  useNotificationStream(
+    session?.accessToken,
+    status === 'authenticated',
+    handleRealtimeEvent,
+  );
+
   useEffect(() => {
     void fetchUnreadCount();
   }, [fetchUnreadCount]);
 
   useEffect(() => {
-    const onFocus = () => {
-      void fetchUnreadCount();
+    if (status !== 'authenticated') {
+      return;
+    }
+
+    const poll = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchUnreadCount();
+      }
     };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [fetchUnreadCount]);
+
+    const interval = window.setInterval(poll, POLL_INTERVAL_MS);
+    window.addEventListener('focus', poll);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', poll);
+    };
+  }, [fetchUnreadCount, status]);
 
   useEffect(() => {
     if (!open) {

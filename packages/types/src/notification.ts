@@ -52,6 +52,12 @@ export interface UnreadNotificationCountDto {
   unreadCount: number;
 }
 
+/** Pushed over GET /notifications/stream (SSE). */
+export interface NotificationStreamEvent {
+  notification: NotificationDto;
+  unreadCount: number;
+}
+
 export interface ApplicationSubmittedJobData {
   eventType: typeof NotificationType.APPLICATION_SUBMITTED;
   dedupKey: string;
