@@ -3,10 +3,11 @@ import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { getEnv, isBrevoConfigured, isEmailVerificationSkipped } from './config/env';
+import { getEnv, assertEmailDeliveryReady, isBrevoConfigured, isEmailVerificationSkipped } from './config/env';
 import { getCorsOptions } from './config/cors';
 
 async function bootstrap() {
+  assertEmailDeliveryReady();
   const env = getEnv();
 
   const app = await NestFactory.create(AppModule, { rawBody: true });

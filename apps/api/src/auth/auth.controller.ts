@@ -18,6 +18,7 @@ import {
   organisationLogoUploadSchema,
   onboardingSchema,
   registerSchema,
+  resendVerificationSchema,
   resetPasswordSchema,
 } from '@lms/types';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -103,6 +104,15 @@ export class AuthController {
       return { error: { code: 'MISSING_TOKEN', message: 'Verification token is required' } };
     }
     return this.authService.verifyEmail(token);
+  }
+
+  @Post('resend-verification')
+  @Throttle({ default: { limit: 5, ttl: 600000 } })
+  resendVerification(
+    @Body(new ZodValidationPipe(resendVerificationSchema))
+    body: { email: string },
+  ) {
+    return this.authService.resendVerificationEmail(body.email);
   }
 
   @Post('forgot-password')

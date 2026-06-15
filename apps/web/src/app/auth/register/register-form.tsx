@@ -29,6 +29,11 @@ export function RegisterForm() {
   );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+
+  const needsEmailVerification = message?.includes('Please verify your email');
 
   const {
     register,
@@ -52,17 +57,37 @@ export function RegisterForm() {
         }),
       });
       setMessage(result.message);
-      setTimeout(
-        () =>
-          router.push(
-            accountType === 'BORROWER'
-              ? '/auth/login?type=borrower'
-              : '/auth/login?type=lender',
-          ),
-        2000,
-      );
+      setRegisteredEmail(data.email);
+      if (!result.message.includes('Please verify your email')) {
+        setTimeout(
+          () =>
+            router.push(
+              accountType === 'BORROWER'
+                ? '/auth/login?type=borrower'
+                : '/auth/login?type=lender',
+            ),
+          2000,
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!registeredEmail) return;
+    setResendMessage(null);
+    setResending(true);
+    try {
+      const result = await apiFetch<{ message: string }>('/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email: registeredEmail }),
+      });
+      setResendMessage(result.message);
+    } catch (err) {
+      setResendMessage(err instanceof Error ? err.message : 'Could not resend verification email');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -98,9 +123,31 @@ export function RegisterForm() {
         {!inviteToken && <SignUpGuide accountType={accountType} />}
 
         {message && (
-          <p className="rounded-md border border-brand-green/30 bg-brand-green/10 p-3 text-sm text-brand-green motion-safe:animate-fade-in">
-            {message}
-          </p>
+          <div className="rounded-md border border-brand-green/30 bg-brand-green/10 p-3 text-sm text-brand-green motion-safe:animate-fade-in">
+            <p>{message}</p>
+            {needsEmailVerification && (
+              <div className="mt-3 space-y-2">
+                <p className="text-muted-foreground">
+                  Check your inbox and spam folder. The link goes to this site, not localhost.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={resending}
+                  onClick={() => void handleResendVerification()}
+                >
+                  {resending ? 'Sending…' : 'Resend verification email'}
+                </Button>
+                {resendMessage && <p>{resendMessage}</p>}
+                <p>
+                  <Link href="/auth/login" className="font-medium underline">
+                    Go to sign in
+                  </Link>
+                </p>
+              </div>
+            )}
+          </div>
         )}
         {error && (
           <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive motion-safe:animate-fade-in">

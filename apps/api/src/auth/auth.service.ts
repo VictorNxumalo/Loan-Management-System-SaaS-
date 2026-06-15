@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import type {
@@ -41,6 +42,13 @@ import { TokenService, type AccessTokenPayload } from './token.service';
 const BCRYPT_ROUNDS = 12;
 const VERIFICATION_EXPIRY_HOURS = 24;
 const RESET_EXPIRY_HOURS = 1;
+
+type PendingVerification = {
+  email: string;
+  token: string;
+  hash: string;
+  expiresAt: Date;
+};
 
 /** User graph needed to compute profileComplete on login / refresh. */
 const AUTH_USER_INCLUDE = {
@@ -94,7 +102,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
 
-    const user = await this.prisma.$transaction(async (tx) => {
+    const { user, verification } = await this.prisma.$transaction(async (tx) => {
       const org = await tx.organisation.create({
         data: {
           name: `${input.name}'s Organisation`,
@@ -120,20 +128,24 @@ export class AuthService {
         include: { organisation: true },
       });
 
+      let verification: PendingVerification | null = null;
       if (!isEmailVerificationSkipped()) {
-        const { token, hash } = this.tokenService.generateOpaqueToken();
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + VERIFICATION_EXPIRY_HOURS);
-
+        verification = this.buildVerificationToken(email);
         await tx.emailVerificationToken.create({
-          data: { userId: created.id, tokenHash: hash, expiresAt },
+          data: {
+            userId: created.id,
+            tokenHash: verification.hash,
+            expiresAt: verification.expiresAt,
+          },
         });
-
-        await this.emailService.sendVerificationEmail(email, token);
       }
 
-      return created;
+      return { user: created, verification };
     });
+
+    if (verification) {
+      await this.deliverVerificationEmail(verification.email, verification.token);
+    }
 
     return {
       message: isEmailVerificationSkipped()
@@ -156,7 +168,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
 
-    const { user, orgName } = await this.prisma.withAuthLookup(async (tx) => {
+    const { user, orgName, verification } = await this.prisma.withAuthLookup(async (tx) => {
       const invite = await tx.teamInvite.findUnique({
         where: { tokenHash },
         include: { organisation: true },
@@ -216,20 +228,24 @@ export class AuthService {
         },
       });
 
+      let verification: PendingVerification | null = null;
       if (!isEmailVerificationSkipped()) {
-        const { token, hash } = this.tokenService.generateOpaqueToken();
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + VERIFICATION_EXPIRY_HOURS);
-
+        verification = this.buildVerificationToken(email);
         await tx.emailVerificationToken.create({
-          data: { userId: created.id, tokenHash: hash, expiresAt },
+          data: {
+            userId: created.id,
+            tokenHash: verification.hash,
+            expiresAt: verification.expiresAt,
+          },
         });
-
-        await this.emailService.sendVerificationEmail(email, token);
       }
 
-      return { user: created, orgName: invite.organisation.name };
+      return { user: created, orgName: invite.organisation.name, verification };
     });
+
+    if (verification) {
+      await this.deliverVerificationEmail(verification.email, verification.token);
+    }
 
     return {
       message: isEmailVerificationSkipped()
@@ -250,7 +266,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
 
-    const user = await this.prisma.$transaction(async (tx) => {
+    const { user, verification } = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
           accountType: AccountType.BORROWER,
@@ -264,20 +280,24 @@ export class AuthService {
         },
       });
 
+      let verification: PendingVerification | null = null;
       if (!isEmailVerificationSkipped()) {
-        const { token, hash } = this.tokenService.generateOpaqueToken();
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + VERIFICATION_EXPIRY_HOURS);
-
+        verification = this.buildVerificationToken(email);
         await tx.emailVerificationToken.create({
-          data: { userId: created.id, tokenHash: hash, expiresAt },
+          data: {
+            userId: created.id,
+            tokenHash: verification.hash,
+            expiresAt: verification.expiresAt,
+          },
         });
-
-        await this.emailService.sendVerificationEmail(email, token);
       }
 
-      return created;
+      return { user: created, verification };
     });
+
+    if (verification) {
+      await this.deliverVerificationEmail(verification.email, verification.token);
+    }
 
     await this.acceptPendingInvitesForEmail(user.id, email);
 
@@ -528,6 +548,39 @@ export class AuthService {
     return { message: 'Email verified successfully. You can now log in.' };
   }
 
+  async resendVerificationEmail(email: string): Promise<{ message: string }> {
+    const normalized = email.toLowerCase();
+    const genericMessage =
+      'If an unverified account exists for that email, a new verification link has been sent. Check your inbox and spam folder.';
+
+    const user = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findFirst({ where: { email: normalized, deletedAt: null } }),
+    );
+
+    if (!user || user.emailVerifiedAt || isEmailVerificationSkipped()) {
+      return { message: genericMessage };
+    }
+
+    const verification = this.buildVerificationToken(user.email);
+
+    await this.prisma.withAuthLookup(async (tx) => {
+      await tx.emailVerificationToken.deleteMany({
+        where: { userId: user.id, usedAt: null },
+      });
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: verification.hash,
+          expiresAt: verification.expiresAt,
+        },
+      });
+    });
+
+    await this.deliverVerificationEmail(user.email, verification.token);
+
+    return { message: genericMessage };
+  }
+
   async forgotPassword(input: ForgotPasswordInput): Promise<{ message: string }> {
     const email = input.email.toLowerCase();
 
@@ -602,6 +655,26 @@ export class AuthService {
       uploadUrl: signed.signedUrl,
       storagePath,
     };
+  }
+
+  private buildVerificationToken(email: string) {
+    const { token, hash } = this.tokenService.generateOpaqueToken();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + VERIFICATION_EXPIRY_HOURS);
+    return { email, token, hash, expiresAt };
+  }
+
+  private async deliverVerificationEmail(email: string, token: string): Promise<void> {
+    try {
+      await this.emailService.sendVerificationEmail(email, token);
+    } catch (err) {
+      if (err instanceof ServiceUnavailableException) {
+        throw new ServiceUnavailableException(
+          `${err.message} Your account was created — use "Resend verification email" on the sign-in page.`,
+        );
+      }
+      throw err;
+    }
   }
 
   private async issueTokens(

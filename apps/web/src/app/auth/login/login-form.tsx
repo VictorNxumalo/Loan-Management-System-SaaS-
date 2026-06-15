@@ -14,7 +14,7 @@ import { LegalFooterLinks } from '@/components/legal/legal-consent-notice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { isGoogleOAuthEnabled } from '@/lib/api';
+import { apiFetch, isGoogleOAuthEnabled } from '@/lib/api';
 
 type LoginForm = z.infer<typeof loginSchema>;
 
@@ -27,10 +27,16 @@ export function LoginForm({ verified }: { verified: boolean }) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
+
+  const emailValue = watch('email');
+  const needsVerification = error?.toLowerCase().includes('verify your email');
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
 
   const onSubmit = async (data: LoginForm) => {
     setError(null);
@@ -61,6 +67,28 @@ export function LoginForm({ verified }: { verified: boolean }) {
     router.refresh();
   };
 
+  const handleResendVerification = async () => {
+    if (!emailValue) {
+      setResendMessage('Enter your email address first.');
+      return;
+    }
+    setResendMessage(null);
+    setResending(true);
+    try {
+      const result = await apiFetch<{ message: string }>('/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email: emailValue }),
+      });
+      setResendMessage(result.message);
+    } catch (err) {
+      setResendMessage(
+        err instanceof Error ? err.message : 'Could not resend verification email',
+      );
+    } finally {
+      setResending(false);
+    }
+  };
+
   const googleEnabled = isGoogleOAuthEnabled();
 
   return (
@@ -74,9 +102,23 @@ export function LoginForm({ verified }: { verified: boolean }) {
         </p>
       )}
       {error && (
-        <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive motion-safe:animate-fade-in">
-          {error}
-        </p>
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive motion-safe:animate-fade-in">
+          <p>{error}</p>
+          {needsVerification && (
+            <div className="mt-3 space-y-2 text-foreground">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={resending}
+                onClick={() => void handleResendVerification()}
+              >
+                {resending ? 'Sending…' : 'Resend verification email'}
+              </Button>
+              {resendMessage && <p className="text-sm">{resendMessage}</p>}
+            </div>
+          )}
+        </div>
       )}
       <form
         onSubmit={(e) => void handleSubmit(onSubmit)(e)}

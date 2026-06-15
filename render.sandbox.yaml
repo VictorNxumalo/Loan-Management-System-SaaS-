@@ -20,7 +20,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: SKIP_EMAIL_VERIFICATION
-        value: "true"
+        value: "false"
       - key: SUPABASE_STORAGE_BUCKET
         value: lms-documents
       - key: TRIAL_DAYS

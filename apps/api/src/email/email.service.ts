@@ -1,5 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { getEnv, isBrevoConfigured } from '../config/env';
+
+type SendOptions = {
+  /** When true, missing Brevo config or API errors fail the caller (signup, resend). */
+  required?: boolean;
+};
 
 @Injectable()
 export class EmailService {
@@ -10,7 +19,7 @@ export class EmailService {
     const subject = 'Verify your LMS account';
     const body = `Click the link below to verify your email:\n\n${link}\n\nThis link expires in 24 hours.`;
 
-    await this.send(email, subject, body, 'verification');
+    await this.send(email, subject, body, 'verification', { required: true });
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
@@ -225,11 +234,16 @@ export class EmailService {
     subject: string,
     body: string,
     type: string,
+    options?: SendOptions,
   ): Promise<void> {
     if (!isBrevoConfigured()) {
-      this.logger.warn(
-        `[DEV EMAIL - ${type}] To: ${to}\nSubject: ${subject}\n${body}`,
-      );
+      const preview = `[DEV EMAIL - ${type}] To: ${to}\nSubject: ${subject}\n${body}`;
+      if (options?.required) {
+        throw new ServiceUnavailableException(
+          'Email delivery is not configured (BREVO_API_KEY and BREVO_FROM_EMAIL required).',
+        );
+      }
+      this.logger.warn(preview);
       return;
     }
 
@@ -254,7 +268,27 @@ export class EmailService {
     });
 
     if (!response.ok) {
-      this.logger.error(`Brevo error: ${response.status} ${await response.text()}`);
+      const detail = await response.text();
+      this.logger.error(`Brevo error (${type} → ${to}): ${response.status} ${detail}`);
+      if (options?.required) {
+        throw new ServiceUnavailableException(this.brevoFailureMessage(response.status));
+      }
+      return;
     }
+
+    const result = (await response.json()) as { messageId?: string };
+    this.logger.log(
+      `Brevo sent ${type} to ${to}${result.messageId ? ` (messageId=${result.messageId})` : ''}`,
+    );
+  }
+
+  private brevoFailureMessage(status: number): string {
+    if (status === 401) {
+      return 'Could not send verification email: Brevo rejected the API key. Check BREVO_API_KEY and disable authorized IP restriction in Brevo → Security → Authorized IPs.';
+    }
+    if (status === 400) {
+      return 'Could not send verification email: Brevo rejected the sender. Verify BREVO_FROM_EMAIL in Brevo → Senders & IP.';
+    }
+    return 'Could not send verification email. Please try again in a few minutes.';
   }
 }

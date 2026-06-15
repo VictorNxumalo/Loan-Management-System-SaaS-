@@ -43,9 +43,19 @@ const envSchema = z.object({
   /** Staging only: allow any https://*.vercel.app origin (preview deploys) */
   STAGING_ALLOW_VERCEL_CORS: envBoolean(false),
   /** Brevo transactional email — https://app.brevo.com/settings/keys/api */
-  BREVO_API_KEY: optionalString,
+  BREVO_API_KEY: z.preprocess(
+    (val) => {
+      if (val === '' || val === undefined) return undefined;
+      return typeof val === 'string' ? val.trim() : val;
+    },
+    z.string().optional(),
+  ),
   BREVO_FROM_EMAIL: z.preprocess(
-    (val) => (val === '' || val === undefined ? undefined : val),
+    (val) => {
+      if (val === '' || val === undefined) return undefined;
+      const trimmed = typeof val === 'string' ? val.trim() : val;
+      return trimmed;
+    },
     z.string().email().optional(),
   ),
   BREVO_FROM_NAME: z.string().default('LMS'),
@@ -117,6 +127,26 @@ export function isGoogleOAuthConfigured(): boolean {
 
 export function isEmailVerificationSkipped(): boolean {
   return getEnv().SKIP_EMAIL_VERIFICATION;
+}
+
+/** Refuse to boot when verification is required but Brevo is not configured. */
+export function assertEmailDeliveryReady(): void {
+  if (isEmailVerificationSkipped()) return;
+  if (isBrevoConfigured()) return;
+
+  throw new Error(
+    'SKIP_EMAIL_VERIFICATION=false requires BREVO_API_KEY and BREVO_FROM_EMAIL on the API service.',
+  );
+}
+
+export function getEmailDeliveryStatus() {
+  const verificationRequired = !isEmailVerificationSkipped();
+  const brevoConfigured = isBrevoConfigured();
+  return {
+    verificationRequired,
+    brevoConfigured,
+    ready: !verificationRequired || brevoConfigured,
+  };
 }
 
 export function isTwilioConfigured(): boolean {

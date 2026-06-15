@@ -32,6 +32,10 @@ export const forgotPasswordSchema = z.object({
   email: z.string().email(),
 });
 
+export const resendVerificationSchema = z.object({
+  email: z.string().email(),
+});
+
 export const resetPasswordSchema = z.object({
   token: z.string().min(1),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -64,6 +68,7 @@ export const organisationSettingsSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type GoogleAuthInput = z.infer<typeof googleAuthSchema>;
 export type OrganisationLogoUploadInput = z.infer<typeof organisationLogoUploadSchema>;
