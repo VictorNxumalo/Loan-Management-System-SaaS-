@@ -27,6 +27,7 @@ import { StitchModule } from './stitch/stitch.module';
 import { TeamModule } from './team/team.module';
 import { WalletsModule } from './wallets/wallets.module';
 import { PlatformComplianceModule } from './platform-compliance/platform-compliance.module';
+import { PlatformSupportModule } from './platform-support/platform-support.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { PlatformComplianceModule } from './platform-compliance/platform-complia
     ProfileModule,
     StitchModule,
     PlatformComplianceModule,
+    PlatformSupportModule,
   ],
   controllers: [AppController],
   providers: [

@@ -5,6 +5,10 @@ import type { Session } from 'next-auth';
 export function getPostAuthRouteFromMe(me: AuthMeResponse): string {
   const needsProfile = !me.user.profileComplete;
 
+  if (me.user.isPlatformAdmin) {
+    return needsProfile ? '/onboarding' : '/platform';
+  }
+
   if (me.user.accountType === 'BORROWER') {
     return needsProfile ? '/borrower/onboarding' : '/borrower';
   }

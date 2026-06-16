@@ -4,12 +4,12 @@ import type { AuthMeResponse } from '@lms/types';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
-import { AppShell } from '@/components/app-shell';
+import { PlatformShell } from '@/components/platform-shell';
 import { PageLoading } from '@/components/brand/loading';
 import { apiFetch } from '@/lib/api';
 import { getPostAuthRouteFromMe } from '@/lib/routes';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default function PlatformLayout({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -31,13 +31,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         if (cancelled) return;
 
-        if (me.user.accountType === 'BORROWER') {
+        if (!me.user.isPlatformAdmin) {
           router.replace(getPostAuthRouteFromMe(me));
-          return;
-        }
-
-        if (me.user.isPlatformAdmin) {
-          router.replace('/platform');
           return;
         }
 
@@ -57,8 +52,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [status, session, router]);
 
   if (status === 'loading') {
-    return <PageLoading label="Loading workspace…" className="min-h-screen" />;
+    return <PageLoading label="Loading platform console…" className="min-h-screen" />;
   }
 
-  return <AppShell>{children}</AppShell>;
+  return <PlatformShell>{children}</PlatformShell>;
 }

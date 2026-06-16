@@ -229,6 +229,74 @@ export class EmailService {
     await this.send(email, subject, body, 'wallet-repayment-received');
   }
 
+  async sendPlatformSupportNewTicketToAdmins(input: {
+    adminEmails: string[];
+    ticketNumber: number;
+    categoryLabel: string;
+    subject: string;
+    description: string;
+    reporterName: string;
+    reporterEmail: string;
+    reporterType: string;
+    organisationName: string | null;
+    link: string;
+  }): Promise<void> {
+    if (input.adminEmails.length === 0) {
+      this.logger.warn(
+        `[platform-support] No PLATFORM_ADMIN_EMAILS configured — skipping new ticket #${input.ticketNumber} email`,
+      );
+      return;
+    }
+
+    const orgLine = input.organisationName
+      ? `Organisation: ${input.organisationName}\n`
+      : '';
+    const emailSubject = `[LMS #${input.ticketNumber}] ${input.subject}`;
+    const body = `A new platform support ticket was submitted.\n\nTicket: #${input.ticketNumber}\nCategory: ${input.categoryLabel}\nSubject: ${input.subject}\nFrom: ${input.reporterName} <${input.reporterEmail}> (${input.reporterType})\n${orgLine}\nMessage:\n${input.description}\n\nReview in LMS:\n${input.link}`;
+
+    await Promise.all(
+      input.adminEmails.map((email) =>
+        this.send(email, emailSubject, body, 'platform-support-new'),
+      ),
+    );
+  }
+
+  async sendPlatformSupportReplyToUser(input: {
+    email: string;
+    ticketNumber: number;
+    subject: string;
+    message: string;
+    link: string;
+  }): Promise<void> {
+    const emailSubject = `Update on your LMS support ticket #${input.ticketNumber}`;
+    const body = `LMS support replied to your ticket "${input.subject}".\n\n${input.message}\n\nView the conversation:\n${input.link}`;
+
+    await this.send(input.email, emailSubject, body, 'platform-support-reply');
+  }
+
+  async sendPlatformSupportUserReplyToAdmins(input: {
+    adminEmails: string[];
+    ticketNumber: number;
+    subject: string;
+    reporterName: string;
+    reporterEmail: string;
+    message: string;
+    link: string;
+  }): Promise<void> {
+    if (input.adminEmails.length === 0) {
+      return;
+    }
+
+    const emailSubject = `[LMS #${input.ticketNumber}] User reply — ${input.subject}`;
+    const body = `${input.reporterName} <${input.reporterEmail}> replied on ticket #${input.ticketNumber}.\n\n${input.message}\n\nReview in LMS:\n${input.link}`;
+
+    await Promise.all(
+      input.adminEmails.map((email) =>
+        this.send(email, emailSubject, body, 'platform-support-user-reply'),
+      ),
+    );
+  }
+
   private async send(
     to: string,
     subject: string,

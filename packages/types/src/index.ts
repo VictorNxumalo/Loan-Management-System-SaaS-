@@ -17,4 +17,5 @@ export * from './marketplace';
 export * from './wallet';
 export * from './profile';
 export * from './compliance';
+export * from './platform-support';
 export * from './stitch';

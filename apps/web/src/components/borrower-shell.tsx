@@ -19,6 +19,7 @@ export function BorrowerShell({ children }: { children: ReactNode }) {
     { href: '/borrower/applications', label: 'Applications', shortLabel: 'Apps' },
     { href: '/borrower/loans', label: 'My loans', shortLabel: 'Loans' },
     { href: '/borrower/wallet', label: 'Wallet' },
+    { href: '/borrower/support', label: 'Contact LMS', shortLabel: 'Support', secondary: true },
     {
       href: '/borrower/lenders/browse',
       label: 'Browse lenders',

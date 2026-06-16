@@ -100,6 +100,28 @@ enum PaymentSubmissionStatus {
   REJECTED
 }
 
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_USER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketCategory {
+  BILLING
+  COMPLIANCE
+  TECHNICAL
+  DISPUTE
+  ACCOUNT
+  OTHER
+}
+
+enum SupportTicketReporterType {
+  LENDER
+  BORROWER
+}
+
 enum SubscriptionStatus {
   ACTIVE
   TRIALING
@@ -167,6 +189,7 @@ model Organisation {
   loanStitchDisbursements LoanStitchDisbursement[]
   stitchLinkPay     OrganisationStitchLinkPay?
   loanAgreements    LoanAgreement[]
+  platformSupportTickets PlatformSupportTicket[]
 
   @@map("organisations")
 }
@@ -209,6 +232,9 @@ model User {
   kycDocuments                UserKycDocument[]
   loanAgreementsGenerated     LoanAgreement[] @relation("LoanAgreementGeneratedBy")
   loanAgreementsSigned        LoanAgreement[] @relation("LoanAgreementSignedBy")
+  supportTicketsReported      PlatformSupportTicket[] @relation("SupportTicketReporter")
+  supportTicketsAssigned      PlatformSupportTicket[] @relation("SupportTicketAssignee")
+  supportTicketMessages       PlatformSupportTicketMessage[]
 
   @@index([orgId])
   @@index([email])
@@ -721,4 +747,46 @@ model OrganisationStitchLinkPay {
   organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("organisation_stitch_linkpay")
+}
+
+model PlatformSupportTicket {
+  id               String                    @id @default(uuid()) @db.Uuid
+  ticketNumber     Int                       @unique @default(autoincrement()) @map("ticket_number")
+  reporterUserId   String                    @map("reporter_user_id") @db.Uuid
+  reporterType     SupportTicketReporterType @map("reporter_type")
+  orgId            String?                   @map("org_id") @db.Uuid
+  category         SupportTicketCategory
+  subject          String
+  description      String
+  status           SupportTicketStatus       @default(OPEN)
+  assignedToUserId String?                   @map("assigned_to_user_id") @db.Uuid
+  resolvedAt       DateTime?                 @map("resolved_at")
+  resolutionNote   String?                   @map("resolution_note")
+  createdAt        DateTime                  @default(now()) @map("created_at")
+  updatedAt        DateTime                  @updatedAt @map("updated_at")
+
+  reporter   User                           @relation("SupportTicketReporter", fields: [reporterUserId], references: [id], onDelete: Cascade)
+  org        Organisation?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  assignedTo User?                          @relation("SupportTicketAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  messages   PlatformSupportTicketMessage[]
+
+  @@index([status, createdAt])
+  @@index([reporterUserId])
+  @@index([orgId])
+  @@map("platform_support_tickets")
+}
+
+model PlatformSupportTicketMessage {
+  id           String   @id @default(uuid()) @db.Uuid
+  ticketId     String   @map("ticket_id") @db.Uuid
+  authorUserId String   @map("author_user_id") @db.Uuid
+  body         String
+  isInternal   Boolean  @default(false) @map("is_internal")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ticket PlatformSupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User                  @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("platform_support_ticket_messages")
 }
