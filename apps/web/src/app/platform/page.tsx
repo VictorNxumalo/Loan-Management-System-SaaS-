@@ -1,6 +1,7 @@
 'use client';
 
 import type { PlatformSupportOverviewDto } from '@lms/types';
+import { AlertCircle, Building2, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
 import { OverviewTile, OverviewTileGrid } from '@/components/overview/overview-tile';
@@ -22,24 +23,34 @@ export default function PlatformOverviewPage() {
 
       <OverviewTileGrid>
         <OverviewTile
-          label="Open issues"
+          href="/platform/support"
+          title="Open issues"
+          description="New support tickets awaiting review"
           value={loading ? '…' : String(data?.openTickets ?? 0)}
-          href="/platform/support"
+          icon={AlertCircle}
+          variant={!loading && (data?.openTickets ?? 0) > 0 ? 'alert' : 'default'}
         />
         <OverviewTile
-          label="In progress"
+          href="/platform/support"
+          title="In progress"
+          description="Tickets currently being handled"
           value={loading ? '…' : String(data?.inProgressTickets ?? 0)}
-          href="/platform/support"
+          icon={Loader2}
         />
         <OverviewTile
-          label="Waiting on users"
+          href="/platform/support"
+          title="Waiting on users"
+          description="Awaiting reporter follow-up"
           value={loading ? '…' : String(data?.waitingOnUserTickets ?? 0)}
-          href="/platform/support"
+          icon={Clock}
         />
         <OverviewTile
-          label="Lender organisations"
-          value={loading ? '…' : String(data?.totalLenders ?? 0)}
           href="/platform/compliance"
+          title="Lender organisations"
+          description="Registered lender workspaces on LMS"
+          value={loading ? '…' : String(data?.totalLenders ?? 0)}
+          icon={Building2}
+          variant="muted"
         />
       </OverviewTileGrid>
 
