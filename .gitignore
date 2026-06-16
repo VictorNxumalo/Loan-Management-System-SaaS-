@@ -43,3 +43,7 @@ coverage/
 # Misc
 .turbo
 .vercel
+.cursor/
+
+# Local archives (keep sources in docs/)
+docs.zip

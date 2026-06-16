@@ -15,6 +15,7 @@ import {
   listLoanApplicationsQuerySchema,
   rejectLoanApplicationSchema,
   requestApplicationDocumentUploadSchema,
+  triggerApplicationCreditCheckSchema,
   UserRole,
 } from '@lms/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -188,5 +189,31 @@ export class LenderApplicationsController {
     body: Parameters<LoanApplicationsService['reject']>[3],
   ) {
     return this.applicationsService.reject(user.orgId!, user.sub, id, body);
+  }
+
+  @Get(':id/credit-check')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER, UserRole.VIEWER)
+  getLatestCreditCheck(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.applicationsService.getLatestCreditCheckForLender(
+      user.orgId!,
+      user.sub,
+      id,
+    );
+  }
+
+  @Post(':id/credit-check/pull')
+  @Roles(UserRole.ADMIN, UserRole.LOAN_OFFICER)
+  triggerCreditCheck(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(triggerApplicationCreditCheckSchema))
+    body: Parameters<LoanApplicationsService['triggerCreditCheckForLender']>[3],
+  ) {
+    return this.applicationsService.triggerCreditCheckForLender(
+      user.orgId!,
+      user.sub,
+      id,
+      body,
+    );
   }
 }

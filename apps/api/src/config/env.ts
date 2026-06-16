@@ -97,6 +97,12 @@ const envSchema = z.object({
   PLATFORM_ADMIN_EMAILS: optionalString,
   /** SA repo rate (% p.a.) for NCA maximum interest cap calculation */
   NCR_REPO_RATE_PERCENT: z.coerce.number().positive().max(30).default(8.25),
+  DATANAMIX_API_BASE_URL: z
+    .string()
+    .url()
+    .default('https://api.datanamix.co.za'),
+  DATANAMIX_API_KEY: optionalString,
+  DATANAMIX_TIMEOUT_MS: z.coerce.number().int().min(3000).max(60000).default(15000),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -225,4 +231,8 @@ export function getPlatformAdminEmails(): string[] {
 export function isPlatformAdminEmail(email: string): boolean {
   const normalised = email.trim().toLowerCase();
   return getPlatformAdminEmails().includes(normalised);
+}
+
+export function isDatanamixConfigured(): boolean {
+  return Boolean(getEnv().DATANAMIX_API_KEY);
 }

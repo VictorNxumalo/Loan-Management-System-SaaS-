@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  ApplicationCreditCheckDto,
   ApproveLoanApplicationInput,
   ApproveLoanApplicationResultDto,
   ApplicationBankDetailsDto,
@@ -16,6 +17,7 @@ import type {
   LoanApplicationListItemDto,
   PaginatedLoanApplicationsDto,
   RejectLoanApplicationInput,
+  TriggerApplicationCreditCheckInput,
 } from '@lms/types';
 import {
   applicationReviewChecklistSchema,
@@ -33,6 +35,7 @@ import { PrismaService, PrismaTx } from '../prisma/prisma.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
 import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
 import { ApplicationDocumentsService } from './application-documents.service';
+import { CreditDataService } from './credit-data.service';
 import {
   buildApplicationReviewChecklistStatus,
   parseApplicationReviewChecklist,
@@ -80,6 +83,7 @@ export class LoanApplicationsService {
     private readonly auditService: AuditService,
     private readonly applicationDocuments: ApplicationDocumentsService,
     private readonly lendingConstraints: BorrowerLendingConstraintsService,
+    private readonly creditData: CreditDataService,
   ) {}
 
   async createDraft(
@@ -379,6 +383,115 @@ export class LoanApplicationsService {
         this.toApplicationRow(row, borrowerNames),
         await this.applicationDocuments.summarizeForApplication(orgId, userId, row.id),
       );
+    });
+  }
+
+  async getLatestCreditCheckForLender(
+    orgId: string,
+    userId: string,
+    id: string,
+  ): Promise<ApplicationCreditCheckDto | null> {
+    return this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      await this.assertApplicationVisibleToLender(tx, orgId, id);
+      const row = await tx.applicationCreditPull.findFirst({
+        where: { orgId, applicationId: id },
+        orderBy: { pulledAt: 'desc' },
+      });
+      return row ? this.mapCreditCheck(row) : null;
+    });
+  }
+
+  async triggerCreditCheckForLender(
+    orgId: string,
+    userId: string,
+    id: string,
+    input: TriggerApplicationCreditCheckInput,
+  ): Promise<ApplicationCreditCheckDto> {
+    return this.prisma.withOrgContext(orgId, userId, async (tx) => {
+      const application = await tx.loanApplication.findFirst({
+        where: {
+          id,
+          orgId,
+          status: { in: [LoanApplicationStatus.SUBMITTED, LoanApplicationStatus.APPROVED] },
+        },
+        include: { organisation: true, borrowerUser: true },
+      });
+
+      if (!application) {
+        throw new NotFoundException('Application not found');
+      }
+
+      if (!input.forceRefresh) {
+        const existing = await tx.applicationCreditPull.findFirst({
+          where: { applicationId: id, orgId, status: 'SUCCESS' },
+          orderBy: { pulledAt: 'desc' },
+        });
+        if (existing) {
+          return this.mapCreditCheck(existing);
+        }
+      }
+
+      const borrowerUser = await this.prisma.withAuthLookup(async (authTx) =>
+        authTx.user.findUnique({
+          where: { id: application.borrowerUserId },
+          include: { borrowerAccount: true },
+        }),
+      );
+
+      if (!borrowerUser) {
+        throw new NotFoundException('Borrower account not found');
+      }
+
+      const consent = parseApplicationConsentRecord(application.consentRecord);
+      if (!consent?.creditChecks) {
+        throw new BadRequestException(
+          'Cannot pull credit data without explicit borrower credit-check consent',
+        );
+      }
+
+      const idNumber = borrowerUser.idNumber ?? borrowerUser.borrowerAccount?.idNumber;
+      if (!idNumber) {
+        throw new BadRequestException('Borrower profile is missing an ID number');
+      }
+
+      const pull = await this.creditData.pullReport({
+        idNumber,
+        fullName: borrowerUser.name,
+        purpose: `Loan application ${application.id}`,
+        reference: application.id,
+      });
+
+      const created = await tx.applicationCreditPull.create({
+        data: {
+          orgId,
+          applicationId: application.id,
+          borrowerUserId: application.borrowerUserId,
+          provider: pull.provider,
+          status: pull.status,
+          score: pull.score,
+          summary: pull.summary,
+          bureauSources: pull.bureauSources as unknown as Prisma.InputJsonValue,
+          requestPayload: pull.requestPayload as unknown as Prisma.InputJsonValue,
+          rawResponse: pull.rawResponse as unknown as Prisma.InputJsonValue,
+          pulledByUserId: userId,
+        },
+      });
+
+      await this.auditService.record(tx, {
+        orgId,
+        userId,
+        action: 'application.credit_check_pulled',
+        entityType: 'LOAN_APPLICATION',
+        entityId: id,
+        after: {
+          provider: created.provider,
+          status: created.status,
+          score: created.score,
+          pulledAt: created.pulledAt.toISOString(),
+        },
+      });
+
+      return this.mapCreditCheck(created);
     });
   }
 
@@ -779,6 +892,48 @@ export class LoanApplicationsService {
       documents,
       reviewChecklist: buildApplicationReviewChecklistStatus(checklist),
       consentRecord: parseApplicationConsentRecord(row.consentRecord),
+    };
+  }
+
+  private async assertApplicationVisibleToLender(
+    tx: PrismaTx,
+    orgId: string,
+    id: string,
+  ): Promise<void> {
+    const row = await tx.loanApplication.findFirst({
+      where: { id, orgId },
+      select: { id: true, status: true },
+    });
+    if (!row || row.status === LoanApplicationStatus.DRAFT) {
+      throw new NotFoundException('Application not found');
+    }
+  }
+
+  private mapCreditCheck(row: {
+    id: string;
+    applicationId: string;
+    provider: string;
+    status: string;
+    score: number | null;
+    summary: string | null;
+    bureauSources: unknown;
+    pulledByUserId: string;
+    pulledAt: Date;
+    createdAt: Date;
+  }): ApplicationCreditCheckDto {
+    return {
+      id: row.id,
+      applicationId: row.applicationId,
+      provider: row.provider,
+      status: row.status,
+      score: row.score,
+      summary: row.summary,
+      bureauSources: Array.isArray(row.bureauSources)
+        ? row.bureauSources.filter((s): s is string => typeof s === 'string')
+        : [],
+      pulledByUserId: row.pulledByUserId,
+      pulledAt: row.pulledAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
     };
   }
 }

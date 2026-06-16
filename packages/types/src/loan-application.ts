@@ -107,6 +107,10 @@ export const approveLoanApplicationSchema = z.object({
   lenderNotes: z.string().max(2000).optional(),
 });
 
+export const triggerApplicationCreditCheckSchema = z.object({
+  forceRefresh: z.boolean().optional(),
+});
+
 export const listLoanApplicationsQuerySchema = paginationQuerySchema.extend({
   status: loanApplicationStatusSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -121,6 +125,9 @@ export type RequestApplicationDocumentUploadInput = z.infer<
 >;
 export type RejectLoanApplicationInput = z.infer<typeof rejectLoanApplicationSchema>;
 export type ApproveLoanApplicationInput = z.infer<typeof approveLoanApplicationSchema>;
+export type TriggerApplicationCreditCheckInput = z.infer<
+  typeof triggerApplicationCreditCheckSchema
+>;
 export type ListLoanApplicationsQuery = z.infer<typeof listLoanApplicationsQuerySchema>;
 
 export interface ApplicationBankDetailsDto {
@@ -194,4 +201,17 @@ export interface ApproveLoanApplicationResultDto {
   application: LoanApplicationDetailDto;
   loanId: string;
   borrowerId: string;
+}
+
+export interface ApplicationCreditCheckDto {
+  id: string;
+  applicationId: string;
+  provider: string;
+  status: string;
+  score: number | null;
+  summary: string | null;
+  bureauSources: string[];
+  pulledByUserId: string;
+  pulledAt: string;
+  createdAt: string;
 }
