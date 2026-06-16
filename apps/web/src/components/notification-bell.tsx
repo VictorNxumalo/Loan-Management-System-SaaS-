@@ -11,7 +11,11 @@ import { useApi } from '@/lib/use-api';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 
-function notificationHref(notification: NotificationDto, accountType?: string) {
+function notificationHref(
+  notification: NotificationDto,
+  accountType?: string,
+  isPlatformAdmin?: boolean,
+) {
   if (notification.relatedEntityType === 'LOAN_APPLICATION') {
     return accountType === 'BORROWER'
       ? `/borrower/applications/${notification.relatedEntityId}`
@@ -26,6 +30,14 @@ function notificationHref(notification: NotificationDto, accountType?: string) {
     return accountType === 'BORROWER'
       ? '/borrower/loans'
       : `/dashboard/payment-submissions/${notification.relatedEntityId}`;
+  }
+  if (notification.relatedEntityType === 'PLATFORM_SUPPORT_TICKET') {
+    if (isPlatformAdmin) {
+      return `/platform/support/${notification.relatedEntityId}`;
+    }
+    return accountType === 'BORROWER'
+      ? `/borrower/support/${notification.relatedEntityId}`
+      : `/dashboard/support/${notification.relatedEntityId}`;
   }
   return accountType === 'BORROWER' ? '/borrower' : '/dashboard';
 }
@@ -273,7 +285,11 @@ export function NotificationBell() {
               {notifications.map((notification) => (
                 <Link
                   key={notification.id}
-                  href={notificationHref(notification, session?.user?.accountType)}
+                  href={notificationHref(
+                    notification,
+                    session?.user?.accountType,
+                    session?.user?.isPlatformAdmin,
+                  )}
                   className={cn(
                     'block border-b px-3 py-3 text-sm transition-colors hover:bg-accent/60 sm:px-4',
                     !notification.readAt && 'border-l-2 border-l-brand-green bg-brand-green/5',

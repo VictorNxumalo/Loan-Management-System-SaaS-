@@ -19,6 +19,7 @@ import { ReminderCronService } from './reminder-cron.service';
   ],
   exports: [
     NotificationDispatchService,
+    NotificationsService,
     NotificationSchedulerService,
     ReminderCronService,
   ],

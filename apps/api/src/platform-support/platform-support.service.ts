@@ -15,6 +15,7 @@ import type {
 import {
   SUPPORT_TICKET_CATEGORY_LABELS,
   SUPPORT_TICKET_STATUS_LABELS,
+  NotificationType,
   SupportTicketReporterType,
   SupportTicketStatus,
 } from '@lms/types';
@@ -24,6 +25,7 @@ import { AuditService } from '../audit/audit.service';
 import { getPlatformAdminEmails, getEnv } from '../config/env';
 import { EmailService } from '../email/email.service';
 import { isPublicListingEnabled } from '../common/organisation-settings';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type TicketWithRelations = {
@@ -57,6 +59,7 @@ export class PlatformSupportService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly emailService: EmailService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getOverview(): Promise<PlatformSupportOverviewDto> {
@@ -233,6 +236,14 @@ export class PlatformSupportService {
       link: this.adminTicketLink(ticket.id),
     });
 
+    await this.notifyAdminsInApp({
+      ticket: ticket as TicketWithRelations,
+      type: NotificationType.SUPPORT_TICKET_USER_REPLIED,
+      title: `Ticket #${ticket.ticketNumber} updated`,
+      body: `${reporter.name} added a reply on "${ticket.subject}".`,
+      dedupSuffix: `user-replied:${Date.now()}`,
+    });
+
     return this.mapDetail(ticket as TicketWithRelations, { includeInternal: false });
   }
 
@@ -269,7 +280,7 @@ export class PlatformSupportService {
     adminEmail: string,
     input: PlatformSupportTicketReviewInput,
   ): Promise<SupportTicketDetailDto> {
-    const ticket = await this.prisma.$transaction(async (tx) => {
+    const { updatedTicket, previousStatus } = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.platformSupportTicket.findUnique({
         where: { id: ticketId },
       });
@@ -315,10 +326,23 @@ export class PlatformSupportService {
         });
       }
 
-      return updated;
+      return {
+        updatedTicket: updated,
+        previousStatus: existing.status,
+      };
     });
 
-    return this.mapDetail(ticket as TicketWithRelations, { includeInternal: true });
+    if (previousStatus !== input.status) {
+      await this.notifyReporterInApp({
+        ticket: updatedTicket as TicketWithRelations,
+        type: NotificationType.SUPPORT_TICKET_STATUS_UPDATED,
+        title: `Ticket #${updatedTicket.ticketNumber} status updated`,
+        body: `LMS updated your ticket "${updatedTicket.subject}" to ${SUPPORT_TICKET_STATUS_LABELS[input.status]}.`,
+        dedupKey: `support-ticket-status:${updatedTicket.id}:${input.status}:${updatedTicket.updatedAt.getTime()}`,
+      });
+    }
+
+    return this.mapDetail(updatedTicket as TicketWithRelations, { includeInternal: true });
   }
 
   async addAdminMessage(
@@ -376,6 +400,16 @@ export class PlatformSupportService {
       return updated;
     });
 
+    if (input.isInternal !== true) {
+      await this.notifyReporterInApp({
+        ticket: ticket as TicketWithRelations,
+        type: NotificationType.SUPPORT_TICKET_ADMIN_REPLIED,
+        title: `LMS replied to ticket #${ticket.ticketNumber}`,
+        body: `You have a new reply on "${ticket.subject}".`,
+        dedupKey: `support-ticket-admin-reply:${ticket.id}:${ticket.updatedAt.getTime()}`,
+      });
+    }
+
     return this.mapDetail(ticket as TicketWithRelations, { includeInternal: true });
   }
 
@@ -395,6 +429,116 @@ export class PlatformSupportService {
       organisationName: ticket.org?.name ?? null,
       link: this.adminTicketLink(ticket.id),
     });
+
+    await this.notifyAdminsInApp({
+      ticket,
+      type: NotificationType.SUPPORT_TICKET_CREATED,
+      title: `New support ticket #${ticket.ticketNumber}`,
+      body: `${ticket.reporter.name} reported: "${ticket.subject}".`,
+      dedupSuffix: 'created',
+    });
+  }
+
+  private async notifyAdminsInApp(input: {
+    ticket: TicketWithRelations;
+    type: string;
+    title: string;
+    body: string;
+    dedupSuffix: string;
+  }) {
+    const adminEmails = getPlatformAdminEmails();
+    if (adminEmails.length === 0) {
+      return;
+    }
+
+    const admins = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findMany({
+        where: {
+          deletedAt: null,
+          isActive: true,
+          email: { in: adminEmails },
+        },
+        select: { id: true, orgId: true },
+      }),
+    );
+
+    for (const admin of admins) {
+      const orgId = await this.resolveNotificationOrgId(
+        admin.id,
+        admin.orgId ?? input.ticket.orgId,
+      );
+      if (!orgId) {
+        continue;
+      }
+      await this.notificationsService.createInApp({
+        orgId,
+        userId: admin.id,
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        dedupKey: `support-ticket:${input.ticket.id}:${input.dedupSuffix}:admin:${admin.id}`,
+        relatedEntityType: 'PLATFORM_SUPPORT_TICKET',
+        relatedEntityId: input.ticket.id,
+      });
+    }
+  }
+
+  private async notifyReporterInApp(input: {
+    ticket: TicketWithRelations;
+    type: string;
+    title: string;
+    body: string;
+    dedupKey: string;
+  }) {
+    const orgId = await this.resolveNotificationOrgId(
+      input.ticket.reporterUserId,
+      input.ticket.orgId,
+    );
+    if (!orgId) {
+      return;
+    }
+
+    await this.notificationsService.createInApp({
+      orgId,
+      userId: input.ticket.reporterUserId,
+      type: input.type,
+      title: input.title,
+      body: input.body,
+      dedupKey: input.dedupKey,
+      relatedEntityType: 'PLATFORM_SUPPORT_TICKET',
+      relatedEntityId: input.ticket.id,
+    });
+  }
+
+  private async resolveNotificationOrgId(
+    userId: string,
+    fallbackOrgId: string | null | undefined,
+  ): Promise<string | null> {
+    const user = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findUnique({
+        where: { id: userId },
+        select: { orgId: true },
+      }),
+    );
+    if (user?.orgId) {
+      return user.orgId;
+    }
+    if (fallbackOrgId) {
+      return fallbackOrgId;
+    }
+
+    const admin = await this.prisma.withAuthLookup(async (tx) =>
+      tx.user.findFirst({
+        where: {
+          deletedAt: null,
+          isActive: true,
+          email: { in: getPlatformAdminEmails() },
+          orgId: { not: null },
+        },
+        select: { orgId: true },
+      }),
+    );
+    return admin?.orgId ?? null;
   }
 
   private detailInclude() {
