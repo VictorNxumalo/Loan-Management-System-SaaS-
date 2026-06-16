@@ -9,6 +9,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AccessTokenPayload } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { AccountType } from '@prisma/client';
 import { PlatformSupportService } from './platform-support.service';
 
 @Controller('support')
@@ -24,7 +25,7 @@ export class SupportController {
   ) {
     return this.platformSupportService.createTicket(
       user.sub,
-      user.accountType,
+      user.accountType as AccountType,
       user.orgId,
       body,
     );

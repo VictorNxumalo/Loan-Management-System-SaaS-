@@ -115,18 +115,20 @@ export class PlatformSupportService {
         include: this.detailInclude(),
       });
 
-      await this.auditService.record(tx, {
-        ...(orgId ? { orgId } : {}),
-        userId,
-        action: 'platform_support.ticket_created',
-        entityType: 'PLATFORM_SUPPORT_TICKET',
-        entityId: created.id,
-        after: {
-          ticketNumber: created.ticketNumber,
-          category: created.category,
-          subject: created.subject,
-        },
-      });
+      if (orgId) {
+        await this.auditService.record(tx, {
+          orgId,
+          userId,
+          action: 'platform_support.ticket_created',
+          entityType: 'PLATFORM_SUPPORT_TICKET',
+          entityId: created.id,
+          after: {
+            ticketNumber: created.ticketNumber,
+            category: created.category,
+            subject: created.subject,
+          },
+        });
+      }
 
       return created;
     });
@@ -298,18 +300,20 @@ export class PlatformSupportService {
         },
       });
 
-      await this.auditService.record(tx, {
-        ...(updated.orgId ? { orgId: updated.orgId } : {}),
-        userId: adminUserId,
-        action: 'platform_support.ticket_reviewed',
-        entityType: 'PLATFORM_SUPPORT_TICKET',
-        entityId: ticketId,
-        after: {
-          status: input.status,
-          resolutionNote: input.resolutionNote?.trim() || null,
-          reviewedBy: adminEmail,
-        },
-      });
+      if (updated.orgId) {
+        await this.auditService.record(tx, {
+          orgId: updated.orgId,
+          userId: adminUserId,
+          action: 'platform_support.ticket_reviewed',
+          entityType: 'PLATFORM_SUPPORT_TICKET',
+          entityId: ticketId,
+          after: {
+            status: input.status,
+            resolutionNote: input.resolutionNote?.trim() || null,
+            reviewedBy: adminEmail,
+          },
+        });
+      }
 
       return updated;
     });
