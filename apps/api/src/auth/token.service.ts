@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ACCESS_TOKEN_TTL_SECONDS, REFRESH_TOKEN_TTL_DAYS } from '@lms/types';
 import { createHash, randomBytes } from 'crypto';
 import { getEnv } from '../config/env';
 import { PrismaService, PrismaTx } from '../prisma/prisma.service';
@@ -12,8 +13,7 @@ export interface AccessTokenPayload {
   email: string;
 }
 
-const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_DAYS = 30;
+const ACCESS_TOKEN_EXPIRY = `${ACCESS_TOKEN_TTL_SECONDS / 3600}h` as const;
 
 @Injectable()
 export class TokenService {
@@ -27,7 +27,7 @@ export class TokenService {
       secret: getEnv().JWT_SECRET,
       expiresIn: ACCESS_TOKEN_EXPIRY,
     });
-    return { accessToken, expiresIn: 15 * 60 };
+    return { accessToken, expiresIn: ACCESS_TOKEN_TTL_SECONDS };
   }
 
   verifyAccessToken(token: string): AccessTokenPayload {
@@ -52,7 +52,7 @@ export class TokenService {
   async createRefreshToken(tx: PrismaTx, userId: string): Promise<string> {
     const { token, hash } = this.generateOpaqueToken();
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_DAYS);
+    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_TTL_DAYS);
 
     await tx.refreshToken.create({
       data: { userId, tokenHash: hash, expiresAt },
@@ -84,7 +84,7 @@ export class TokenService {
 
       const { token: newToken, hash: newHash } = this.generateOpaqueToken();
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_DAYS);
+      expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_TTL_DAYS);
 
       const newRecord = await tx.refreshToken.create({
         data: {

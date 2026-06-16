@@ -65,6 +65,14 @@ export const organisationSettingsSchema = z.object({
   logoStoragePath: z.union([z.string().min(1).max(500), z.literal('')]).optional(),
 });
 
+/** JWT access token lifetime (24h — full work day without re-auth). */
+export const ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60;
+
+/** Opaque refresh token + NextAuth session lifetime (7 days — typical SaaS sliding session). */
+export const REFRESH_TOKEN_TTL_DAYS = 7;
+
+export const AUTH_SESSION_MAX_AGE_SECONDS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60;
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;

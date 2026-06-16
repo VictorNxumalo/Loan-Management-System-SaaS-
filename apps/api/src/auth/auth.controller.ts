@@ -17,6 +17,7 @@ import {
   loginSchema,
   organisationLogoUploadSchema,
   onboardingSchema,
+  REFRESH_TOKEN_TTL_DAYS,
   registerSchema,
   resendVerificationSchema,
   resetPasswordSchema,
@@ -152,7 +153,7 @@ export class AuthController {
       secure: isProd,
       sameSite: 'strict' as const,
       path: '/v1/auth',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
     };
   }
 }
