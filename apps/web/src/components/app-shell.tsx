@@ -9,19 +9,29 @@ import {
   ShellLogoutButton,
   ShellUserMeta,
 } from '@/components/brand/shell-header';
-import { AccountTypeBadge, RoleBadge } from '@/components/role-badge';
+import { AccountTypeBadge, PlatformOperatorBadge, RoleBadge } from '@/components/role-badge';
 import { canManageSettings } from '@/lib/permissions';
+import { useIsPlatformAdmin } from '@/lib/use-platform-admin';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const role = session?.user?.role ?? undefined;
   const showSettings = canManageSettings(role);
-  const isPlatformAdmin = session?.user?.isPlatformAdmin === true;
+  const isPlatformAdmin = useIsPlatformAdmin();
   const planStatus = session?.organisation?.planStatus;
   const isReadOnly = planStatus === 'READ_ONLY' || planStatus === 'CANCELLED';
 
   const navItems = [
     { href: '/dashboard', label: 'Overview', shortLabel: 'Overview', match: 'exact' as const },
+    ...(isPlatformAdmin
+      ? [
+          {
+            href: '/dashboard/platform/compliance',
+            label: 'Lender compliance',
+            shortLabel: 'Compliance',
+          },
+        ]
+      : []),
     { href: '/dashboard/borrowers', label: 'People I lend to', shortLabel: 'Borrowers' },
     { href: '/dashboard/loans', label: 'Loans' },
     { href: '/dashboard/wallet', label: 'Wallet' },
@@ -33,28 +43,30 @@ export function AppShell({ children }: { children: ReactNode }) {
           { href: '/dashboard/team', label: 'Team', secondary: true },
           { href: '/dashboard/audit-log', label: 'Audit log', shortLabel: 'Audit', secondary: true },
           { href: '/dashboard/settings', label: 'Settings', secondary: true },
-          ...(isPlatformAdmin
-            ? [
-                {
-                  href: '/dashboard/platform/compliance',
-                  label: 'Platform compliance',
-                  shortLabel: 'Compliance',
-                  secondary: true,
-                },
-              ]
-            : []),
         ]
       : []),
   ];
 
   const userBadges = (
     <>
+      {isPlatformAdmin ? <PlatformOperatorBadge /> : null}
       <AccountTypeBadge accountType={session?.user?.accountType} />
       <RoleBadge role={role} />
     </>
   );
 
-  const banner = isReadOnly ? (
+  const banner = isPlatformAdmin ? (
+    <div className="border-b border-brand-green/20 bg-brand-green/5 px-4 py-2.5 text-center text-sm text-brand-green motion-safe:animate-slide-down">
+      Platform operator mode — review and verify lenders on the{' '}
+      <Link
+        href="/dashboard/platform/compliance"
+        className="font-semibold underline underline-offset-2"
+      >
+        Lender compliance
+      </Link>{' '}
+      page.
+    </div>
+  ) : isReadOnly ? (
     <div className="border-b border-amber-200/80 bg-amber-50 px-4 py-2.5 text-center text-sm text-amber-950 motion-safe:animate-slide-down">
       This workspace is read-only.{' '}
       {showSettings ? (

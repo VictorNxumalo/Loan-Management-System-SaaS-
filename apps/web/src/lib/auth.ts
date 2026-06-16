@@ -177,16 +177,17 @@ export const authOptions: NextAuthOptions = {
         };
     },
     async session({ session, token }) {
+      const tokenUser = token.user as AuthTokensResponse['user'] | undefined;
       session.accessToken = token.accessToken as string;
       session.user = {
         ...session.user,
-        id: (token.user as AuthTokensResponse['user'])?.id,
-        accountType: (token.user as AuthTokensResponse['user'])?.accountType,
-        role: (token.user as AuthTokensResponse['user'])?.role,
-        emailVerified: (token.user as AuthTokensResponse['user'])?.emailVerified,
-        onboardingCompleted: (token.user as AuthTokensResponse['user'])
-          ?.onboardingCompleted,
-        profileComplete: (token.user as AuthTokensResponse['user'])?.profileComplete,
+        id: tokenUser?.id,
+        accountType: tokenUser?.accountType,
+        role: tokenUser?.role,
+        emailVerified: tokenUser?.emailVerified,
+        onboardingCompleted: tokenUser?.onboardingCompleted,
+        profileComplete: tokenUser?.profileComplete,
+        isPlatformAdmin: tokenUser?.isPlatformAdmin === true,
       };
       session.organisation = token.organisation as AuthTokensResponse['organisation'];
       session.borrowerProfile = token.borrowerProfile as AuthTokensResponse['borrowerProfile'];

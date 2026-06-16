@@ -4,7 +4,6 @@ import type { PlatformLenderComplianceDto } from '@lms/types';
 import {
   LENDER_VERIFICATION_STATUS_LABELS,
 } from '@lms/types';
-import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -19,11 +18,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useApi } from '@/lib/use-api';
 import { useAuthenticatedQuery } from '@/lib/use-authenticated-query';
+import { useIsPlatformAdmin } from '@/lib/use-platform-admin';
 
 export default function PlatformCompliancePage() {
-  const { data: session } = useSession();
   const api = useApi();
-  const isPlatformAdmin = session?.user?.isPlatformAdmin === true;
+  const isPlatformAdmin = useIsPlatformAdmin();
 
   const { data, error, loading, refetch } = useAuthenticatedQuery<
     PlatformLenderComplianceDto[]
