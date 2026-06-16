@@ -179,6 +179,7 @@ async function main() {
           orgId: out.orgId, principalCents: 1200000, interestType: 'REDUCING', termPeriods: 12,
           frequency: 'MONTHLY', startDate: isoDaysFromNow(7),
           purpose: 'School fees and uniforms for the new term.',
+          consent: { creditChecks: true, dataSharing: true, policyVersion: '2026-06-16' },
         },
       });
       await api(`/borrower/applications/${toApprove.id}/submit`, { method: 'POST', token: bt });
@@ -279,6 +280,7 @@ async function main() {
         orgId: out.orgId, principalCents: 800000, interestType: 'REDUCING', termPeriods: 6,
         frequency: 'MONTHLY', startDate: isoDaysFromNow(14),
         purpose: 'Stock purchase for my spaza shop ahead of the festive season.',
+        consent: { creditChecks: true, dataSharing: true, policyVersion: '2026-06-16' },
       },
     });
     await api(`/borrower/applications/${draft.id}/submit`, { method: 'POST', token: rt });

@@ -1,6 +1,10 @@
 'use client';
 
 import type { BorrowerLendingStatusDto, UserProfileDto } from '@lms/types';
+import {
+  BORROWER_CONSENT_POLICY_VERSION,
+  BORROWER_CONSENT_TEXT,
+} from '@lms/types';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -50,6 +54,8 @@ function NewApplicationPageContent() {
   const [frequency, setFrequency] = useState<'MONTHLY' | 'WEEKLY' | 'BI_WEEKLY'>('MONTHLY');
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [purpose, setPurpose] = useState('');
+  const [consentCreditChecks, setConsentCreditChecks] = useState(false);
+  const [consentDataSharing, setConsentDataSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -59,7 +65,11 @@ function NewApplicationPageContent() {
   const hasProfileId = Boolean(profile?.idDocument);
   const canStartNewApplication = lendingStatus?.canStartNewApplication !== false;
   const canSubmit =
-    hasProfileBank && hasProfileId && canStartNewApplication;
+    hasProfileBank &&
+    hasProfileId &&
+    canStartNewApplication &&
+    consentCreditChecks &&
+    consentDataSharing;
   const profileLoading = profileQuery.loading || lendingStatusQuery.loading;
 
   if (!orgId) {
@@ -91,6 +101,11 @@ function NewApplicationPageContent() {
       return;
     }
 
+    if (!consentCreditChecks || !consentDataSharing) {
+      setError('You must accept the consent statements before submitting');
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
@@ -105,6 +120,11 @@ function NewApplicationPageContent() {
           frequency,
           startDate,
           purpose: purpose.trim() || undefined,
+          consent: {
+            creditChecks: consentCreditChecks,
+            dataSharing: consentDataSharing,
+            policyVersion: BORROWER_CONSENT_POLICY_VERSION,
+          },
         }),
       });
       await api(`/borrower/applications/${draft.id}/submit`, { method: 'POST' });
@@ -273,6 +293,31 @@ function NewApplicationPageContent() {
                     </div>
                   )}
                 </div>
+              </section>
+
+              <section className="space-y-3 border-t pt-4">
+                <h2 className="text-sm font-semibold">Consent</h2>
+                <p className="text-xs text-muted-foreground">
+                  Policy version {BORROWER_CONSENT_POLICY_VERSION}
+                </p>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={consentCreditChecks}
+                    onChange={(event) => setConsentCreditChecks(event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>{BORROWER_CONSENT_TEXT.creditChecks}</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={consentDataSharing}
+                    onChange={(event) => setConsentDataSharing(event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>{BORROWER_CONSENT_TEXT.dataSharing}</span>
+                </label>
               </section>
 
               <Button type="submit" className="w-full" disabled={loading || !canSubmit}>

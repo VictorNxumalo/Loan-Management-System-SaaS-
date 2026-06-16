@@ -20,6 +20,7 @@ import {
   WalletOwnerType,
 } from '@lms/types';
 import { Prisma } from '@prisma/client';
+import { isPlatformAdminEmail } from '../config/env';
 import {
   assertLogoPathForOrg,
   getOrganisationLogoStoragePath,
@@ -399,6 +400,7 @@ export class ProfileService {
         emailVerified: Boolean(user.emailVerifiedAt),
         onboardingCompleted: Boolean(user.onboardingCompletedAt) && profileComplete,
         profileComplete,
+        isPlatformAdmin: isPlatformAdminEmail(user.email),
       },
       ...(user.organisation
         ? {

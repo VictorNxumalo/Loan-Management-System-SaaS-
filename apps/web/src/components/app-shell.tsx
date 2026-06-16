@@ -16,6 +16,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const role = session?.user?.role ?? undefined;
   const showSettings = canManageSettings(role);
+  const isPlatformAdmin = session?.user?.isPlatformAdmin === true;
   const planStatus = session?.organisation?.planStatus;
   const isReadOnly = planStatus === 'READ_ONLY' || planStatus === 'CANCELLED';
 
@@ -32,6 +33,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           { href: '/dashboard/team', label: 'Team', secondary: true },
           { href: '/dashboard/audit-log', label: 'Audit log', shortLabel: 'Audit', secondary: true },
           { href: '/dashboard/settings', label: 'Settings', secondary: true },
+          ...(isPlatformAdmin
+            ? [
+                {
+                  href: '/dashboard/platform/compliance',
+                  label: 'Platform compliance',
+                  shortLabel: 'Compliance',
+                  secondary: true,
+                },
+              ]
+            : []),
         ]
       : []),
   ];

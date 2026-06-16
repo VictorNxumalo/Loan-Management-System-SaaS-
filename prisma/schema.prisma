@@ -340,6 +340,7 @@ model LoanApplication {
   bankAccountNumber String?              @map("bank_account_number")
   lenderNotes      String?               @map("lender_notes")
   reviewChecklist  Json?                 @map("review_checklist")
+  consentRecord    Json?                 @map("consent_record")
   reviewedByUserId String?               @map("reviewed_by_user_id") @db.Uuid
   reviewedAt       DateTime?             @map("reviewed_at")
   createdAt        DateTime              @default(now()) @map("created_at")

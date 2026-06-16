@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { ApplicationConsentRecordDto } from './compliance';
+import { applicationConsentSchema } from './compliance';
 import { LoanApplicationStatus } from './enums';
 import {
   interestTypeSchema,
@@ -37,6 +39,7 @@ export const createLoanApplicationDraftSchema = z.object({
   purpose: z.string().min(1).max(1000).optional(),
   /** Omitted when applying — copied from the borrower's linked profile wallet bank account */
   bankDetails: bankDetailsSchema.optional(),
+  consent: applicationConsentSchema,
 });
 
 /** @deprecated Use createLoanApplicationDraftSchema — kept as alias for imports */
@@ -176,6 +179,7 @@ export interface LoanApplicationDetailDto extends LoanApplicationListItemDto {
   bankDetails: ApplicationBankDetailsDto | null;
   documents: ApplicationDocumentsSummaryDto;
   reviewChecklist: ApplicationReviewChecklistStatusDto;
+  consentRecord: ApplicationConsentRecordDto | null;
 }
 
 export interface PaginatedLoanApplicationsDto {

@@ -61,7 +61,16 @@ export const onboardingSchema = z.object({
 
 export const organisationSettingsSchema = z.object({
   publicListing: z.boolean().optional(),
-  marketplaceProfile: marketplaceProfileSchema.optional(),
+  marketplaceProfile: marketplaceProfileSchema
+    .omit({ verificationStatus: true })
+    .optional(),
+  lenderComplianceProfile: z
+    .object({
+      legalEntityName: z.string().trim().min(2).max(200).optional(),
+      ncrRegistrationNumber: z.string().trim().min(3).max(80).optional(),
+      complianceContactEmail: z.string().email().optional(),
+    })
+    .optional(),
   logoStoragePath: z.union([z.string().min(1).max(500), z.literal('')]).optional(),
 });
 
@@ -97,6 +106,8 @@ export interface AuthUserResponse {
   emailVerified: boolean;
   onboardingCompleted: boolean;
   profileComplete: boolean;
+  /** LMS operator — can review lender compliance on the platform */
+  isPlatformAdmin: boolean;
 }
 
 export interface BorrowerProfileResponse {

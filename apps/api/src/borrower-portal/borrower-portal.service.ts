@@ -214,6 +214,48 @@ export class LenderSettingsService {
         nextSettings = mergeMarketplaceProfile(nextSettings, input.marketplaceProfile);
       }
 
+      if (input.lenderComplianceProfile) {
+        const currentCompliance =
+          nextSettings.lenderComplianceProfile &&
+          typeof nextSettings.lenderComplianceProfile === 'object'
+            ? (nextSettings.lenderComplianceProfile as Record<string, unknown>)
+            : {};
+        const nextCompliance: Record<string, unknown> = { ...currentCompliance };
+
+        if (input.lenderComplianceProfile.legalEntityName !== undefined) {
+          const trimmed = input.lenderComplianceProfile.legalEntityName.trim();
+          if (trimmed) {
+            nextCompliance.legalEntityName = trimmed;
+          } else {
+            delete nextCompliance.legalEntityName;
+          }
+        }
+
+        if (input.lenderComplianceProfile.ncrRegistrationNumber !== undefined) {
+          const value = input.lenderComplianceProfile.ncrRegistrationNumber.trim();
+          if (value) {
+            nextCompliance.ncrRegistrationNumber = value.toUpperCase();
+          } else {
+            delete nextCompliance.ncrRegistrationNumber;
+          }
+        }
+
+        if (input.lenderComplianceProfile.complianceContactEmail !== undefined) {
+          const value = input.lenderComplianceProfile.complianceContactEmail.trim();
+          if (value) {
+            nextCompliance.complianceContactEmail = value.toLowerCase();
+          } else {
+            delete nextCompliance.complianceContactEmail;
+          }
+        }
+
+        if (Object.keys(nextCompliance).length > 0) {
+          nextSettings.lenderComplianceProfile = nextCompliance;
+        } else {
+          delete nextSettings.lenderComplianceProfile;
+        }
+      }
+
       if (input.logoStoragePath !== undefined) {
         if (input.logoStoragePath === '') {
           const previousLogo = getOrganisationLogoStoragePath(current);

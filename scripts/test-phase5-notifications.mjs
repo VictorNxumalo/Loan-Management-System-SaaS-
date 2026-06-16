@@ -119,6 +119,7 @@ async function main() {
       frequency: 'MONTHLY',
       startDate: '2025-01-01',
       purpose: 'Phase 5 notification test',
+      consent: { creditChecks: true, dataSharing: true, policyVersion: '2026-06-16' },
     },
   });
   log('1', 'Application submitted', { id: application.id, status: application.status });
@@ -207,6 +208,7 @@ async function main() {
       frequency: 'MONTHLY',
       startDate: '2026-07-01',
       purpose: 'Second app after mark-read test',
+      consent: { creditChecks: true, dataSharing: true, policyVersion: '2026-06-16' },
     },
   }).catch(async (err) => {
     // pending app may block — withdraw first if needed
@@ -230,6 +232,7 @@ async function main() {
           frequency: 'MONTHLY',
           startDate: '2026-07-01',
           purpose: 'Second app after mark-read test',
+          consent: { creditChecks: true, dataSharing: true, policyVersion: '2026-06-16' },
         },
       });
     }

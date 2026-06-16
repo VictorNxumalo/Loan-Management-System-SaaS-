@@ -17,6 +17,7 @@ declare module 'next-auth' {
       emailVerified?: boolean;
       onboardingCompleted?: boolean;
       profileComplete?: boolean;
+      isPlatformAdmin?: boolean;
     };
   }
 }

@@ -93,6 +93,8 @@ const envSchema = z.object({
     .string()
     .url()
     .default('https://secure.stitch.money/connect/token'),
+  /** Comma-separated LMS operator emails allowed to manage lender compliance */
+  PLATFORM_ADMIN_EMAILS: optionalString,
   /** SA repo rate (% p.a.) for NCA maximum interest cap calculation */
   NCR_REPO_RATE_PERCENT: z.coerce.number().positive().max(30).default(8.25),
 });
@@ -207,4 +209,20 @@ export function getStitchTokenUrl(): string {
 
 export function getNcrRepoRatePercent(): number {
   return getEnv().NCR_REPO_RATE_PERCENT;
+}
+
+export function getPlatformAdminEmails(): string[] {
+  const raw = getEnv().PLATFORM_ADMIN_EMAILS;
+  if (!raw?.trim()) {
+    return [];
+  }
+  return raw
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function isPlatformAdminEmail(email: string): boolean {
+  const normalised = email.trim().toLowerCase();
+  return getPlatformAdminEmails().includes(normalised);
 }

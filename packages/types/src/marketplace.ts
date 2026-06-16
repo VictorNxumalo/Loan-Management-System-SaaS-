@@ -70,6 +70,8 @@ export interface MarketplaceProfileDto {
   typicalLoanRangeFormatted: string | null;
   verificationStatus: LenderVerificationStatus;
   verificationLabel: string;
+  /** When LMS last reviewed verification (platform-managed) */
+  verificationReviewedAt: string | null;
 }
 
 export interface MarketplaceLenderDto {

@@ -172,6 +172,30 @@ export default function LenderApplicationDetailPage() {
           </div>
         )}
 
+        {application.consentRecord && (
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium">Borrower consent (lender-only)</p>
+            <dl className="mt-2 grid gap-2 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Accepted</dt>
+                <dd>{new Date(application.consentRecord.acceptedAt).toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Policy version</dt>
+                <dd>{application.consentRecord.policyVersion}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Credit checks</dt>
+                <dd>{application.consentRecord.creditChecksText}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Data sharing</dt>
+                <dd>{application.consentRecord.dataSharingText}</dd>
+              </div>
+            </dl>
+          </div>
+        )}
+
         {application.lenderNotes && (
           <div>
             <p className="text-sm text-muted-foreground">Your notes</p>

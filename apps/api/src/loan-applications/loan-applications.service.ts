@@ -7,6 +7,7 @@ import type {
   ApproveLoanApplicationInput,
   ApproveLoanApplicationResultDto,
   ApplicationBankDetailsDto,
+  ApplicationConsentRecordDto,
   ApplicationDocumentsSummaryDto,
   ApplicationReviewChecklist,
   CreateLoanApplicationDraftInput,
@@ -22,9 +23,11 @@ import {
   LoanApplicationStatus,
   LoanStatus,
 } from '@lms/types';
+import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { formatCents } from '../common/money';
 import { assertAnnualRateWithinNcaCap } from '../common/nca-rate.util';
+import { BORROWER_CONSENT_POLICY_VERSION } from '@lms/types';
 import { BorrowerLendingConstraintsService } from '../borrower-portal/borrower-lending-constraints.service';
 import { PrismaService, PrismaTx } from '../prisma/prisma.service';
 import { LoansScheduleService } from '../loans/loans-schedule.service';
@@ -34,6 +37,10 @@ import {
   buildApplicationReviewChecklistStatus,
   parseApplicationReviewChecklist,
 } from './application-review.util';
+import {
+  buildApplicationConsentRecord,
+  parseApplicationConsentRecord,
+} from './application-consent.util';
 
 type ApplicationDbRow = {
   id: string;
@@ -54,6 +61,7 @@ type ApplicationDbRow = {
   bankAccountNumber: string | null;
   lenderNotes: string | null;
   reviewChecklist?: unknown;
+  consentRecord?: unknown;
   reviewedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -96,6 +104,12 @@ export class LoanApplicationsService {
         );
       }
 
+      if (input.consent.policyVersion !== BORROWER_CONSENT_POLICY_VERSION) {
+        throw new BadRequestException(
+          'Consent policy is out of date. Refresh the page and accept the latest consent statements.',
+        );
+      }
+
       const open = await tx.loanApplication.findFirst({
         where: {
           orgId: input.orgId,
@@ -116,6 +130,8 @@ export class LoanApplicationsService {
         input.bankDetails ??
         (await this.resolveBorrowerProfileBankDetails(tx, borrowerUserId));
 
+      const consentRecord = buildApplicationConsentRecord(input.consent);
+
       const created = await tx.loanApplication.create({
         data: {
           orgId: input.orgId,
@@ -131,11 +147,21 @@ export class LoanApplicationsService {
           bankName: bankDetails.bankName,
           bankBranchCode: bankDetails.branchCode,
           bankAccountNumber: bankDetails.accountNumber,
+          consentRecord: consentRecord as unknown as Prisma.InputJsonValue,
         },
         include: {
           organisation: true,
           borrowerUser: true,
         },
+      });
+
+      await this.auditService.record(tx, {
+        orgId: input.orgId,
+        userId: borrowerUserId,
+        action: 'application.consent_captured',
+        entityType: 'LOAN_APPLICATION',
+        entityId: created.id,
+        after: consentRecord,
       });
 
       return this.mapDetail(
@@ -752,6 +778,7 @@ export class LoanApplicationsService {
       bankDetails: this.mapBankDetails(row),
       documents,
       reviewChecklist: buildApplicationReviewChecklistStatus(checklist),
+      consentRecord: parseApplicationConsentRecord(row.consentRecord),
     };
   }
 }

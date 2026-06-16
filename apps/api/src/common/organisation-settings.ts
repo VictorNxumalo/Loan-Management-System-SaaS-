@@ -83,6 +83,59 @@ export function parseMarketplaceProfile(settings: unknown): MarketplaceProfileDt
     ),
     verificationStatus,
     verificationLabel: LENDER_VERIFICATION_STATUS_LABELS[verificationStatus],
+    verificationReviewedAt:
+      typeof raw.verificationReviewedAt === 'string' && raw.verificationReviewedAt.trim()
+        ? raw.verificationReviewedAt.trim()
+        : null,
+  };
+}
+
+export interface LenderComplianceProfileDto {
+  legalEntityName: string | null;
+  ncrRegistrationNumber: string | null;
+  complianceContactEmail: string | null;
+  verificationReviewedByEmail: string | null;
+  verificationNotes: string | null;
+}
+
+export function parseLenderComplianceProfile(settings: unknown): LenderComplianceProfileDto {
+  const root =
+    settings && typeof settings === 'object'
+      ? (settings as Record<string, unknown>)
+      : {};
+  const compliance =
+    root.lenderComplianceProfile && typeof root.lenderComplianceProfile === 'object'
+      ? (root.lenderComplianceProfile as Record<string, unknown>)
+      : {};
+  const marketplace =
+    root.marketplaceProfile && typeof root.marketplaceProfile === 'object'
+      ? (root.marketplaceProfile as Record<string, unknown>)
+      : {};
+
+  return {
+    legalEntityName:
+      typeof compliance.legalEntityName === 'string' && compliance.legalEntityName.trim()
+        ? compliance.legalEntityName.trim()
+        : null,
+    ncrRegistrationNumber:
+      typeof compliance.ncrRegistrationNumber === 'string' &&
+      compliance.ncrRegistrationNumber.trim()
+        ? compliance.ncrRegistrationNumber.trim()
+        : null,
+    complianceContactEmail:
+      typeof compliance.complianceContactEmail === 'string' &&
+      compliance.complianceContactEmail.trim()
+        ? compliance.complianceContactEmail.trim()
+        : null,
+    verificationReviewedByEmail:
+      typeof marketplace.verificationReviewedByEmail === 'string' &&
+      marketplace.verificationReviewedByEmail.trim()
+        ? marketplace.verificationReviewedByEmail.trim()
+        : null,
+    verificationNotes:
+      typeof marketplace.verificationNotes === 'string' && marketplace.verificationNotes.trim()
+        ? marketplace.verificationNotes.trim()
+        : null,
   };
 }
 
@@ -103,9 +156,7 @@ export function mergeMarketplaceProfile(
   if (input.description !== undefined) {
     nextProfile.description = input.description;
   }
-  if (input.verificationStatus !== undefined) {
-    nextProfile.verificationStatus = input.verificationStatus;
-  }
+  // verificationStatus is platform-managed only — never merged from lender settings
   if (input.typicalLoanMinCents !== undefined) {
     nextProfile.typicalLoanMinCents = input.typicalLoanMinCents;
   }

@@ -168,6 +168,7 @@ async function main() {
       frequency: 'MONTHLY',
       startDate: isoDaysFromNow(7),
       purpose: 'Staging smoke test — small loan.',
+      consent: { creditChecks: true, dataSharing: true, policyVersion: '2026-06-16' },
     },
   });
   await api(`/borrower/applications/${application.id}/submit`, { method: 'POST', token: bt });
