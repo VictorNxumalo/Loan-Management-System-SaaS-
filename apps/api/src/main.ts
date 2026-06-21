@@ -1,4 +1,6 @@
+import './instrument';
 import { loadedEnvPath } from './config/load-env';
+import { isSentryConfigured } from './config/sentry';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -31,6 +33,9 @@ async function bootstrap() {
   );
   console.warn(
     `Transactional email: ${isBrevoConfigured() ? 'Brevo' : 'console only (set BREVO_API_KEY + BREVO_FROM_EMAIL)'}`,
+  );
+  console.warn(
+    `Error monitoring: ${isSentryConfigured() ? 'Sentry enabled' : 'disabled (set SENTRY_DSN on the API service)'}`,
   );
 }
 

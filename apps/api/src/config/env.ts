@@ -103,6 +103,11 @@ const envSchema = z.object({
     .default('https://api.datanamix.co.za'),
   DATANAMIX_API_KEY: optionalString,
   DATANAMIX_TIMEOUT_MS: z.coerce.number().int().min(3000).max(60000).default(15000),
+  /** Sentry error monitoring — https://sentry.io */
+  SENTRY_DSN: optionalUrl,
+  SENTRY_ENVIRONMENT: optionalString,
+  SENTRY_RELEASE: optionalString,
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
 });
 
 export type Env = z.infer<typeof envSchema>;

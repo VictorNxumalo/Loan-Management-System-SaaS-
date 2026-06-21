@@ -23,6 +23,7 @@ Documentation for the Loan Management System monorepo, updated June 2026.
 | [sandbox-environment.md](./sandbox-environment.md) | Ops / dev | Sandbox vs production split; `staging` → sandbox, `main` → production |
 | [sandbox-setup-walkthrough.md](./sandbox-setup-walkthrough.md) | Ops | Hands-on checklist: new Supabase account, Vercel sandbox project, Render API |
 | [staging-deploy.md](./staging-deploy.md) | Ops | First-time hosted deploy (Vercel + Render + Supabase); smoke test happy path |
+| [monitoring.md](./monitoring.md) | Ops / dev | Sentry error tracking, health probes, uptime alerts |
 
 ## Screenshots & seed data
 

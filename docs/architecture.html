@@ -205,18 +205,19 @@
   <a href="#async">12 · Async &amp; Notifications</a>
   <a href="#crosscutting">13 · Cross-Cutting Concerns</a>
   <a href="#infra">14 · Environments, CI &amp; Infra</a>
-  <a href="#roadmap">15 · Planned / Roadmap</a>
+  <a href="#roadmap">15 · Shipped vs Planned</a>
+  <div class="group">Companion</div>
+  <a href="user-guide.html">User Guide (with screenshots)</a>
 </nav>
-
-<main>
 <header class="hero">
-  <div class="eyebrow">Architecture Reference · v1.0</div>
+  <div class="eyebrow">Architecture Reference · v2.0</div>
   <h1>LMS — Loan Management System<br/>High-Level Architecture &amp; Tech Stack</h1>
   <p class="sub">
-    A dual-portal, multi-tenant lending platform: lenders manage borrowers, loans, repayments and reporting in an
-    organisation workspace, while borrowers discover lenders, apply for loans and track repayments through a
-    self-service portal. This document is the single-page reference for the system's structure, technology choices
-    and security model.
+    A triple-portal, multi-tenant lending SaaS: lenders run an organisation workspace, borrowers use a
+    self-service portal, and platform operators manage cross-tenant support and compliance. Money flows
+    through internal wallets (demo/staging) with optional Stitch bank disbursements; repayments via wallet
+    or external bank proof. NCA loan agreements gate disbursement. This document is the single-page reference
+    for structure, technology choices, and security.
   </p>
   <div class="meta-chips">
     <span class="chip">Monorepo · <b>pnpm workspaces</b></span>
@@ -225,6 +226,7 @@
     <span class="chip">Database · <b>PostgreSQL (Supabase) + Prisma 6</b></span>
     <span class="chip">Queue · <b>BullMQ + Redis</b></span>
     <span class="chip">Tenancy · <b>Postgres RLS</b></span>
+    <span class="chip">Deploy · <b>Vercel + Render + Supabase</b></span>
   </div>
 </header>
 
@@ -264,12 +266,22 @@
     <div class="card">
       <h4><span class="badge b-purple">Core</span> Platform Services</h4>
       <ul>
-        <li>JWT auth + Google OAuth</li>
-        <li>Financial engine (flat / reducing interest)</li>
-        <li>Notification pipeline (in-app, email, SMS)</li>
-        <li>Document storage (signed URLs)</li>
-        <li>Scheduled jobs (overdue, reminders)</li>
+        <li>JWT auth + Google OAuth · profile KYC</li>
+        <li>Financial engine + NCA rate cap</li>
+        <li>Notifications (in-app SSE + email + SMS)</li>
+        <li>Stripe SaaS billing + trial enforcement</li>
+        <li>Wallets, payment submissions, Stitch (optional)</li>
+        <li>Support tickets + platform compliance console</li>
         <li>Immutable audit trail</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-rose">Portal</span> Platform Operator</h4>
+      <ul>
+        <li><code>/platform</code> — cross-tenant overview</li>
+        <li>Support ticket queue (lender + borrower issues)</li>
+        <li>Lender compliance verification (UNVERIFIED → VERIFIED → REGISTERED)</li>
+        <li>Access via <code>PLATFORM_ADMIN_EMAILS</code> allowlist</li>
       </ul>
     </div>
   </div>
@@ -283,6 +295,7 @@
     <div class="lane">
       <div class="node n-actor"><div class="t">Lender Staff</div><div class="s">ADMIN · LOAN_OFFICER · VIEWER</div></div>
       <div class="node n-actor"><div class="t">Borrower</div><div class="s">Platform-level user</div></div>
+      <div class="node n-actor"><div class="t">Platform Operator</div><div class="s">Support + compliance (env allowlist)</div></div>
     </div>
     <div class="arrow-row"><div class="arrow">HTTPS / browser</div></div>
     <div class="lane">
@@ -296,6 +309,7 @@
       <div class="node n-ext"><div class="t">Supabase</div><div class="s">Managed Postgres + Storage</div></div>
       <div class="node n-ext"><div class="t">Stripe</div><div class="s">Billing (Checkout + webhooks when configured)</div></div>
       <div class="node n-ext"><div class="t">Stitch</div><div class="s">ZAR disbursements (flag-gated) · LinkPay phase 2</div></div>
+      <div class="node n-ext"><div class="t">Datanamix</div><div class="s">Credit bureau pulls (when <code>DATANAMIX_API_KEY</code> set)</div></div>
     </div>
     <div class="caption">External actors and third-party dependencies. All providers have dev-mode console fallbacks.</div>
   </div>
@@ -355,7 +369,7 @@
     <tr><td><strong>Data fetching</strong></td><td>Custom hooks (<code>useApi</code>, <code>useAuthenticatedQuery</code>)</td><td>No React Query/SWR; manual fetch + refetch-on-focus</td></tr>
     <tr><td><strong>Web auth</strong></td><td>NextAuth.js 4 (JWT session strategy)</td><td>Credentials + Google providers; session carries API tokens, auto-refresh</td></tr>
     <tr><td><strong>Backend</strong></td><td>NestJS 11 on Express</td><td>Modular feature architecture, global <code>/v1</code> prefix</td></tr>
-    <tr><td><strong>API auth</strong></td><td>Custom JWT (15-min access) + opaque rotating refresh tokens (30-day, SHA-256 hashed, httpOnly cookie)</td><td>Passport-JWT strategy; bcrypt(12) passwords; google-auth-library for OAuth</td></tr>
+    <tr><td><strong>API auth</strong></td><td>Custom JWT (24-hour access) + opaque rotating refresh tokens (7-day, SHA-256 hashed, httpOnly cookie)</td><td>Passport-JWT strategy; bcrypt(12) passwords; google-auth-library for OAuth</td></tr>
     <tr><td><strong>Server validation</strong></td><td>Zod via custom <code>ZodValidationPipe</code></td><td>No class-validator; schemas shared from <code>@lms/types</code></td></tr>
     <tr><td><strong>ORM</strong></td><td>Prisma 6.8</td><td>Schema + migrations at repo root (<code>prisma/</code>)</td></tr>
     <tr><td><strong>Database</strong></td><td>PostgreSQL 15 (Supabase-managed)</td><td>RLS for tenant isolation; Supavisor pooling (tx + direct URLs)</td></tr>
@@ -366,12 +380,14 @@
     <tr><td><strong>Financial math</strong></td><td>Decimal.js in <code>@lms/utils</code></td><td>Flat &amp; reducing-balance schedules; all money stored as integer cents</td></tr>
     <tr><td><strong>Reports</strong></td><td>pdfkit (statement PDFs) · in-process CSV</td><td>Portfolio CSV, arrears CSV, borrower statement PDF</td></tr>
     <tr><td><strong>API hardening</strong></td><td>helmet · @nestjs/throttler · cookie-parser · CORS allow-list (prod)</td><td>Global 1000 req/min; auth routes 100/min</td></tr>
-    <tr><td><strong>Testing</strong></td><td>Vitest (API integration + utils unit tests)</td><td>Tenant-isolation, loans, schedules, dispatch, reports; web tests pending</td></tr>
+    <tr><td><strong>Testing</strong></td><td>Vitest (API integration + utils unit tests)</td><td>15 API test files: billing, loans, wallets, tenant-isolation, stitch, applications, reports; web tests pending</td></tr>
     <tr><td><strong>CI</strong></td><td>GitHub Actions</td><td>Node 22 + Postgres 15 service; install → prisma generate → lint → type-check → test</td></tr>
     <tr><td><strong>Local infra</strong></td><td>docker-compose (postgres:15-alpine, redis:7-alpine)</td><td>For local dev; production DB is Supabase</td></tr>
     <tr><td><strong>Billing</strong></td><td>Stripe Checkout + Customer Portal + webhooks</td><td>Implemented when <code>STRIPE_SECRET_KEY</code> set; trial → read-only via <code>PlanGuard</code></td></tr>
     <tr><td><strong>Disbursements</strong></td><td>Internal wallets (default) · Stitch Disbursements API</td><td><code>STITCH_DISBURSEMENTS_ENABLED</code> (default false); webhook at <code>/v1/webhooks/stitch/disbursement</code></td></tr>
-    <tr><td><strong>Compliance</strong></td><td>NCA rate cap · loan agreement HTML</td><td><code>NCR_REPO_RATE_PERCENT</code>; <code>LoanAgreement</code> model; sign-before-disburse gate</td></tr>
+    <tr><td><strong>Branding</strong></td><td>Navy <code>#0D1B2A</code> · Green <code>#00A676</code> · assets in <code>public/brand/</code></td><td>Org logo upload; sandbox env banner when <code>NEXT_PUBLIC_APP_ENV=sandbox</code></td></tr>
+    <tr><td><strong>Compliance</strong></td><td>NCA rate cap · loan agreement HTML · POPIA consent</td><td><code>NCR_REPO_RATE_PERCENT</code>; <code>LoanAgreement</code>; sign-before-disburse; <code>consentRecord</code> on applications</td></tr>
+    <tr><td><strong>Credit checks</strong></td><td>Datanamix API (optional)</td><td><code>GET/POST /applications/:id/credit-check</code>; requires borrower POPIA consent on application</td></tr>
   </table>
 </section>
 
@@ -388,12 +404,13 @@
 │   │       ├── <span class="f">borrower-portal/  borrower-loans/  marketplace/  dashboard/</span>
 │   │       ├── <span class="f">documents/  notifications/  audit/  reports/  billing/</span>
 │   │       ├── <span class="f">payment-submissions/  profile/  wallets/  stitch/</span>
+│   │       ├── <span class="f">platform-support/  platform-compliance/</span>
 │   │       ├── <span class="f">email/  sms/  queue/  storage/  prisma/</span>
 │   │       ├── <span class="d">common/</span>           <span class="c"># guards, decorators, ZodValidationPipe, money helpers</span>
 │   │       └── <span class="d">config/</span>           <span class="c"># Zod-validated environment config</span>
 │   └── <span class="d">web/</span>                  <span class="c"># @lms/web — Next.js 14 App Router (port 3000)</span>
 │       └── <span class="d">src/</span>
-│           ├── <span class="d">app/</span>              <span class="c"># routes: /auth, /onboarding, /dashboard/*, /borrower/*</span>
+│           ├── <span class="d">app/</span>              <span class="c"># /auth, /dashboard/*, /borrower/*, /platform/*, /legal/*</span>
 │           ├── <span class="d">components/</span>       <span class="c"># feature components + ui/ (shadcn primitives)</span>
 │           ├── <span class="d">lib/</span>              <span class="c"># api client, auth helpers, hooks, permissions, routes</span>
 │           └── <span class="f">middleware.ts</span>     <span class="c"># NextAuth route protection</span>
@@ -401,7 +418,9 @@
 │   ├── <span class="d">types/</span>                <span class="c"># @lms/types — Zod schemas, DTOs, enums (the wire contract)</span>
 │   ├── <span class="d">utils/</span>                <span class="c"># @lms/utils — Decimal.js finance + loan-balance engine</span>
 │   └── <span class="d">config/</span>               <span class="c"># @lms/config — shared ESLint / tsconfig / Tailwind presets</span>
-├── <span class="d">prisma/</span>                   <span class="c"># schema.prisma + 23 migrations (incl. RLS, wallets, agreements, Stitch)</span>
+├── <span class="d">prisma/</span>                   <span class="c"># schema.prisma + 25 migrations (RLS, wallets, agreements, support, credit)</span>
+├── <span class="d">docs/</span>                     <span class="c"># architecture.html, user-guide.html, staging/sandbox deploy guides</span>
+├── <span class="d">fixtures/</span>                 <span class="c"># brand PNGs + fake EFT proof PDF for tests</span>
 ├── <span class="d">scripts/</span>                  <span class="c"># staging smoke, sandbox bootstrap, docker-start-api.sh</span>
 ├── <span class="d">.github/workflows/</span>        <span class="c"># ci.yml — lint, type-check, test vs Postgres 15</span>
 ├── <span class="f">docker-compose.yml</span>        <span class="c"># local Postgres + Redis</span>
@@ -433,7 +452,7 @@
     <tr><td><code>auth</code></td><td><span class="badge b-blue">Domain</span></td><td>Register/login, Google OAuth, JWT issue/refresh/rotate, email verification, password reset, lender &amp; borrower onboarding</td></tr>
     <tr><td><code>borrowers</code></td><td><span class="badge b-blue">Domain</span></td><td>Org-scoped borrower CRM: CRUD, search, platform borrower search &amp; linking</td></tr>
     <tr><td><code>loans</code></td><td><span class="badge b-blue">Domain</span></td><td>Loan lifecycle: create (draft), schedule preview, activate, disburse, repayments; <code>loan-agreement.service</code> (generate HTML, send, sign gate, disburse assert)</td></tr>
-    <tr><td><code>loan-applications</code></td><td><span class="badge b-blue">Domain</span></td><td>Borrower submit/withdraw; lender review queue, checklist, approve (→ draft loan + NCA rate) / reject</td></tr>
+    <tr><td><code>loan-applications</code></td><td><span class="badge b-blue">Domain</span></td><td>Draft/submit/withdraw; lender review checklist; approve/reject; optional Datanamix credit pull; bank + consent on submit</td></tr>
     <tr><td><code>borrower-portal</code></td><td><span class="badge b-blue">Domain</span></td><td>Lender connections, invite acceptance, org public-listing settings, borrower email invites</td></tr>
     <tr><td><code>borrower-loans</code></td><td><span class="badge b-blue">Domain</span></td><td>Borrower loan views, pay-from-wallet, loan agreement HTML + sign</td></tr>
     <tr><td><code>marketplace</code></td><td><span class="badge b-blue">Domain</span></td><td>Public lender directory + borrower-scoped listing with connection status</td></tr>
@@ -446,8 +465,10 @@
     <tr><td><code>billing</code></td><td><span class="badge b-blue">Domain</span></td><td>Stripe Checkout, customer portal, webhook sync, trial expiry → read-only</td></tr>
     <tr><td><code>stitch</code></td><td><span class="badge b-amber">Integration</span></td><td>Disbursements API client + webhook handler; LinkPay schema stub (phase 2)</td></tr>
     <tr><td><code>reports</code></td><td><span class="badge b-blue">Domain</span></td><td>Portfolio CSV, arrears CSV, borrower statement PDF (pdfkit)</td></tr>
-    <tr><td><code>notifications</code></td><td><span class="badge b-purple">Platform</span></td><td>In-app notifications (12 event types), dedup, cron sweeps, multi-channel dispatch</td></tr>
+    <tr><td><code>notifications</code></td><td><span class="badge b-purple">Platform</span></td><td>17 in-app event types, dedup, cron sweeps, multi-channel dispatch, <strong>SSE stream</strong> (<code>GET /notifications/stream</code>)</td></tr>
     <tr><td><code>audit</code></td><td><span class="badge b-purple">Platform</span></td><td>Immutable audit-log writes inside business transactions; ADMIN read API</td></tr>
+    <tr><td><code>platform-support</code></td><td><span class="badge b-purple">Platform</span></td><td>User support tickets (lender/borrower) + platform admin queue, messages, status updates</td></tr>
+    <tr><td><code>platform-compliance</code></td><td><span class="badge b-purple">Platform</span></td><td>Lender verification review (UNVERIFIED / VERIFIED / REGISTERED); platform admin API</td></tr>
     <tr><td><code>queue</code></td><td><span class="badge b-green">Infra</span></td><td>BullMQ + Redis producer/worker; synchronous fallback without Redis</td></tr>
     <tr><td><code>email</code> / <code>sms</code></td><td><span class="badge b-green">Infra</span></td><td>Brevo · Africa's Talking / Twilio adapters with dev console fallbacks</td></tr>
     <tr><td><code>storage</code></td><td><span class="badge b-green">Infra</span></td><td>Supabase Storage signed-URL service</td></tr>
@@ -459,7 +480,7 @@
 <!-- ════════════════════════ 7. FRONTEND ════════════════════════ -->
 <section id="frontend">
   <h2><span class="num">7</span>Frontend — Next.js Route Map</h2>
-  <p class="lead">App Router with three zones: public/auth, the lender workspace under <code>/dashboard</code>, and the borrower portal under <code>/borrower</code>. NextAuth middleware guards the protected zones; layouts re-verify account type and onboarding state via <code>/v1/auth/me</code>.</p>
+  <p class="lead">App Router with four zones: public/auth/legal, lender workspace (<code>/dashboard</code>), borrower portal (<code>/borrower</code>), and platform operator console (<code>/platform</code>). NextAuth middleware guards all protected zones.</p>
   <div class="cols-3">
     <div class="card">
       <h4><span class="badge b-slate">Public / Auth</span></h4>
@@ -484,27 +505,41 @@
         <li><code>/dashboard/payment-submissions/[id]</code></li>
         <li><code>/dashboard/wallet</code> · <code>/dashboard/profile</code></li>
         <li><code>/dashboard/billing</code> · <code>/dashboard/team</code></li>
+        <li><code>/dashboard/support</code> (+ [id])</li>
         <li><code>/dashboard/audit-log</code> · <code>/dashboard/settings</code></li>
+        <li><code>/dashboard/profile</code></li>
       </ul>
     </div>
     <div class="card">
       <h4><span class="badge b-green">Borrower — /borrower</span></h4>
       <ul>
-        <li><code>/borrower</code> — home</li>
-        <li><code>/borrower/onboarding</code></li>
+        <li><code>/borrower</code> — overview home (KPI tiles)</li>
+        <li><code>/borrower/onboarding</code> · <code>/borrower/profile</code></li>
         <li><code>/borrower/lenders/browse</code> · <code>/mine</code></li>
         <li><code>/borrower/invites/accept</code></li>
-        <li><code>/borrower/applications</code> (+ new / [id] + sign agreement)</li>
-        <li><code>/borrower/loans</code> (+ [id] + agreement panel)</li>
-        <li><code>/borrower/wallet</code> · <code>/borrower/profile</code></li>
+        <li><code>/borrower/applications</code> (+ new / [id] + consent + sign agreement)</li>
+        <li><code>/borrower/loans</code> (+ [id] + pay wallet / report bank payment)</li>
+        <li><code>/borrower/wallet</code> · <code>/borrower/support</code> (+ [id])</li>
       </ul>
+    </div>
+    <div class="card">
+      <h4><span class="badge b-rose">Platform — /platform</span></h4>
+      <ul>
+        <li><code>/platform</code> — operator overview</li>
+        <li><code>/platform/support</code> (+ [id]) — all user tickets</li>
+        <li><code>/platform/compliance</code> — lender verification queue</li>
+      </ul>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px;">Requires email in <code>PLATFORM_ADMIN_EMAILS</code></p>
     </div>
   </div>
   <h3>Notable components &amp; client architecture</h3>
   <ul style="font-size:13.5px; margin-left:20px; color:#334155;">
-    <li><code>AppShell</code> / <code>BorrowerShell</code> — navigation chrome per portal, with <code>NotificationBell</code></li>
+    <li><code>AppShell</code> / <code>BorrowerShell</code> / <code>PlatformShell</code> — navigation per portal; read-only banner when trial expired</li>
     <li><code>LoanAgreementPanel</code> / <code>BorrowerLoanAgreementPanel</code> — NCA agreement preview, send, sign</li>
-    <li><code>OnboardingGuide</code> — first-time lender/borrower tips</li>
+    <li><code>PayFromWalletDialog</code> / <code>PayLenderDialog</code> — wallet vs bank payment proof flows</li>
+    <li><code>LoanBankPaymentReview</code> — lender payment submission confirm/reject</li>
+    <li><code>ApplicationReviewChecklist</code> — four-item lender review checklist</li>
+    <li><code>NotificationBell</code> + <code>use-notification-stream</code> — SSE real-time updates</li>
     <li><code>SchedulePreview</code> — live repayment-schedule preview from <code>POST /loans/preview-schedule</code></li>
     <li><code>DocumentUploadPanel</code> — signed-URL upload directly to Supabase Storage</li>
     <li><code>ReportsExportPanel</code> — CSV/PDF download triggers</li>
@@ -522,7 +557,7 @@
     <tr><td><code>/auth</code></td><td>register · login · google · refresh · logout · me · verify-email · forgot/reset-password · onboarding · borrower-onboarding</td><td><span class="badge b-slate">Public / Auth'd</span></td></tr>
     <tr><td><code>/borrowers</code></td><td>list · search · platform-search · create · get/update/delete by id</td><td><span class="badge b-blue">Lender</span></td></tr>
     <tr><td><code>/loans</code></td><td>preview-schedule · list/create · get/update · activate · disburse · loan-agreement/html · loan-agreement/send · list/record repayments</td><td><span class="badge b-blue">Lender</span></td></tr>
-    <tr><td><code>/applications</code></td><td>queue list · detail · review-checklist · approve · reject</td><td><span class="badge b-blue">Lender</span></td></tr>
+    <tr><td><code>/applications</code></td><td>queue list · detail · documents · review-checklist · approve · reject · credit-check (GET/POST)</td><td><span class="badge b-blue">Lender</span></td></tr>
     <tr><td><code>/wallets</code></td><td>me · me/bank-account · me/transactions · me/top-up · me/withdraw</td><td><span class="badge b-blue">Lender</span></td></tr>
     <tr><td><code>/payment-submissions</code></td><td>get by id · proof/download-url · confirm · reject</td><td><span class="badge b-blue">Lender</span></td></tr>
     <tr><td><code>/billing</code></td><td>status · checkout · portal-url</td><td><span class="badge b-rose">Lender ADMIN</span></td></tr>
@@ -533,7 +568,10 @@
     <tr><td><code>/webhooks</code></td><td>stripe (billing) · stitch/disbursement (when Stitch enabled)</td><td><span class="badge b-slate">Public (signed)</span></td></tr>
     <tr><td><code>/marketplace</code></td><td>lenders (public directory) · lenders/me (with connection status)</td><td><span class="badge b-slate">Public / Borrower</span></td></tr>
     <tr><td><code>/documents</code></td><td>list · upload-url · download-url · delete</td><td><span class="badge b-blue">Lender</span></td></tr>
-    <tr><td><code>/notifications</code></td><td>list · unread-count · mark read / read-all</td><td><span class="badge b-slate">Any auth'd</span></td></tr>
+    <tr><td><code>/notifications</code></td><td>list · unread-count · <strong>stream</strong> (SSE) · mark read / read-all</td><td><span class="badge b-slate">Any auth'd</span></td></tr>
+    <tr><td><code>/support/tickets</code></td><td>create · list · detail · messages · status (user-facing)</td><td><span class="badge b-slate">Any auth'd</span></td></tr>
+    <tr><td><code>/platform/support/*</code></td><td>ticket queue · detail · reply · status</td><td><span class="badge b-rose">Platform admin</span></td></tr>
+    <tr><td><code>/platform/compliance/*</code></td><td>lender list · PATCH verification status</td><td><span class="badge b-rose">Platform admin</span></td></tr>
     <tr><td><code>/admin</code> (dev only)</td><td>run-overdue-check · run-repayment-reminders</td><td><span class="badge b-amber">Dev ADMIN</span></td></tr>
   </table>
 </section>
@@ -541,18 +579,18 @@
 <!-- ════════════════════════ 9. DATA MODEL ════════════════════════ -->
 <section id="data-model">
   <h2><span class="num">9</span>Data Model (Prisma / PostgreSQL)</h2>
-  <p class="lead">~28 models in six clusters. All money is integer cents; repayments and audit logs are insert-only (immutable).</p>
+  <p class="lead">~29 models in seven clusters. All money is integer cents; repayments and audit logs are insert-only (immutable).</p>
   <div class="diagram">
     <div class="lane">
       <div class="node n-data"><div class="t">Identity &amp; Tenancy</div><div class="s">Organisation · User · BorrowerAccount · RefreshToken · EmailVerificationToken · PasswordResetToken · UserKycDocument</div></div>
       <div class="node n-api"><div class="t">Connections</div><div class="s">BorrowerLenderLink · LenderInvite · TeamInvite</div></div>
     </div>
     <div class="lane" style="margin-top:14px;">
-      <div class="node n-web"><div class="t">Lending Core</div><div class="s">LoanApplication → Loan → LoanAgreement · RepaymentSchedule · Repayment · Borrower · PaymentSubmission</div></div>
+      <div class="node n-web"><div class="t">Lending Core</div><div class="s">LoanApplication (+ consent, bank, checklist) → Loan → LoanAgreement · RepaymentSchedule · Repayment · Borrower · PaymentSubmission · ApplicationCreditPull</div></div>
       <div class="node n-queue"><div class="t">Money &amp; Payouts</div><div class="s">Wallet · WalletBankAccount · WalletTransaction · LoanStitchDisbursement · OrganisationStitchLinkPay</div></div>
     </div>
     <div class="lane" style="margin-top:14px;">
-      <div class="node n-data"><div class="t">Platform</div><div class="s">Document · Notification · AuditLog · Subscription</div></div>
+      <div class="node n-data"><div class="t">Platform</div><div class="s">Document · Notification · AuditLog · Subscription · PlatformSupportTicket · PlatformSupportTicketMessage</div></div>
     </div>
     <div class="caption">Entity clusters. Tenant-scoped tables all carry <code>org_id</code> and are protected by RLS policies.</div>
   </div>
@@ -598,7 +636,8 @@
     <tr><td><code>RepaymentFrequency</code></td><td>WEEKLY · BI_WEEKLY · MONTHLY</td></tr>
     <tr><td><code>BorrowerLinkSource</code></td><td>INVITE · PUBLIC</td></tr>
     <tr><td><code>DocumentEntityType</code></td><td>BORROWER · LOAN · LOAN_APPLICATION · PAYMENT_SUBMISSION</td></tr>
-    <tr><td><code>OrganisationPlan</code> / <code>PlanStatus</code> / <code>SubscriptionStatus</code></td><td>Billing tiers and Stripe states (reserved for billing rollout)</td></tr>
+    <tr><td><code>SupportTicketStatus</code> / <code>SupportTicketCategory</code></td><td>OPEN · IN_PROGRESS · RESOLVED · CLOSED · categories for billing, compliance, technical, dispute</td></tr>
+    <tr><td><code>OrganisationPlan</code> / <code>PlanStatus</code> / <code>SubscriptionStatus</code></td><td>STARTER/PRO/BUSINESS · TRIAL/ACTIVE/READ_ONLY/CANCELLED · Stripe subscription states</td></tr>
   </table>
 
   <h3>Migration history → feature phases</h3>
@@ -616,7 +655,10 @@
     <tr><td><code>20250613120000_user_kyc_profile</code></td><td>Profile KYC documents (<code>user_kyc_documents</code>)</td></tr>
     <tr><td><code>20250613180000_stitch_disbursements</code></td><td>Stitch disbursement tracking + LinkPay org table (phase 2)</td></tr>
     <tr><td><code>20250613210000_loan_agreements</code></td><td>NCA loan agreement HTML storage, signature JSON, sign-before-disburse</td></tr>
-    <tr><td><code>lender_reads_connected_borrower_profiles</code></td><td>RLS for lender-side platform borrower search</td></tr>
+    <tr><td><code>20250616120000_application_consent_record</code></td><td>POPIA <code>consentRecord</code> JSON on loan applications</td></tr>
+    <tr><td><code>20250616140000_platform_support_tickets</code></td><td>Cross-tenant support tickets + messages + RLS</td></tr>
+    <tr><td><code>20250616173000_application_credit_pulls</code></td><td>Datanamix credit bureau pull history per application</td></tr>
+    <tr><td><code>phase8_billing_trial_ends_at</code></td><td>Organisation trial end date + Stripe billing fields</td></tr>
   </table>
   <!-- verified: prisma/migrations/ -->
 </section>
@@ -635,8 +677,8 @@
     </div>
     <div class="arrow-row"><div class="arrow">③ issues tokens</div></div>
     <div class="flow-h">
-      <div class="node n-queue" style="flex:0 1 260px;"><div class="t">Access token (JWT)</div><div class="s">15-minute expiry · Bearer header on every API call</div></div>
-      <div class="node n-queue" style="flex:0 1 300px;"><div class="t">Refresh token (opaque)</div><div class="s">30-day · SHA-256 hash stored in DB · rotated on use · httpOnly cookie on /v1/auth</div></div>
+      <div class="node n-queue" style="flex:0 1 260px;"><div class="t">Access token (JWT)</div><div class="s">24-hour expiry · Bearer header on every API call</div></div>
+      <div class="node n-queue" style="flex:0 1 300px;"><div class="t">Refresh token (opaque)</div><div class="s">7-day · SHA-256 hash stored in DB · rotated on use · httpOnly cookie on /v1/auth</div></div>
     </div>
     <div class="caption">NextAuth silently calls <code>/v1/auth/refresh</code> when the access token nears expiry.</div>
   </div>
@@ -644,12 +686,14 @@
   <h3>Authorization layers</h3>
   <table>
     <tr><th style="width:230px">Layer</th><th>Mechanism</th></tr>
-    <tr><td>1 · Route protection (web)</td><td>NextAuth middleware on <code>/dashboard/*</code>, <code>/onboarding/*</code>, <code>/borrower/*</code>; layouts re-verify via <code>/auth/me</code> and redirect by account type / onboarding state</td></tr>
+    <tr><td>1 · Route protection (web)</td><td>NextAuth middleware on <code>/dashboard/*</code>, <code>/onboarding/*</code>, <code>/borrower/*</code>, <code>/platform/*</code>; layouts re-verify via <code>/auth/me</code></td></tr>
     <tr><td>2 · Authentication (API)</td><td><code>JwtAuthGuard</code> (Passport-JWT) on all protected controllers</td></tr>
     <tr><td>3 · Account type (API)</td><td><code>LenderGuard</code> (requires <code>orgId</code>) vs <code>BorrowerGuard</code> — separates the two API surfaces</td></tr>
     <tr><td>4 · Role (API)</td><td><code>@Roles()</code> + <code>RolesGuard</code> — ADMIN / LOAN_OFFICER / VIEWER</td></tr>
-    <tr><td>5 · Rate limiting</td><td>Global <code>ThrottlerGuard</code> (1000 req/min); auth endpoints 100/min</td></tr>
-    <tr><td>6 · Data isolation</td><td>Postgres RLS (see §11) — final backstop even if application code has a bug</td></tr>
+    <tr><td>5 · Plan enforcement (API)</td><td><code>PlanGuard</code> + <code>assertWritable</code> — blocks lender writes when org is READ_ONLY/CANCELLED (trial expired, no subscription)</td></tr>
+    <tr><td>6 · Rate limiting</td><td>Global <code>ThrottlerGuard</code> (1000 req/min); auth endpoints 100/min</td></tr>
+    <tr><td>7 · Platform operator (API)</td><td><code>PlatformAdminGuard</code> — email must appear in <code>PLATFORM_ADMIN_EMAILS</code></td></tr>
+    <tr><td>8 · Data isolation</td><td>Postgres RLS (see §11) — final backstop even if application code has a bug</td></tr>
   </table>
 
   <h3>RBAC matrix (lender workspace)</h3>
@@ -707,7 +751,7 @@
       <div class="node n-ext"><div class="t">Email</div><div class="s">Brevo templates</div></div>
       <div class="node n-ext"><div class="t">SMS</div><div class="s">Africa's Talking / Twilio</div></div>
     </div>
-    <div class="caption">All 12 notification types from <code>@lms/types</code>: APPLICATION_SUBMITTED, APPLICATION_APPROVED, APPLICATION_REJECTED, LOAN_ACTIVATED, LOAN_DISBURSED, LOAN_AGREEMENT_SENT, LOAN_AGREEMENT_SIGNED, PAYMENT_SUBMITTED, PAYMENT_CONFIRMED, PAYMENT_REJECTED, REPAYMENT_REMINDER, LOAN_OVERDUE.</div>
+    <div class="caption">17 notification types in <code>@lms/types</code>: lending lifecycle (APPLICATION_*, LOAN_*, LOAN_AGREEMENT_*, LOAN_DISBURSED), payments (PAYMENT_*, WALLET_REPAYMENT_RECEIVED), crons (REPAYMENT_REMINDER, LOAN_OVERDUE), support (SUPPORT_TICKET_*). Real-time delivery via SSE + BullMQ email/SMS.</div>
   </div>
 </section>
 
@@ -761,7 +805,7 @@
   <table>
     <tr><th style="width:200px">Concern</th><th>Approach</th></tr>
     <tr><td>Local development</td><td><code>pnpm dev</code> — builds shared packages, then runs API (3001) + web (3000) in parallel; <code>docker-compose.yml</code> provides local Postgres 15 + Redis 7</td></tr>
-    <tr><td>Configuration</td><td>Single root <code>.env</code> contract (documented in <code>.env.example</code>): DB URLs, JWT secrets, NextAuth, Supabase, Brevo, SMS, Redis, cron schedules, Stripe (reserved)</td></tr>
+    <tr><td>Configuration</td><td>Env templates: <code>.env.example</code> (local), <code>.env.sandbox.example</code>, <code>.env.staging.example</code>, <code>.env.production.example</code></td></tr>
     <tr><td>Continuous integration</td><td>GitHub Actions on push/PR to <code>main</code>/<code>staging</code>: pnpm install → prisma generate → lint → type-check → test, against Postgres 15 (Node 22)</td></tr>
     <tr><td>Database operations</td><td><code>prisma migrate deploy</code> via <code>DIRECT_URL</code>; RLS policies versioned in migrations</td></tr>
     <tr><td>Sandbox hosting</td><td><strong>Vercel</strong> web (<code>apps/web</code>, branch <code>staging</code>) + <strong>Render</strong> API (<code>apps/api/Dockerfile</code>, branch <code>staging</code>) + Supabase sandbox project + Redis. See <code>docs/staging-deploy.md</code> and <code>docs/sandbox-environment.md</code>.</td></tr>
@@ -785,18 +829,22 @@
     <tr><td>Payment submissions</td><td><span class="badge b-green">Shipped</span></td><td>External bank payment proof + lender confirm/reject</td></tr>
     <tr><td>Profile KYC</td><td><span class="badge b-green">Shipped</span></td><td>SA ID upload on profile; auto-attached to applications</td></tr>
     <tr><td>Stitch disbursements</td><td><span class="badge b-amber">Flag-gated</span></td><td>Implemented when <code>STITCH_DISBURSEMENTS_ENABLED=true</code>; default is demo wallet disburse</td></tr>
-    <tr><td>Stripe billing</td><td><span class="badge b-blue">Implemented*</span></td><td>Checkout + portal + webhooks when Stripe keys set; trial/read-only enforcement active</td></tr>
+    <tr><td>Platform support &amp; compliance</td><td><span class="badge b-green">Shipped</span></td><td><code>/platform/support</code>, <code>/platform/compliance</code>; ticket notifications; lender verification badges</td></tr>
+    <tr><td>POPIA consent + credit pulls</td><td><span class="badge b-green">Shipped</span></td><td><code>consentRecord</code> on applications; Datanamix API when configured</td></tr>
+    <tr><td>Real payment gateways (Ozow/Paystack)</td><td><span class="badge b-amber">Not started</span></td><td>Repayments today: wallet + manual bank proof; SaaS billing via Stripe only</td></tr>
+    <tr><td>Stripe billing (SaaS)</td><td><span class="badge b-green">Shipped</span></td><td>Checkout + portal + webhooks when Stripe keys set; 14-day trial → read-only</td></tr>
     <tr><td>Stitch LinkPay (lender pull)</td><td><span class="badge b-amber">Schema only</span></td><td><code>OrganisationStitchLinkPay</code> table; OAuth + pay-in flow not wired (phase 2)</td></tr>
     <tr><td>Web app test suite</td><td><span class="badge b-amber">Placeholder</span></td><td><code>test</code> script is a no-op; API + utils covered by Vitest</td></tr>
-    <tr><td>Observability</td><td><span class="badge b-amber">Missing</span></td><td>No APM, structured log shipping, or alerting</td></tr>
+    <tr><td>Observability</td><td><span class="badge b-green">Shipped</span></td><td>Sentry (API + web, optional via <code>SENTRY_DSN</code>); JSON request logs; <code>/v1/health</code> + <code>/v1/health/ready</code>; see <code>docs/monitoring.md</code></td></tr>
     <tr><td>Balance-logic duplication</td><td><span class="badge b-slate">Tech debt</span></td><td>API <code>loan-balance.service.ts</code> partially duplicates <code>@lms/utils</code></td></tr>
   </table>
 </section>
 
 <footer>
-  <p><strong>LMS Architecture Reference</strong> · updated June 2026 from the live codebase (agreements, wallets, Stitch, billing) ·
-  open this file in any browser, or print to PDF (Ctrl+P) — print styles are built in ·
-  see also the companion <a href="user-guide.html">Lender &amp; Borrower User Guide</a> with screenshots.</p>
+  <p><strong>LMS Architecture Reference</strong> · v2.0 · synced from live codebase (June 2026) ·
+  triple-portal SaaS with wallets, NCA agreements, Stripe billing, platform support/compliance ·
+  open in any browser or print to PDF (Ctrl+P) ·
+  companion <a href="user-guide.html">Lender &amp; Borrower User Guide</a>.</p>
 </footer>
 </main>
 </body>

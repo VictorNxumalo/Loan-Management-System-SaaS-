@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuditModule } from './audit/audit.module';
@@ -31,6 +33,7 @@ import { PlatformSupportModule } from './platform-support/platform-support.modul
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -67,8 +70,16 @@ import { PlatformSupportModule } from './platform-support/platform-support.modul
   providers: [
     AppService,
     {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
+    {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpLoggingInterceptor,
     },
   ],
 })

@@ -56,3 +56,9 @@ services:
         sync: false
       - key: BREVO_FROM_NAME
         value: LMS
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: sandbox
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.1"
