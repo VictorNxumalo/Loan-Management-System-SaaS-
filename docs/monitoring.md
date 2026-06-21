@@ -55,11 +55,11 @@ SENTRY_TRACES_SAMPLE_RATE=0.1
 |----------|----------|-------|
 | `SENTRY_DSN` | Yes (to enable) | API server-side; web server-side |
 | `NEXT_PUBLIC_SENTRY_DSN` | Web only | Browser error capture |
-| `SENTRY_ENVIRONMENT` | Recommended | `production`, `sandbox`, or `local` |
+| `SENTRY_ENVIRONMENT` | Recommended | `production`, `staging`, `sandbox`, or `local` |
 | `SENTRY_RELEASE` | Optional | Git SHA — set in CI for release tracking |
 | `SENTRY_TRACES_SAMPLE_RATE` | Optional | `0.0`–`1.0`, default `0.1` (10% of transactions) |
 
-**Sandbox:** use the same DSNs with `SENTRY_ENVIRONMENT=sandbox` so alerts can be filtered separately.
+**Staging/sandbox:** use `SENTRY_ENVIRONMENT=staging` or `sandbox` so alerts can be filtered separately from production.
 
 ---
 
@@ -90,15 +90,13 @@ Readiness example:
 }
 ```
 
-### Trigger a test error (sandbox only)
+### Trigger a test error (staging/sandbox only)
 
 ```bash
-curl -X POST https://<sandbox-api>/v1/... # any route that throws in a test branch
+curl https://<staging-api>/v1/health/sentry-test
 ```
 
-Or temporarily add a guarded test route — remove before production traffic.
-
-In Sentry → **Issues**, you should see the event within ~30 seconds.
+Requires `SENTRY_DSN` set and `SENTRY_ENVIRONMENT` of `staging`, `sandbox`, or `local` (not `production`). Expect **500** — the event should appear in Sentry → **lms-api** → **Issues** within ~30 seconds.
 
 ---
 

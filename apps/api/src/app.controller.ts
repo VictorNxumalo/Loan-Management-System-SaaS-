@@ -27,15 +27,17 @@ export class AppController {
     return readiness;
   }
 
-  /** Sandbox-only — throws so Sentry can be verified. Hidden on production. */
+  /** Non-production only — throws so Sentry can be verified. Hidden when environment is production. */
   @Get('health/sentry-test')
   sentryTest() {
-    const environment = process.env.SENTRY_ENVIRONMENT?.trim();
+    const environment = process.env.SENTRY_ENVIRONMENT?.trim().toLowerCase();
     const debugEnabled = process.env.SENTRY_DEBUG_ENABLED === 'true';
-    if (
-      !isSentryConfigured() ||
-      (environment !== 'sandbox' && !debugEnabled)
-    ) {
+    const nonProduction =
+      environment === 'sandbox' ||
+      environment === 'staging' ||
+      environment === 'local' ||
+      debugEnabled;
+    if (!isSentryConfigured() || !nonProduction || environment === 'production') {
       throw new NotFoundException();
     }
     throw new Error(
